@@ -1,0 +1,11 @@
+{
+  "network": "arbitrum",
+  "implementation": "0xD7Ca64368f5D23056baA0F41D593De314e46D90a",
+  "proxy": "0xA2eC9aAf2235C66491767e69eBBD885469697B3E",
+  "name": "Athes Super Contributor",
+  "symbol": "ASC",
+  "claimPriceEth": "0.0029",
+  "timestamp": "2026-06-25T10:56:30.109Z",
+  "upgradedAt": "2026-07-13T05:56:19.134Z",
+  "maxSupply": 1111
+}

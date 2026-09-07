@@ -1,0 +1,73 @@
+specVersion: 1.3.0
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: AggregatorEntrypoint
+    network: liteforge
+    source:
+      address: "0xF69E64804000d28aA695eB5c594B996100fb3B49"
+      abi: AGGFlowEntrypoint
+      startBlock: 28515000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - ProtocolDayData
+        - Token
+        - TokenDayData
+        - User
+        - UserDayData
+        - UserTokenStat
+        - Referral
+        - AggregatorSwap
+        - FeeCollectionEvent
+        - AggregatorRouterUpdate
+        - LiquidityProvision
+      abis:
+        - name: AGGFlowEntrypoint
+          file: ../abi/AGGFlowEntrypoint.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: AGGFlowSwap(indexed address,indexed address,address,address,bool,uint256,uint256,uint256,uint256)
+          handler: handleAGGFlowSwap
+        - event: FeeCollected(address,uint256,address,uint256,address,address)
+          handler: handleFeeCollected
+        - event: RouterUpdated(indexed address,indexed address)
+          handler: handleRouterUpdated
+      file: ./src/mappings/aggregator.ts
+
+  # Wrapper Aggregator (Point Strategy Contract)
+  # This contract wraps the core aggregator and emits SwapExecuted events
+  # with the REAL user address instead of the wrapper contract address.
+  # Without indexing this, swaps routed through the wrapper are attributed to
+  # the wrapper contract rather than the actual user wallet.
+  - kind: ethereum
+    name: WrapperAggregator
+    network: liteforge
+    source:
+      address: "0xf664b56933f3cf0d7d69982b5a8ec9101b80059d"
+      abi: WrapperAggregator
+      startBlock: 28515000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - Token
+        - User
+        - UserTokenStat
+        - AggregatorSwap
+      abis:
+        - name: WrapperAggregator
+          file: ./abis/WrapperAggregator.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: SwapExecuted(indexed address,indexed address,address,address,uint256,uint256,uint256)
+          handler: handleWrapperSwapExecuted
+      file: ./src/mappings/aggregator.ts

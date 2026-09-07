@@ -1,0 +1,841 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  background: #000000;
+  overflow-x: hidden;
+  color: #f8fafc;
+}
+
+/* Ambient Background Blobs – unchanged */
+.ambientA, .ambientB, .ambientC, .ambientD {
+  position: fixed;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(140px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.12;
+}
+.ambientA {
+  top: -15vw;
+  left: -15vw;
+  background: radial-gradient(circle, #3b82f6, transparent);
+}
+.ambientB {
+  bottom: -15vw;
+  right: -15vw;
+  background: radial-gradient(circle, #0284c7, transparent);
+}
+.ambientC {
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #1e40af, transparent);
+  width: 80vw;
+  height: 80vw;
+}
+.ambientD {
+  top: 70%;
+  right: -20vw;
+  background: radial-gradient(circle, #2563eb, transparent);
+  width: 60vw;
+  height: 60vw;
+}
+
+.main {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0.5rem 1.5rem 4rem;
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  display: grid;
+  gap: 5rem;
+  align-items: start;
+  margin-top: 2rem;
+  margin-bottom: 8rem;
+}
+.heroCopy h1 {
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  margin-bottom: 2.5rem;
+  color: #ffffff;
+}
+.heroCopy h1 span {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa, #bfdbfe);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.heroCopy p {
+  font-size: 1.25rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  max-width: 620px;
+  margin-bottom: 3.5rem;
+  font-weight: 400;
+}
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  border-radius: 999px;
+  color: #60a5fa;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+}
+.heroActions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.primaryCta, .secondaryCta {
+  padding: 1rem 2.5rem;
+  border-radius: 18px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.1rem;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.primaryCta {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 15px 40px rgba(255, 255, 255, 0.15);
+}
+.primaryCta:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 50px rgba(255, 255, 255, 0.2);
+}
+.secondaryCta {
+  background: rgba(255, 255, 255, 0.02);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.heroPanel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+.workspaceCard {
+  background: rgba(255, 255, 255, 0.015);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 32px;
+  padding: 2.5rem;
+  text-decoration: none;
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.workspaceCard:hover {
+  background: rgba(255, 255, 255, 0.035);
+  transform: translateY(-10px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.workspaceIcon {
+  width: 64px;
+  height: 64px;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  margin-bottom: 2rem;
+}
+.workspaceCard strong {
+  display: block;
+  font-size: 1.5rem;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.workspaceCard p {
+  color: #94a3b8;
+  line-height: 1.8;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+.workspaceArrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* ---------- Stats ---------- */
+.statsSection {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 6rem;
+}
+.statCard {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.statCard span {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.statCard strong {
+  display: block;
+  font-size: 2rem;
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Steps ---------- */
+.stepsSection {
+  margin-bottom: 6rem;
+}
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 2rem;
+}
+.stepCard {
+  position: relative;
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.stepNumber {
+  position: absolute;
+  top: -1.5rem;
+  left: 1.5rem;
+  width: 3rem;
+  height: 3rem;
+  background: #3b82f6;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: white;
+  font-size: 1.3rem;
+  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+}
+.stepCard h3 {
+  font-size: 1.3rem;
+  color: #ffffff;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+/* ---------- Architecture / CLOB ---------- */
+.archSection {
+  margin-bottom: 6rem;
+  background: radial-gradient(circle at center, rgba(30, 58, 138, 0.1), transparent);
+  border-radius: 48px;
+  padding: 4rem 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.archGrid {
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+}
+.archImage {
+  position: relative;
+  aspect-ratio: 1/1;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.archDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.archFeature {
+  display: flex;
+  gap: 1rem;
+}
+.archFeatureIcon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+}
+.archFeature h4 {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+}
+.archFeature p {
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* ---------- Core Features Grid ---------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+.card {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 28px;
+  padding: 2.5rem 2rem;
+  transition: all 0.3s ease;
+}
+.card:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-5px);
+}
+.card h3 {
+  font-size: 1.4rem;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+.card p {
+  color: #94a3b8;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+/* ---------- FAQ ---------- */
+.faqItem {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.faqHeader {
+  width: 100%;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.faqIcon {
+  color: #3b82f6;
+  transition: transform 0.3s ease;
+}
+.faqIconOpen {
+  transform: rotate(180deg);
+}
+.faqContent {
+  padding: 0 1.5rem 1.5rem;
+  color: #94a3b8;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+/* ---------- Generic Sections ---------- */
+.section {
+  margin-bottom: 6rem;
+}
+.section:last-of-type {
+  margin-bottom: 0;
+}
+.sectionHeading {
+  text-align: center;
+  margin-bottom: 4rem;
+  max-width: 850px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.sectionHeading h2 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+  margin-bottom: 1.5rem;
+}
+.sectionHeading p {
+  font-size: 1.2rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* ---------- CTA Cards ---------- */
+.ctaCard {
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent),
+              linear-gradient(135deg, #0f172a 0%, #000000 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 48px;
+  padding: 4rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+  text-align: center;
+}
+.ctaCard h2 {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.05em;
+  margin-bottom: 1rem;
+}
+.ctaCard p {
+  font-size: 1.25rem;
+  color: #94a3b8;
+  max-width: 700px;
+  line-height: 1.6;
+}
+
+/* ========== RESPONSIVE OVERRIDES ========== */
+@media (min-width: 768px) {
+  .heroPanel {
+    grid-template-columns: 1fr 1fr;
+  }
+  .workspaceCard {
+    padding: 3rem;
+  }
+  .primaryCta, .secondaryCta {
+    padding: 1.25rem 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 8rem;
+  }
+  .archGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ctaCard {
+    flex-direction: column;   /* keep stacked even on desktop */
+    padding: 6rem 4rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero {
+    display: block; /* single column */
+    margin-bottom: 4rem;
+  }
+  .heroPanel {
+    margin-top: 3rem;
+  }
+  .archSection {
+    padding: 3rem 1.5rem;
+    border-radius: 32px;
+  }
+  .archGrid {
+    grid-template-columns: 1fr;
+  }
+  .archImage {
+    aspect-ratio: unset;
+    height: auto;
+    min-height: 250px;
+  }
+  .ctaCard {
+    padding: 3rem 1.5rem;
+    border-radius: 32px;
+  }
+}
+
+/* New non‑technical rewards section */
+.rewardsSection {
+  margin-bottom: 6rem;
+  background: radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.08), transparent);
+  border-radius: 48px;
+  padding: 2rem 1rem;
+}
+
+.rewardsCard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 48px;
+  padding: 2.5rem;
+  margin-top: 2rem;
+  backdrop-filter: blur(4px);
+}
+
+.rewardsLeft {
+  flex: 1;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  padding-right: 2rem;
+}
+
+.rewardStat {
+  text-align: center;
+}
+
+.statValue {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #a78bfa;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rewardsRight {
+  flex: 2;
+}
+
+.rewardsRight h3 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.rewardsRight p {
+  color: #cbd5e1;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .rewardsCard {
+    flex-direction: column;
+  }
+  .rewardsLeft {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: 0;
+    padding-bottom: 1.5rem;
+  }
+  .statValue {
+    font-size: 2rem;
+  }
+}
+
+/* ---------- Athes Strategies Section ---------- */
+.athesGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  margin-top: 2rem;
+}
+
+.athesInfoCard {
+  background: radial-gradient(circle at top right, rgba(6, 182, 212, 0.08), transparent),
+              linear-gradient(135deg, #021215 0%, #000000 100%);
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  border-radius: 40px;
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.athesIllustrationContainer {
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.athesIllustration {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.athesInfoCard:hover .athesIllustration {
+  transform: scale(1.03);
+}
+
+.athesInfoCard h3 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.athesInfoCard p {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.athesProjectsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.athesProjectCard {
+  display: flex;
+  gap: 1.5rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 28px;
+  padding: 2rem;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.athesProjectCard:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(6, 182, 212, 0.3);
+  transform: translateX(8px);
+}
+
+.projectIcon {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.athesProjectCard h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.athesProjectCard p {
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.projectLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #22d3ee;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: gap 0.2s ease;
+}
+
+.athesProjectCard:hover .projectLink {
+  gap: 0.75rem;
+}
+
+@media (min-width: 1024px) {
+  .athesGrid {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 3rem;
+  }
+}
+
+/* ============================================================
+   WHITE MODE OVERRIDES FOR HOMEPAGE (STRICT BLACK, WHITE, BLUE)
+   ============================================================ */
+:global(html[data-theme='light']) .page {
+  background: #f8fafc !important;
+  color: #090d16 !important;
+}
+
+:global(html[data-theme='light']) .heroCopy h1 {
+  color: #090d16 !important;
+}
+
+:global(html[data-theme='light']) .heroCopy p {
+  color: #475569 !important;
+}
+
+:global(html[data-theme='light']) .kicker {
+  background: rgba(2, 132, 199, 0.08) !important;
+  border-color: rgba(2, 132, 199, 0.2) !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .primaryCta {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.25) !important;
+}
+
+:global(html[data-theme='light']) .primaryCta * {
+  color: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .secondaryCta {
+  background: #ffffff !important;
+  border: 1px solid rgba(2, 132, 199, 0.25) !important;
+  color: #090d16 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
+}
+
+:global(html[data-theme='light']) .secondaryCta:hover {
+  background: #f0f9ff !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .workspaceCard {
+  background: #ffffff !important;
+  border: 1px solid rgba(2, 132, 199, 0.16) !important;
+  box-shadow: 0 10px 35px rgba(2, 132, 199, 0.08) !important;
+}
+
+:global(html[data-theme='light']) .workspaceCard strong {
+  color: #090d16 !important;
+}
+
+:global(html[data-theme='light']) .workspaceCard p {
+  color: #475569 !important;
+}
+
+:global(html[data-theme='light']) .workspaceIcon {
+  background: rgba(2, 132, 199, 0.08) !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .statCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(html[data-theme='light']) .statCard strong {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .statCard span {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .stepCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(html[data-theme='light']) .stepCard h3 {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .stepCard p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .stepNumber {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .archSection {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+:global(html[data-theme='light']) .archFeature h4 {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .archFeature p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .archFeatureIcon {
+  background: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .featureCard,
+:global(html[data-theme='light']) .devCard,
+:global(html[data-theme='light']) .athesProjectCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(html[data-theme='light']) .featureCard h3,
+:global(html[data-theme='light']) .devCard h3,
+:global(html[data-theme='light']) .athesProjectCard h4 {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .featureCard p,
+:global(html[data-theme='light']) .devCard p,
+:global(html[data-theme='light']) .athesProjectCard p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .faqHeader {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .faqContent p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .codeSnippet,
+:global(html[data-theme='light']) .endpointUrl,
+:global(html[data-theme='light']) .contractAddress {
+  background: #ffffff !important;
+  color: #0284c7 !important;
+  border: 1px solid #000000 !important;
+}

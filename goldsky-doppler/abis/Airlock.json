@@ -1,0 +1,74 @@
+[
+  {
+    "type": "event",
+    "name": "Create",
+    "anonymous": false,
+    "inputs": [
+      { "name": "asset", "type": "address", "indexed": false },
+      { "name": "numeraire", "type": "address", "indexed": true },
+      { "name": "initializer", "type": "address", "indexed": false },
+      { "name": "poolOrHook", "type": "address", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "Migrate",
+    "anonymous": false,
+    "inputs": [
+      { "name": "asset", "type": "address", "indexed": true },
+      { "name": "numeraire", "type": "address", "indexed": true },
+      { "name": "pool", "type": "address", "indexed": false },
+      { "name": "migrationPool", "type": "address", "indexed": false },
+      { "name": "assetAmount", "type": "uint256", "indexed": false },
+      { "name": "numeraireAmount", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CollectIntegratorFees",
+    "anonymous": false,
+    "inputs": [
+      { "name": "integrator", "type": "address", "indexed": true },
+      { "name": "token", "type": "address", "indexed": true },
+      { "name": "amount", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CollectProtocolFees",
+    "anonymous": false,
+    "inputs": [
+      { "name": "token", "type": "address", "indexed": true },
+      { "name": "amount", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getAssetData",
+    "stateMutability": "view",
+    "inputs": [{ "name": "asset", "type": "address" }],
+    "outputs": [
+      {
+        "type": "tuple",
+        "components": [
+          { "name": "numTokensToSell", "type": "uint256" },
+          { "name": "pool", "type": "address" },
+          { "name": "numeraire", "type": "address" },
+          { "name": "integrator", "type": "address" },
+          { "name": "migrationPool", "type": "address" },
+          { "name": "liquidityMigrated", "type": "bool" }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getIntegratorFees",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "integrator", "type": "address" },
+      { "name": "token", "type": "address" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  }
+]

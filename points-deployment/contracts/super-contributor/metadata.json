@@ -1,0 +1,26 @@
+{
+  "name": "Athes Super Contributor",
+  "description": "The official Athes Super Contributor NFT. Holding this NFT verifies your wallet as a Super Contributor of Athes & LitvmSwap, granting exclusive access & rewards boosts",
+
+  "image": "https://emerald-working-cattle-906.mypinata.cloud/ipfs/bafybeigtu7puco65oekgulxy7djjp5ubpddfqkc5uxd57xjhzee4yxetyi?pinataGatewayToken=qIKTZuFY8AgJUGydNhAhzeBV1Mn5Wt_gp2XSTE77b3RqaJAQao-MiY5QiKILOAhD",
+  "banner_image": "https://emerald-working-cattle-906.mypinata.cloud/ipfs/bafybeifenzu7fi23hun3jcx2gytef5d3uxpivz2a2qdf6nyxzklfhnzl5e?pinataGatewayToken=qIKTZuFY8AgJUGydNhAhzeBV1Mn5Wt_gp2XSTE77b3RqaJAQao-MiY5QiKILOAhD",
+  "external_url": "https://litvmswap.com/claim/super-contributor",
+  "attributes": [
+    {
+      "trait_type": "Tiers",
+      "value": "Super Contributor"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Arbitrum One"
+    },
+    {
+      "trait_type": "Ecosystem",
+      "value": "Athes & LitvmSwap"
+    },
+    {
+      "trait_type": "Access Level",
+      "value": "Full Access"
+    }
+  ]
+}

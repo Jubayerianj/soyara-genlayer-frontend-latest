@@ -1,0 +1,604 @@
+/* styles/A2A.module.css */
+/* ============================================================================
+   Soyara A2A · Clean, Smart, Minimalist Design with Full Light/Dark Mode Support
+   ============================================================================ */
+
+.container {
+  min-height: calc(100vh - 80px);
+  padding: 2rem 1rem 4rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  color: var(--text-main, #f8fafc);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* ── Hero / Top Area ─────────────────────────────────────────────────────── */
+
+.heroHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: var(--blue-glow, rgba(2, 132, 199, 0.1));
+  border: 1px solid var(--blue-primary, #0284c7);
+  color: var(--blue-primary, #0284c7);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.heroTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+  color: var(--text-main, #ffffff);
+}
+
+.heroSubtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted, #94a3b8);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── Portal Gateway Cards ────────────────────────────────────────────────── */
+
+.gatewayGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  max-width: 760px;
+  margin: 2rem auto 0;
+}
+
+@media (max-width: 640px) {
+  .gatewayGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.portalCard {
+  background: var(--bg-card, #080808);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.portalCard:hover {
+  border-color: var(--blue-primary, #0284c7);
+  transform: translateY(-2px);
+}
+
+.portalIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  margin-bottom: 1rem;
+  background: var(--bg-well, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.portalTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--text-main, #ffffff);
+}
+
+.portalDesc {
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+  margin-bottom: 1.25rem;
+}
+
+.portalAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--blue-primary, #0284c7);
+}
+
+/* ── Minimal Agent Status Bar ────────────────────────────────────────────── */
+
+.agentBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  padding: 0.45rem 0.8rem;
+  background: var(--bg-card, #0a0a0a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+}
+
+.agentPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  background: var(--bg-well, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  color: var(--text-body, #cbd5e1);
+  transition: border-color 0.15s;
+}
+
+.agentDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.agentDotWorking {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+/* ── Main Layout (Swarm & Dev) ───────────────────────────────────────────── */
+
+.swarmGrid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .swarmGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cardBox {
+  background: var(--bg-card, #0a0a0a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.07));
+}
+
+.cardTitleText {
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-main, #ffffff);
+}
+
+/* ── Inputs, Buttons & Chips ─────────────────────────────────────────────── */
+
+.quickInputWrap {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.quickInput {
+  flex: 1;
+  background: var(--bg-well, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  color: var(--text-main, #ffffff);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.quickInput:focus {
+  border-color: var(--blue-primary, #0284c7);
+}
+
+.runBtn {
+  background: var(--blue-primary, #0284c7);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 0.95rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: opacity 0.15s;
+}
+
+.runBtn:hover {
+  opacity: 0.9;
+}
+
+.runBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chipsBar {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.chip {
+  background: var(--bg-well, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 9999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.725rem;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.chip:hover {
+  border-color: var(--blue-primary, #0284c7);
+  color: var(--blue-primary, #0284c7);
+}
+
+/* ── Timeline & Messages ─────────────────────────────────────────────────── */
+
+.timelineFeed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--bg-well, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  font-size: 0.825rem;
+  line-height: 1.4;
+}
+
+.timelineAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.timelineBody {
+  flex: 1;
+}
+
+.timelineHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.15rem;
+}
+
+.timelineName {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.timelineText {
+  color: var(--text-body, #cbd5e1);
+}
+
+.timelineText code {
+  background: var(--bg-well, rgba(0, 0, 0, 0.3));
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+  color: var(--blue-primary, #0284c7);
+  font-size: 0.9em;
+}
+
+/* ── Settlement Panel ────────────────────────────────────────────────────── */
+
+.summaryBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.statVal {
+  font-weight: 600;
+  color: var(--text-main, #f1f5f9);
+}
+
+.hashBoxMini {
+  background: var(--bg-well, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--blue-primary, #0284c7);
+  word-break: break-all;
+}
+
+.executeBtn {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.executeBtn:hover {
+  opacity: 0.9;
+}
+
+.executeBtn:active {
+  transform: scale(0.98);
+}
+
+.executeBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Developer Grid & Tamper Buttons ─────────────────────────────────────── */
+
+.devGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .devGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tamperRow {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.tamperBtn {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.45rem;
+  font-size: 0.725rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tamperBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.statusBadgeGood {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statusBadgeBad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ── Agent Studio (/a2a/dev) ─────────────────────────────────────────────── */
+/* Inline styles cannot express media queries, so the studio's two-column
+   split lives here: wire beside economics on desktop, stacked on narrow
+   screens so neither column is squeezed unreadably. */
+.studioSplit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 290px);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .studioSplit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Page header ──────────────────────────────────────────────────────────
+   One header pattern for every agent page. Each of these pages had grown its
+   own inline-styled arrangement with a different title size, a different icon
+   treatment and a different set of emoji, so moving between them felt like
+   moving between three products. */
+
+.pageHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.pageEyebrow {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 0.3rem;
+}
+
+.pageTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text-main, #ffffff);
+}
+
+.pageSub {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted, #94a3b8);
+  max-width: 52ch;
+}
+
+.pageActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* ── Segmented control ────────────────────────────────────────────────────
+   Replaces three differently-styled chip buttons that each carried an emoji. */
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 0.55rem;
+  background: var(--surface-sunken, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  gap: 2px;
+}
+
+.segment {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.38rem 0.75rem;
+  border-radius: 0.42rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.segment:hover {
+  color: var(--text-main, #ffffff);
+}
+
+.segmentActive {
+  background: var(--surface-raised, rgba(255, 255, 255, 0.09));
+  color: var(--text-main, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Back link ─────────────────────────────────────────────────────────── */
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  text-decoration: none;
+  margin-bottom: 0.55rem;
+}
+
+.backLink:hover { color: var(--text-main, #ffffff); }
+
+/* ── Light mode ───────────────────────────────────────────────────────── */
+
+:global(html[data-theme='light']) .pageHead { border-bottom-color: rgba(15, 23, 42, 0.09); }
+:global(html[data-theme='light']) .pageTitle { color: #0f172a; }
+:global(html[data-theme='light']) .pageEyebrow,
+:global(html[data-theme='light']) .pageSub,
+:global(html[data-theme='light']) .backLink { color: #64748b; }
+:global(html[data-theme='light']) .segmented {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.09);
+}
+:global(html[data-theme='light']) .segment { color: #64748b; }
+:global(html[data-theme='light']) .segment:hover,
+:global(html[data-theme='light']) .backLink:hover { color: #0f172a; }
+:global(html[data-theme='light']) .segmentActive { background: #ffffff; color: #0f172a; }

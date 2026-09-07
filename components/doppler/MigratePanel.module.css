@@ -1,0 +1,65 @@
+.panel { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.description {
+  color: rgba(255,255,255,0.5); font-size: 0.85rem; line-height: 1.6; margin: 0;
+}
+.description code { color: #90caf9; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; }
+
+.inputRow { display: flex; gap: 0.75rem; }
+.input {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; color: #fff;
+  font-size: 0.88rem; padding: 0.7rem 1rem;
+  outline: none; font-family: 'Fira Code', monospace;
+  transition: border-color 0.2s;
+}
+.input:focus { border-color: rgba(100,181,246,0.4); }
+.checkBtn {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; color: rgba(255,255,255,0.8);
+  font-size: 0.85rem; font-weight: 600;
+  padding: 0.7rem 1.5rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.checkBtn:hover:not(:disabled) { border-color: rgba(100,181,246,0.3); color: #fff; }
+.checkBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.infoBox {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.infoRow { display: flex; justify-content: space-between; align-items: center; }
+.infoLabel { font-size: 0.78rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.05em; }
+.infoValue { font-size: 0.82rem; color: rgba(255,255,255,0.7); font-family: 'Fira Code', monospace; }
+.green { color: #81c784; font-size: 0.82rem; font-weight: 600; }
+.blue  { color: #64b5f6; font-size: 0.82rem; font-weight: 600; }
+
+.error {
+  background: rgba(244,67,54,0.08); border: 1px solid rgba(244,67,54,0.25);
+  border-radius: 10px; color: #ef9a9a; font-size: 0.85rem; padding: 0.75rem 1rem;
+}
+.success {
+  background: rgba(76,175,80,0.08); border: 1px solid rgba(76,175,80,0.25);
+  border-radius: 10px; color: #a5d6a7; font-size: 0.85rem; padding: 0.75rem 1rem;
+}
+.success a { color: #81c784; }
+
+.migrateBtn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255,152,0,0.2), rgba(255,87,34,0.2));
+  border: 1px solid rgba(255,152,0,0.4);
+  border-radius: 12px; color: #ffb74d;
+  font-size: 1rem; font-weight: 600;
+  padding: 0.9rem; cursor: pointer; transition: all 0.2s;
+}
+.migrateBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(255,152,0,0.3), rgba(255,87,34,0.3));
+}
+.migrateBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.warning {
+  color: rgba(255,183,77,0.6); font-size: 0.78rem; text-align: center; margin: 0;
+}

@@ -1,0 +1,296 @@
+.tableCard {
+  background: rgba(18, 22, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tableTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.tableSubtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+.badgeCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  font-size: 0.725rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.tokenCol {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tokenAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tokenMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.tokenName {
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.tokenSymbolRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tokenSymbol {
+  font-size: 0.75rem;
+  color: #60a5fa;
+}
+
+.explorerLink {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.explorerLink:hover {
+  color: #ffffff;
+}
+
+.balanceCol, .priceCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.balanceCol strong {
+  color: #ffffff;
+}
+
+.sharePct, .priceCol small {
+  font-size: 0.725rem;
+  color: #94a3b8;
+}
+
+.valueUsd {
+  color: #34d399;
+  font-size: 0.95rem;
+}
+
+.progressCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 110px;
+}
+
+.progressCol span {
+  font-size: 0.725rem;
+  color: #cbd5e1;
+}
+
+.miniBarBg {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.miniBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+  border-radius: 999px;
+}
+
+.graduatedFill {
+  background: linear-gradient(90deg, #38bdf8, #60a5fa);
+}
+
+.actionCol {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tradeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.tradeBtn:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.emptyCard {
+  background: rgba(18, 22, 36, 0.85);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.emptyIcon {
+  font-size: 2.5rem;
+}
+
+.emptyCard h3 {
+  color: #ffffff;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.emptyCard p {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  max-width: 400px;
+}
+
+.emptyActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.exploreBtn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.exploreBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.launchBtn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  padding: 0.6rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.launchBtn:hover {
+  opacity: 0.9;
+}
+
+:global(html[data-theme='light']) .tableWrapper,
+:global(html[data-theme='light']) .emptyCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(html[data-theme='light']) .table thead tr {
+  background: #ffffff !important;
+  border-bottom: 2px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .table th {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .table td {
+  border-bottom: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .table tbody tr:hover {
+  background: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .tokenName,
+:global(html[data-theme='light']) .tokenSymbol,
+:global(html[data-theme='light']) .emptyCard h3,
+:global(html[data-theme='light']) .emptyCard p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .exploreBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}

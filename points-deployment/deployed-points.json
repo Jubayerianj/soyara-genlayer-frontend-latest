@@ -1,0 +1,12 @@
+{
+  "network": "litvm",
+  "chainId": 4441,
+  "proxy": "0xF664B56933f3cF0d7d69982b5A8eC9101b80059D",
+  "implementation_old": "0xF6BFe92BF381a761570f3581D7f5F83920beB89E",
+  "implementation_new": "0x7558895a8eFb4dAC0CE616EBEc84e07FD60b828d",
+  "token": "0x0Bd54a8fDB753Fb86Cf906f1Dc2AB7ECBD2FDD5C",
+  "nft": "0xFAF7266C09450F22098cA304bcAC70Dfdc75992C",
+  "entrypoint": "0xF69E64804000d28aA695eB5c594B996100fb3B49",
+  "deployer": "0x23D542DCEFb00b1f4268E67a0EC1EF4de0A58fe2",
+  "timestamp": "2026-08-05T16:14:29.656Z"
+}

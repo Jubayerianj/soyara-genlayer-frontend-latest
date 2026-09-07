@@ -1,0 +1,1138 @@
+.page {
+  min-height: 100vh;
+  padding: 1.5rem 1rem 4rem;
+  background: #000000;
+  color: #f8fafc;
+}
+
+.shell {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Page Header Styles */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0 0.5rem;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 850;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.headerStatsRow {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.compactStatChip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.76rem;
+}
+
+.chipLabel {
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 550;
+}
+
+.chipValue {
+  color: #fff;
+  font-weight: 750;
+}
+
+/* Layout Split */
+.layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.sidebar,
+.workspace {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #080808;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.sidebar {
+  padding: 1.1rem;
+}
+
+.sidebarHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.85rem;
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.85rem;
+}
+
+.sidebarHeader h2,
+.workspaceTitle h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sidebarTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.sidebarActionGroup {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebarActionButton {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sidebarActionButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+/* Sidebar Search Bar */
+.searchBar {
+  position: relative;
+  margin-top: 0.65rem;
+  width: 100%;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.5rem 0.65rem 0.5rem 2rem;
+  border-radius: 8px;
+  background: #0b0f19;
+  border: 1px solid #1f2937;
+  color: #fff;
+  font-size: 0.8rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.noPairsFound {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.85rem;
+}
+
+/* Pair List */
+.pairList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pairList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pairList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pairList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 99px;
+}
+
+.pairCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.01);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pairCard:hover {
+  border-color: rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pairCardActive {
+  background: rgba(59, 130, 246, 0.05) !important;
+  border-color: #3b82f6 !important;
+}
+
+.pairIcons,
+.pairIconsLarge {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pairIcons {
+  min-width: 2.7rem;
+  width: 2.7rem;
+  height: 1.75rem;
+}
+
+.pairIconsLarge {
+  min-width: 3.5rem;
+  width: 3.5rem;
+  height: 2.3rem;
+}
+
+.pairIcons img,
+.pairIconsLarge img {
+  position: absolute;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #070b14;
+  background: #000;
+}
+
+.pairIcons img {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.pairIconsLarge img {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+
+.pairIcons img:first-child,
+.pairIconsLarge img:first-child {
+  left: 0;
+  top: 0;
+  z-index: 1;
+}
+
+.pairIcons img:last-child,
+.pairIconsLarge img:last-child {
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+.pairInfoCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.pairSymbolsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.pairSymbolsRow strong {
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.dividerSlash {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.85rem;
+}
+
+.pairBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+
+.statusBadgeText {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.statusLive {
+  color: #38bdf8;
+}
+
+.statusNew {
+  color: #60a5fa;
+}
+
+.positionBadgeText {
+  font-size: 0.65rem;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  padding: 0.02rem 0.35rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.removeCustomPair {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.removeCustomPair:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Workspace Styles */
+.workspace {
+  padding: 1.25rem;
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.85rem;
+}
+
+.workspaceTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.workspaceSubtitle {
+  margin: 0.1rem 0 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.82rem;
+}
+
+.tabRow {
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tab,
+.tabActive,
+.helperButton,
+.secondaryButton,
+.primaryButton,
+.percentChip,
+.percentChipActive {
+  border: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab,
+.tabActive {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.tabActive {
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.85rem 0;
+}
+
+.statCard {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.statCard span {
+  display: block;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.statCard strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.error,
+.success,
+.pending {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #fecaca;
+}
+
+.success {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: #bbf7d0;
+}
+
+.pending {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  color: #bae6fd;
+}
+
+.panel {
+  padding: 0.1rem 0 0;
+}
+
+.inputGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.inputCard,
+.positionCard {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.inputTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.inputTop button {
+  background: transparent;
+  border: 0;
+  color: #3b82f6;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inputCard input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 1.6rem;
+  font-weight: 750;
+  outline: none;
+}
+
+.inputCard input::placeholder {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* Plus Divider */
+.plusDivider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -0.6rem 0;
+  z-index: 2;
+}
+
+.plusDivider span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #090d16;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.helperRow,
+.chipRow,
+.actionStack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.helperRow {
+  margin: 0.85rem 0;
+}
+
+.helperButton,
+.secondaryButton,
+.percentChip,
+.percentChipActive {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.helperButton:hover,
+.percentChip:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.primaryButton {
+  width: 100%;
+  padding: 0.8rem 1.25rem;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  margin-top: 0.5rem;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.secondaryButton {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Withdraw LP */
+.positionCard {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 1rem;
+}
+
+.positionCard span {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.positionCard strong {
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.withdrawSection {
+  margin-bottom: 0.85rem;
+}
+
+.withdrawHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.slider {
+  width: 100%;
+  margin-bottom: 0.65rem;
+}
+
+.percentChipActive {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+
+.textButton {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.35rem;
+  transition: color 0.2s ease;
+  font-weight: 600;
+}
+
+.textButton:hover {
+  color: #fff;
+}
+
+/* Empty States & Select Placeholder */
+.selectPairPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 5rem 1.5rem;
+}
+
+.selectPairIcon {
+  font-size: 2.8rem;
+  margin-bottom: 1rem;
+}
+
+.selectPairPlaceholder h3 {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: #fff;
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.01em;
+}
+
+.selectPairPlaceholder p {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.emptyState {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.emptyState h3 {
+  margin: 0 0 0.35rem;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.emptyState p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+}
+
+/* Fee Tiers & Version Toggles */
+.versionToggleRow {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+  padding: 0.2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.versionTab, .versionActive {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.versionTab {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.versionActive {
+  background: rgba(59, 130, 246, 0.08);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.feeLabel {
+  display: block;
+  margin: 0.85rem 0 0.4rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.feeSelector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 1.1rem;
+}
+
+.feeOption, .feeOptionActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.55rem 0.35rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.01);
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feeOption span, .feeOptionActive span {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.feeOptionActive {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+  color: #fff;
+}
+
+.securityDashboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.85rem 0;
+  padding: 0.75rem 1rem;
+  background: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.12);
+  border-radius: 8px;
+}
+
+.securityItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.securityItem svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+/* V3 Positions */
+.v3PositionItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.015);
+  margin-bottom: 0.85rem;
+}
+
+.v3PositionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.v3PositionId {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.v3PositionRange {
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.08);
+  color: #60a5fa;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.v3PositionStats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.v3Stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.v3Stat label {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+  font-weight: 600;
+}
+
+.v3Stat value {
+  font-size: 0.88rem;
+  color: #fff;
+  font-weight: 700;
+}
+
+.positionValues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-top: 0.35rem;
+  background: rgba(255, 255, 255, 0.015);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.valueGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.valueGroup label {
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.valueRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  color: #fff;
+  font-weight: 650;
+  font-size: 0.85rem;
+}
+
+.earnedText {
+  color: #38bdf8;
+}
+
+.receivePreview {
+  margin-bottom: 1.1rem;
+  padding: 0.85rem 1rem;
+  background: rgba(2, 132, 199, 0.06);
+  border-radius: 8px;
+  border: 1px dashed rgba(56, 189, 248, 0.25);
+}
+
+.receivePreview label {
+  display: block;
+  font-size: 0.68rem;
+  color: #38bdf8;
+  margin-bottom: 0.35rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.previewRow {
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
+  font-weight: 750;
+  font-size: 0.88rem;
+}
+
+/* Spinner Animations */
+.spin {
+  animation: spin 1.2s linear infinite;
+}
+
+.spinLarge {
+  animation: spin 1.2s linear infinite;
+  color: #3b82f6;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Media Queries for Grid Layouts */
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .positionCard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .actionStack {
+    align-items: stretch;
+  }
+
+  .secondaryButton {
+    width: auto;
+  }
+}
+
+:global(html[data-theme='light']) .page {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .sidebar,
+:global(html[data-theme='light']) .workspace,
+:global(html[data-theme='light']) .securityCard,
+:global(html[data-theme='light']) .positionCard,
+:global(html[data-theme='light']) .statsCard,
+:global(html[data-theme='light']) .card,
+:global(html[data-theme='light']) .customPairModal,
+:global(html[data-theme='light']) .pairCard,
+:global(html[data-theme='light']) .statCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .inputCard {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:global(html[data-theme='light']) .inputCard input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .pairCard:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .pairCardActive {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 1px #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .pageTitle,
+:global(html[data-theme='light']) .sidebarHeader h2,
+:global(html[data-theme='light']) .workspaceTitle h2,
+:global(html[data-theme='light']) .poolName,
+:global(html[data-theme='light']) .poolPairTitle,
+:global(html[data-theme='light']) .statValue,
+:global(html[data-theme='light']) .chipValue,
+:global(html[data-theme='light']) .pairSymbolsRow strong,
+:global(html[data-theme='light']) .statCard strong,
+:global(html[data-theme='light']) .eyebrow,
+:global(html[data-theme='light']) .chipLabel,
+:global(html[data-theme='light']) .statLabel,
+:global(html[data-theme='light']) .tabTrigger,
+:global(html[data-theme='light']) .workspaceSubtitle,
+:global(html[data-theme='light']) .statCard span,
+:global(html[data-theme='light']) .dividerSlash {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .compactStatChip {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .sidebarActionButton {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .sidebarActionButton:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .tabRow {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .tab {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .tabActive {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .tabTriggerActive {
+  background: #ffffff !important;
+  color: #0284c7 !important;
+  border-color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .percentChip {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .percentChipActive {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .secondaryButton,
+:global(html[data-theme='light']) .helperButton {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .primaryButton {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .searchInput,
+:global(html[data-theme='light']) .page input,
+:global(html[data-theme='light']) .page select {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .pairIcons img,
+:global(html[data-theme='light']) .pairIconsLarge img {
+  border-color: #000000 !important;
+  background: #ffffff !important;
+}

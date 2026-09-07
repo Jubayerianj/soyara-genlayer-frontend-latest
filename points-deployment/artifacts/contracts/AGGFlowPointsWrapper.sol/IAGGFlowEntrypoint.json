@@ -1,0 +1,172 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IAGGFlowEntrypoint",
+  "sourceName": "contracts/AGGFlowPointsWrapper.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "tokenUserBuys",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "minAmountUserBuys",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "tokenUserSells",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amountUserSells",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct SwapIntent",
+          "name": "swapIntent",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "feeCollectorAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "feeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "referrerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "referrerFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "isInTokenFee",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct FeeCollection",
+          "name": "feeCollection",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "program",
+          "type": "bytes"
+        }
+      ],
+      "name": "executeSwap",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "tokenUserBuys",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "minAmountUserBuys",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "tokenUserSells",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amountUserSells",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct SwapIntent",
+          "name": "swapIntent",
+          "type": "tuple"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "feeCollectorAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "feeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "referrerAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "referrerFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "isInTokenFee",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct FeeCollection",
+          "name": "feeCollection",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes",
+          "name": "program",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        }
+      ],
+      "name": "executeSwapWithReceiver",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amountOut",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

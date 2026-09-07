@@ -1,0 +1,381 @@
+/* styles/Intro.module.css - Clean, Minimalist Cinema Viewport */
+
+.videoPage {
+  min-height: calc(100vh - 70px);
+  background: var(--bg-page);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 40px;
+  position: relative;
+  overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Subtle Ambient Glow */
+.bgGlowTop {
+  position: absolute;
+  top: -150px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 500px;
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.12) 0%, rgba(2, 132, 199, 0.03) 50%, transparent 70%);
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+:global(.light-mode) .bgGlowTop {
+  background: radial-gradient(ellipse at center, rgba(2, 132, 199, 0.08) 0%, transparent 70%);
+}
+
+/* ============================================================
+   CLEAN CINEMA CONTAINER (16:9 Aspect Ratio)
+   ============================================================ */
+.cinemaWrapper {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1120px;
+  aspect-ratio: 16 / 9;
+  min-height: 460px;
+  background: #020409;
+  border-radius: 20px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 
+    0 30px 80px -20px rgba(0, 0, 0, 0.95),
+    0 0 45px rgba(56, 189, 248, 0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.25s ease;
+}
+
+:global(.light-mode) .cinemaWrapper {
+  background: #ffffff;
+  border-color: rgba(2, 132, 199, 0.25);
+  box-shadow: 
+    0 25px 60px -15px rgba(0, 0, 0, 0.08),
+    0 0 30px rgba(2, 132, 199, 0.08);
+}
+
+.cinemaWrapperFullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  z-index: 99999 !important;
+  border: none !important;
+}
+
+/* High-DPI Canvas Layer */
+.motionCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+}
+
+/* Big Play Overlay (when paused) */
+.playSplashOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 4, 15, 0.45);
+  backdrop-filter: blur(4px);
+  gap: 14px;
+  transition: opacity 0.2s ease;
+}
+
+:global(.light-mode) .playSplashOverlay {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.bigPlayCircle {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #0284c7;
+  border: 2px solid #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 0 35px rgba(56, 189, 248, 0.7);
+  transform: scale(1);
+  transition: all 0.2s ease;
+}
+
+.bigPlayCircle:hover {
+  transform: scale(1.1);
+  background: #38bdf8;
+  color: #020409;
+}
+
+/* Top Telemetry Overlay (Minimal & Clean) */
+.videoHudTop {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(2, 4, 9, 0.75) 0%, transparent 100%);
+  pointer-events: auto;
+}
+
+:global(.light-mode) .videoHudTop {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, transparent 100%);
+}
+
+.hudBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+:global(.light-mode) .hudBrand {
+  color: #0284c7;
+}
+
+.hudStatusPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.hudChapterBadge {
+  font-family: monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+:global(.light-mode) .hudChapterBadge {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: rgba(2, 132, 199, 0.3);
+}
+
+/* Synced Subtitle / Caption Bar (Bottom Center) */
+.subtitleContainer {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  padding: 0 20px 10px;
+  pointer-events: none;
+}
+
+.subtitlePill {
+  display: inline-block;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  padding: 8px 18px;
+  color: #f8fafc;
+  font-size: clamp(0.85rem, 1.7vw, 1.02rem);
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+  max-width: 820px;
+}
+
+:global(.light-mode) .subtitlePill {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(2, 132, 199, 0.3);
+  color: #0f172a;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================================
+   BOTTOM VIDEO CONTROLS DOCK
+   ============================================================ */
+.videoControlsDock {
+  position: relative;
+  z-index: 3;
+  background: linear-gradient(0deg, rgba(2, 4, 9, 0.92) 0%, rgba(2, 4, 9, 0.5) 80%, transparent 100%);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+:global(.light-mode) .videoControlsDock {
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.6) 80%, transparent 100%);
+}
+
+/* Video Scrubber */
+.scrubberContainer {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: height 0.15s ease;
+}
+
+:global(.light-mode) .scrubberContainer {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.scrubberContainer:hover {
+  height: 8px;
+}
+
+.scrubberTrack {
+  position: absolute;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+  border-radius: 9999px;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.scrubberHead {
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px #38bdf8;
+}
+
+:global(.light-mode) .scrubberHead {
+  background: #0284c7;
+}
+
+.chapterMark {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  z-index: 2;
+}
+
+:global(.light-mode) .chapterMark {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Control Buttons Row */
+.controlRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.leftControls, .rightControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrlBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+:global(.light-mode) .ctrlBtn {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+.ctrlBtn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.timeTag {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.speedBtn {
+  font-family: monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+:global(.light-mode) .speedBtn {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+.speedBtn:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+@media (max-width: 768px) {
+  .videoPage {
+    padding: 16px 12px 30px;
+  }
+  .cinemaWrapper {
+    min-height: 300px;
+  }
+  .subtitlePill {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+}

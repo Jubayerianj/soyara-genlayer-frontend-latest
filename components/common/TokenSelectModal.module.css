@@ -1,0 +1,531 @@
+/* components/common/TokenSelectModal.module.css */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background:
+    radial-gradient(circle at top, rgba(30, 58, 138, 0.22), transparent 48%),
+    linear-gradient(180deg, #0b1329 0%, #060913 100%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(6, 182, 212, 0.1);
+  color: #e2e8f0;
+  box-sizing: border-box;
+}
+
+.header {
+  padding: 1.1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.closeButton,
+.backButton {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.closeButton:hover,
+.backButton:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  transform: scale(1.08);
+}
+
+.searchContainer {
+  position: relative;
+  padding: 0.85rem 1.1rem 0.5rem;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1.85rem;
+  top: 50%;
+  transform: translateY(-20%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.6rem 2.5rem 0.6rem 2.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(10, 15, 29, 0.85);
+  color: #f8fafc;
+  font-size: 0.86rem;
+  transition: all 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: #64748b;
+}
+
+.searchInput:focus {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.clearSearch {
+  position: absolute;
+  right: 1.75rem;
+  top: 50%;
+  transform: translateY(-20%);
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.clearSearch:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.popularTokensList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.25rem 1.1rem 0.65rem;
+}
+
+.popularTokenPill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.65);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.popularTokenPill:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.popularTokenPillSelected {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+.popularTokenLogo {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.popularTokenLogoFallback {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tokenList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0.75rem 0.75rem;
+  min-height: 180px;
+}
+
+.tokenItems {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tokenItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.tokenItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.tokenItem.selected {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.tokenLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.tokenIcon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.tokenImage {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tokenInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tokenSymbolRow {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tokenSymbol {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.verifiedBadge {
+  color: #34d399;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tokenName {
+  font-size: 0.72rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tokenRight {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.tokenBalanceGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.tokenBalance {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkIcon {
+  color: #38bdf8;
+}
+
+.loading,
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 14rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.spinnerLarge,
+.spinner {
+  animation: spin 1s linear infinite;
+  color: #38bdf8;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.emptyIcon {
+  font-size: 1.6rem;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.importTrigger {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.importTrigger:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #fff;
+}
+
+.footer {
+  padding: 0.65rem 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: center;
+}
+
+.manageTokens {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.manageTokens:hover {
+  color: #38bdf8;
+}
+
+/* Import Form */
+.importContainer {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.importWarning {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  color: #fbbf24;
+  font-size: 0.75rem;
+}
+
+.importInputWrapper input {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(10, 15, 29, 0.85);
+  color: #f8fafc;
+  font-size: 0.82rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.importInputWrapper input:focus {
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.importError {
+  color: #f87171;
+  font-size: 0.74rem;
+}
+
+.importButton {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0284c7, #06b6d4);
+  border: none;
+  color: white;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.importButton:hover:not(:disabled) {
+  brightness: 1.1;
+  transform: translateY(-1px);
+}
+
+.importButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .modalOverlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+:global(html[data-theme='light']) .modal {
+  background: #ffffff;
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  box-shadow: 0 20px 60px rgba(2, 132, 199, 0.15);
+}
+
+:global(html[data-theme='light']) .modalHeader h3 {
+  color: #090d16;
+}
+
+:global(html[data-theme='light']) .closeBtn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #64748b;
+}
+
+:global(html[data-theme='light']) .closeBtn:hover {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0284c7;
+}
+
+:global(html[data-theme='light']) .searchBox {
+  background: #f8fafc;
+  border: 1px solid rgba(2, 132, 199, 0.16);
+}
+
+:global(html[data-theme='light']) .searchInput {
+  color: #090d16;
+}
+
+:global(html[data-theme='light']) .searchInput::placeholder {
+  color: #94a3b8;
+}
+
+:global(html[data-theme='light']) .chip {
+  background: #f8fafc;
+  border: 1px solid rgba(2, 132, 199, 0.14);
+  color: #334155;
+}
+
+:global(html[data-theme='light']) .chip:hover {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+:global(html[data-theme='light']) .tokenRow:hover {
+  background: #f0f9ff;
+}
+
+:global(html[data-theme='light']) .tokenRow.selected {
+  background: rgba(2, 132, 199, 0.08);
+  border-color: rgba(2, 132, 199, 0.3);
+}
+
+:global(html[data-theme='light']) .tokenSymbol {
+  color: #090d16;
+}
+
+:global(html[data-theme='light']) .tokenBalance {
+  color: #090d16;
+}
+
+:global(html[data-theme='light']) .tabBtn {
+  color: #64748b;
+}
+
+:global(html[data-theme='light']) .tabBtn.activeTab {
+  color: #0284c7;
+  border-color: #0284c7;
+}

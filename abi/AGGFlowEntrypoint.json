@@ -1,0 +1,192 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      { "name": "_owner", "type": "address" },
+      { "name": "_AGGFlowRouter", "type": "address" }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AGGFlowSwap",
+    "inputs": [
+      { "name": "user", "type": "address", "indexed": true },
+      { "name": "referrer", "type": "address", "indexed": true },
+      { "name": "tokenIn", "type": "address", "indexed": false },
+      { "name": "tokenOut", "type": "address", "indexed": false },
+      { "name": "isFeeInInput", "type": "bool", "indexed": false },
+      { "name": "amountIn", "type": "uint256", "indexed": false },
+      { "name": "amountOut", "type": "uint256", "indexed": false },
+      { "name": "referrerFeeBps", "type": "uint256", "indexed": false },
+      { "name": "totalFeeBps", "type": "uint256", "indexed": false }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeCollected",
+    "inputs": [
+      { "name": "feeCollector", "type": "address", "indexed": false },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "referrer", "type": "address", "indexed": false },
+      { "name": "referrerAmount", "type": "uint256", "indexed": false },
+      { "name": "user", "type": "address", "indexed": false },
+      { "name": "token", "type": "address", "indexed": false }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      { "name": "previousOwner", "type": "address", "indexed": true },
+      { "name": "newOwner", "type": "address", "indexed": true }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RouterUpdated",
+    "inputs": [
+      { "name": "oldRouter", "type": "address", "indexed": true },
+      { "name": "newRouter", "type": "address", "indexed": true }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_BuyAndSellTokensAreSame",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InsufficientAmountAfterFees",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InsufficientNativeValue",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InvalidFeeCollector",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InvalidFeeStructure",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InvalidReferrer",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AGGFlowEntrypoint_InvalidRouter",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "name": "getRouter",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setRouter",
+    "inputs": [{ "name": "_newRouter", "type": "address" }],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [{ "name": "newOwner", "type": "address" }],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "executeSwap",
+    "inputs": [
+      {
+        "name": "swapIntent",
+        "type": "tuple",
+        "components": [
+          { "name": "tokenUserBuys", "type": "address" },
+          { "name": "minAmountUserBuys", "type": "uint256" },
+          { "name": "tokenUserSells", "type": "address" },
+          { "name": "amountUserSells", "type": "uint256" }
+        ]
+      },
+      {
+        "name": "feeCollection",
+        "type": "tuple",
+        "components": [
+          { "name": "feeCollectorAddress", "type": "address" },
+          { "name": "feeBps", "type": "uint256" },
+          { "name": "referrerAddress", "type": "address" },
+          { "name": "referrerFeeBps", "type": "uint256" },
+          { "name": "isInTokenFee", "type": "bool" }
+        ]
+      },
+      { "name": "program", "type": "bytes" }
+    ],
+    "outputs": [{ "name": "amountOut", "type": "uint256" }],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "executeSwapWithReceiver",
+    "inputs": [
+      {
+        "name": "swapIntent",
+        "type": "tuple",
+        "components": [
+          { "name": "tokenUserBuys", "type": "address" },
+          { "name": "minAmountUserBuys", "type": "uint256" },
+          { "name": "tokenUserSells", "type": "address" },
+          { "name": "amountUserSells", "type": "uint256" }
+        ]
+      },
+      {
+        "name": "feeCollection",
+        "type": "tuple",
+        "components": [
+          { "name": "feeCollectorAddress", "type": "address" },
+          { "name": "feeBps", "type": "uint256" },
+          { "name": "referrerAddress", "type": "address" },
+          { "name": "referrerFeeBps", "type": "uint256" },
+          { "name": "isInTokenFee", "type": "bool" }
+        ]
+      },
+      { "name": "program", "type": "bytes" },
+      { "name": "receiver", "type": "address" }
+    ],
+    "outputs": [{ "name": "amountOut", "type": "uint256" }],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  }
+]

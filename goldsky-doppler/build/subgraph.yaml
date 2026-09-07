@@ -1,0 +1,90 @@
+specVersion: 0.0.5
+description: Doppler Launchpad & DEX Subgraph for LitVM
+repository: https://github.com/litvm/doppler-subgraph
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: Airlock
+    network: liteforge
+    source:
+      address: "0x803CDD17e0be6652f407fe39e6779b93cfAb1c19"
+      abi: Airlock
+      startBlock: 40120813
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Factory
+        - Token
+        - Pool
+        - Bundle
+        - MemefolioCreator
+      abis:
+        - name: Airlock
+          file: Airlock/abis/Airlock.json
+        - name: ERC20
+          file: Airlock/abis/ERC20.json
+        - name: UniswapV3Pool
+          file: Airlock/abis/UniswapV3Pool.json
+      eventHandlers:
+        - event: Create(address,indexed address,address,address)
+          handler: handleCreate
+        - event: Migrate(indexed address,indexed address,address,address,uint256,uint256)
+          handler: handleMigrate
+        - event: CollectIntegratorFees(indexed address,indexed address,uint256)
+          handler: handleCollectIntegratorFees
+      file: Airlock/Airlock.wasm
+templates:
+  - kind: ethereum/contract
+    name: UniswapV3Pool
+    network: liteforge
+    source:
+      abi: UniswapV3Pool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Token
+        - Pool
+        - Swap
+        - TokenDayData
+        - TokenHourData
+        - Bundle
+      abis:
+        - name: UniswapV3Pool
+          file: UniswapV3Pool/abis/UniswapV3Pool.json
+        - name: ERC20
+          file: UniswapV3Pool/abis/ERC20.json
+      eventHandlers:
+        - event: Swap(indexed address,indexed address,int256,int256,uint160,uint128,int24)
+          handler: handleUniswapV3Swap
+      file: templates/UniswapV3Pool/UniswapV3Pool.wasm
+  - kind: ethereum/contract
+    name: UniswapV2Pair
+    network: liteforge
+    source:
+      abi: UniswapV2Pair
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Token
+        - Pool
+        - Swap
+        - TokenDayData
+        - TokenHourData
+      abis:
+        - name: UniswapV2Pair
+          file: UniswapV2Pair/abis/UniswapV2Pair.json
+        - name: ERC20
+          file: UniswapV2Pair/abis/ERC20.json
+      eventHandlers:
+        - event: Swap(indexed address,uint256,uint256,uint256,uint256,indexed address)
+          handler: handleUniswapV2Swap
+        - event: Sync(uint112,uint112)
+          handler: handleUniswapV2Sync
+      file: templates/UniswapV2Pair/UniswapV2Pair.wasm

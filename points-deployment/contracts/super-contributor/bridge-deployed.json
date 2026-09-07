@@ -1,0 +1,19 @@
+{
+  "litvm": {
+    "nftImplementation": "0xc4A5eDF5C2b68F044097077a3Aee96480EcF98e2",
+    "nftProxy": "0xFAF7266C09450F22098cA304bcAC70Dfdc75992C",
+    "bridgeImplementation": "0xcA6dE6EcAc3F6b0813f78aA561d55D3a04C819C9",
+    "bridge": "0x38047685192D41e0f1d98DE6598A852d24368CEC",
+    "isHomeChain": false,
+    "timestamp": "2026-07-13T05:43:03.435Z",
+    "bridgeUpgradedAt": "2026-07-15T12:29:04.929Z"
+  },
+  "arbitrum": {
+    "nftProxy": "0xA2eC9aAf2235C66491767e69eBBD885469697B3E",
+    "bridgeImplementation": "0x6ed595d54D0B6ce12ec24707DD1EDFF88A753EaF",
+    "bridge": "0xbC30b0F3b3D8E06ea7fB3D55622C6d96e67BecFD",
+    "isHomeChain": true,
+    "timestamp": "2026-07-13T05:56:41.654Z",
+    "bridgeUpgradedAt": "2026-07-15T14:40:55.235Z"
+  }
+}

@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_ALCHEMY_KEY=${NEXT_PUBLIC_ALCHEMY_KEY}
+      - LIFI_API_KEY=${LIFI_API_KEY}
+      - INTEGRATOR_ID=${INTEGRATOR_ID}
+      - NEXT_PUBLIC_INTEGRATOR=${NEXT_PUBLIC_INTEGRATOR}
+      - NEXT_PUBLIC_FEE=${NEXT_PUBLIC_FEE}
+      - DISABLE_TELEMETRY=${DISABLE_TELEMETRY}

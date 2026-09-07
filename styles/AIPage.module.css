@@ -1,0 +1,435 @@
+/* styles/AIPage.module.css - Responsive & Theme-Aware Styles for AI Trading */
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: calc(100vh - 70px);
+  box-sizing: border-box;
+}
+
+/* Themes */
+.themeDark {
+  --ai-card-bg: rgba(255, 255, 255, 0.02);
+  --ai-card-border: rgba(255, 255, 255, 0.08);
+  --ai-banner-bg: rgba(255, 255, 255, 0.02);
+  --ai-banner-border: rgba(255, 255, 255, 0.08);
+  --ai-text-main: #f8fafc;
+  --ai-text-sub: #cbd5e1;
+  --ai-text-muted: #94a3b8;
+  --ai-chip-bg: rgba(255, 255, 255, 0.03);
+  --ai-chip-border: rgba(255, 255, 255, 0.08);
+  --ai-chip-text: #e2e8f0;
+  --ai-input-wrap-bg: rgba(0, 0, 0, 0.2);
+  --ai-input-bg: rgba(255, 255, 255, 0.03);
+  --ai-input-border: rgba(255, 255, 255, 0.1);
+  --ai-input-text: #ffffff;
+  --ai-header-bg: rgba(255, 255, 255, 0.015);
+  --ai-header-border: rgba(255, 255, 255, 0.07);
+}
+
+.themeLight {
+  --ai-card-bg: #ffffff;
+  --ai-card-border: #e2e8f0;
+  --ai-banner-bg: #f8fafc;
+  --ai-banner-border: #e2e8f0;
+  --ai-text-main: #0f172a;
+  --ai-text-sub: #334155;
+  --ai-text-muted: #64748b;
+  --ai-chip-bg: #f1f5f9;
+  --ai-chip-border: #e2e8f0;
+  --ai-chip-text: #1e293b;
+  --ai-input-wrap-bg: #f8fafc;
+  --ai-input-bg: #ffffff;
+  --ai-input-border: #cbd5e1;
+  --ai-input-text: #0f172a;
+  --ai-header-bg: #f8fafc;
+  --ai-header-border: #e2e8f0;
+}
+
+/* Banner */
+.banner {
+  background: var(--ai-banner-bg);
+  border: 1px solid var(--ai-banner-border);
+  border-radius: 12px;
+  padding: 10px 16px;
+}
+
+.bannerInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bannerIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(2, 132, 199, 0.1);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bannerTitle {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ai-text-main);
+  letter-spacing: -0.01em;
+}
+
+.code {
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.08);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  border: 1px solid rgba(2, 132, 199, 0.15);
+}
+
+.bannerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+/* Discussion Chips */
+.topicChipsContainer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+  overflow: hidden;
+}
+
+.topicChipsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--ai-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topicChipsScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.topicChipsScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.topicChipBtn {
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+  border-radius: 16px;
+  padding: 6px 14px;
+  color: var(--ai-chip-text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.topicChipBtn:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* Mobile Tab Switcher */
+.mobileTabSwitcher {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-card-border);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.mobileTabBtn {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ai-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobileTabBtnActive {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* Main Grid */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+  min-height: 620px;
+}
+
+.chatCard {
+  background: var(--ai-card-bg);
+  border: 1px solid var(--ai-card-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chatHeader {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ai-header-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ai-header-bg);
+  color: var(--ai-text-main);
+}
+
+.resetBtn {
+  background: transparent;
+  border: 1px solid var(--ai-card-border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: var(--ai-text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.resetBtn:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.messagesContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 520px;
+}
+
+.startersWrapper {
+  padding: 0 16px 12px;
+}
+
+.startersScroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.startersScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.starterChip {
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+  color: var(--ai-text-muted);
+  border-radius: 20px;
+  padding: 5px 11px;
+  font-size: 0.74rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.starterChip:hover {
+  border-color: #0284c7;
+  color: var(--ai-text-main);
+}
+
+.inputWrapper {
+  padding: 14px 16px;
+  border-top: 1px solid var(--ai-header-border);
+  background: var(--ai-input-wrap-bg);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.textInput {
+  flex: 1;
+  background: var(--ai-input-bg);
+  border: 1px solid var(--ai-input-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--ai-input-text);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.textInput:focus {
+  border-color: #0284c7;
+}
+
+.sendButton {
+  background: #0284c7;
+  border: none;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.sendButton:hover {
+  opacity: 0.9;
+}
+
+.sendButton:active {
+  transform: scale(0.96);
+}
+
+.sendButtonDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Proposal Panel Card */
+.proposalCard {
+  background: var(--ai-card-bg);
+  border: 1px solid var(--ai-card-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.proposalHeader {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ai-header-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ai-header-bg);
+  color: var(--ai-text-main);
+}
+
+.proposalBody {
+  padding: 18px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN (MOBILE)
+   ============================================================ */
+@media (max-width: 960px) {
+  .container {
+    padding: 16px 12px 80px;
+  }
+
+  .banner {
+    padding: 14px;
+  }
+
+  .bannerInner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .bannerRight {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .mobileTabSwitcher {
+    display: grid !important;
+  }
+
+  .hideOnMobileChat {
+    display: none !important;
+  }
+
+  .hideOnMobileProposal {
+    display: none !important;
+  }
+
+  .mainGrid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .chatCard {
+    min-height: 480px;
+  }
+
+  .messagesContainer {
+    max-height: 400px;
+    padding: 14px;
+  }
+
+  .proposalCard {
+    min-height: 380px;
+  }
+}

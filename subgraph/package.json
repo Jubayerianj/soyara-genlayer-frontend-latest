@@ -1,0 +1,22 @@
+{
+  "name": "flipswap-subgraph",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable Graph subgraph for FlipSwap aggregator + SoyaraDex V2 + SoyaraDex V3 analytics.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "prepare:litvm": "node ./scripts/build-manifest.js 4441",
+    "prepare:sepolia": "node ./scripts/build-manifest.js 11155111",
+    "prepare": "npm run prepare:litvm",
+    "codegen": "graph codegen subgraph.yaml",
+    "build": "graph build subgraph.yaml",
+    "deploy:studio": "graph deploy --studio flipswap subgraph.yaml",
+    "deploy:goldsky:example": "goldsky subgraph deploy flipswap/1.0.0 --path ."
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.98.1"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-ts": "^0.38.2"
+  }
+}

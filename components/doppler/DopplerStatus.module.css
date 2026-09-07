@@ -1,0 +1,28 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: rgba(255, 183, 77, 0.08);
+  border: 1px solid rgba(255, 183, 77, 0.35);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+
+.text { flex: 1; }
+.text strong { display: block; color: #ffb74d; margin-bottom: 0.35rem; font-size: 0.95rem; }
+.text p { color: rgba(255,255,255,0.6); font-size: 0.85rem; margin: 0 0 0.75rem; }
+.text code { color: #90caf9; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
+
+.cmd {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.78rem;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: #a5d6a7;
+  white-space: pre-wrap;
+  margin: 0;
+}

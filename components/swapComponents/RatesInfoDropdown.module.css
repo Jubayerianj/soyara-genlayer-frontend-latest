@@ -1,0 +1,298 @@
+/* RatesInfoDropdown.module.css */
+.container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  margin: 0.75rem;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.container:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dropdownHeader {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.dropdownHeader:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dropdownHeader:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headerIcon {
+  width: 1rem;
+  height: 1rem;
+  color: #38bdf8;
+}
+
+.headerTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d1d5db;
+  letter-spacing: -0.01em;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quickInfo {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-family: 'Roboto Mono', monospace;
+  letter-spacing: -0.01em;
+}
+
+.chevron {
+  color: #9ca3af;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chevron.rotate {
+  transform: rotate(180deg);
+}
+
+.dropdownContent {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ratesGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rateItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.rateItem:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.rateLabel {
+  display: flex;
+  align-items: center;
+}
+
+.labelContent {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+}
+
+.tooltipContent {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(13, 17, 28, 0.95);
+  color: #e5e7eb;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 50;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  min-width: 160px;
+}
+
+.tooltip:hover .tooltipContent {
+  opacity: 1;
+  visibility: visible;
+}
+
+.rateValue {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #f3f4f6;
+  font-family: 'Roboto Mono', monospace;
+  text-align: right;
+  letter-spacing: -0.01em;
+}
+
+.priceImpact {
+  font-weight: 600;
+}
+
+.normal {
+  color: #38bdf8;
+}
+
+.warning {
+  color: #f59e0b;
+}
+
+.high {
+  color: #ef4444;
+}
+
+.critical {
+  color: #dc2626;
+}
+
+.networkFee {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.feeLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.feeValue {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feeAmount {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #f3f4f6;
+}
+
+.feeNote {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.loadingSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.skeletonLine {
+  height: 1rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    margin: 0.5rem;
+  }
+  
+  .dropdownHeader {
+    padding: 0.75rem;
+  }
+  
+  .dropdownContent {
+    padding: 0.75rem;
+  }
+  
+  .ratesGrid {
+    gap: 0.5rem;
+  }
+  
+  .rateItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .rateValue {
+    align-self: flex-end;
+  }
+  
+  .quickInfo {
+    display: none;
+  }
+  
+  .headerTitle {
+    font-size: 0.8125rem;
+  }
+}

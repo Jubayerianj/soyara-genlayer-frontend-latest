@@ -1,0 +1,683 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  background: #000000;
+  overflow-x: hidden;
+  color: #f8fafc;
+}
+
+.ambientA {
+  position: fixed;
+  top: -10%;
+  left: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.08), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambientB {
+  position: fixed;
+  bottom: -10%;
+  right: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.06), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.main {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+/* Network Alert */
+.networkWarning {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  backdrop-filter: blur(12px);
+  font-size: 0.85rem;
+  color: #fecaca;
+}
+
+.networkActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.networkActions button {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fff;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.networkActions button:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Dashboard Header */
+.dashboardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.welcomeKicker {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.pageTitle {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.headerRight {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Glass Cards Grid */
+.glassCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.glassCard {
+  background: #080808;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+  min-height: 160px;
+}
+
+.cardLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.cardBigNumber {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.cardFooter {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.interactiveCard {
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-color: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.01);
+}
+
+.interactiveCard:hover {
+  background: rgba(59, 130, 246, 0.04);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.12);
+}
+
+.interactiveCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cardArrow {
+  color: rgba(59, 130, 246, 0.5);
+  transition: transform 0.2s ease;
+}
+
+.interactiveCard:hover .cardArrow {
+  transform: translate(2px, -2px);
+  color: #60a5fa;
+}
+
+.questCardGlass {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.heroMetadataRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.metaBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metaBadge:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.copyIcon {
+  color: rgba(255, 255, 255, 0.3);
+  margin-left: 0.1rem;
+}
+
+.greenText {
+  color: #38bdf8;
+}
+
+.classyButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 0.65rem 1.1rem;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.classyButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.accentLinkButton {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #3b82f6;
+  border: none;
+  border-radius: 12px;
+  padding: 0.65rem 1.3rem;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+  transition: all 0.2s ease;
+}
+
+.accentLinkButton:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+}
+
+/* Quest Strip inside Quest Card Glass */
+.questHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.questTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.zapIcon {
+  color: #38bdf8;
+}
+
+.questDocsLink {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.questDocsLink:hover {
+  color: #60a5fa;
+}
+
+.questLoader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+}
+
+.questMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.questMetricItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: rgba(255, 255, 255, 0.015);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.metricLabel {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metricVal {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: #fff;
+}
+
+.statusBadge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+.statusBadgeActive {
+  color: #38bdf8;
+}
+
+.statusBadgeInactive {
+  color: #64748b;
+}
+
+/* Sections */
+.tableSection,
+.liquiditySection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sectionHeader h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.tableActionLink {
+  font-size: 0.85rem;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.tableActionLink:hover {
+  color: #60a5fa;
+}
+
+/* Modern Portfolio Table */
+.tableContainer {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #080808;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.portfolioTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.portfolioTable th {
+  padding: 1.1rem 1.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.portfolioTable td {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  vertical-align: middle;
+}
+
+.tableRow {
+  transition: background-color 0.2s ease;
+}
+
+.tableRow:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.assetCell {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.assetLogo {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000;
+}
+
+.assetLogoFallback {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assetNameMeta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.assetSymbol {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #fff;
+}
+
+.assetFullName {
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.08rem;
+}
+
+.assetBalance {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.assetPrice {
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.assetValue {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.textRight {
+  text-align: right;
+}
+
+/* Empty / Loading Containers */
+.emptyContainer,
+.loadingContainer,
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(20px);
+}
+
+.emptyIndicator {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.emptyContainer h3,
+.errorContainer h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.emptyContainer p,
+.loadingContainer p,
+.errorContainer p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 320px;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.actionBtnFilled {
+  display: inline-block;
+  background: #3b82f6;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.actionBtnFilled:hover {
+  background: #2563eb;
+}
+
+.manageLPContainer {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1.2rem;
+  padding: 1.25rem;
+}
+
+/* Spinner Animations */
+.spin {
+  animation: spin 1.2s linear infinite;
+}
+
+.spinLarge {
+  animation: spin 1.2s linear infinite;
+  color: #3b82f6;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .portfolioTable th, 
+  .portfolioTable td {
+    padding: 0.9rem 0.85rem;
+  }
+  
+  .assetLogo,
+  .assetLogoFallback {
+    width: 1.85rem;
+    height: 1.85rem;
+    font-size: 0.8rem;
+  }
+  
+  .glassCard {
+    min-height: 140px;
+    padding: 1.25rem;
+  }
+  
+  .cardBigNumber {
+    font-size: 1.8rem;
+  }
+}
+
+:global(html[data-theme='light']) .page {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .ambientA,
+:global(html[data-theme='light']) .ambientB {
+  opacity: 0 !important;
+}
+
+:global(html[data-theme='light']) .glassCard,
+:global(html[data-theme='light']) .questCard,
+:global(html[data-theme='light']) .tableContainer,
+:global(html[data-theme='light']) .tableCard {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .sectionHeader h2,
+:global(html[data-theme='light']) .cardBigNumber,
+:global(html[data-theme='light']) .metricVal,
+:global(html[data-theme='light']) .assetSymbol,
+:global(html[data-theme='light']) .numericCell,
+:global(html[data-theme='light']) .headerTitle,
+:global(html[data-theme='light']) .headerSubtitle,
+:global(html[data-theme='light']) .cardSublabel,
+:global(html[data-theme='light']) .metricLabel {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .portfolioTable {
+  background: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .portfolioTable th {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-bottom: 2px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .portfolioTable td {
+  border-bottom: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .tableRow:hover,
+:global(html[data-theme='light']) .portfolioTable tbody tr:hover {
+  background: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .tabBtn {
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+  background: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .tabBtn.activeTab {
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  background: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .actionBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .actionBtn:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+}

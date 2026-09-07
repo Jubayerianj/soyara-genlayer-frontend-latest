@@ -1,0 +1,69 @@
+specVersion: 1.3.0
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum
+    name: AggregatorEntrypoint
+    network: liteforge
+    source:
+      address: "0xF69E64804000d28aA695eB5c594B996100fb3B49"
+      abi: AGGFlowEntrypoint
+      startBlock: 28515000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - ProtocolDayData
+        - Token
+        - TokenDayData
+        - User
+        - UserDayData
+        - UserTokenStat
+        - Referral
+        - AggregatorSwap
+        - FeeCollectionEvent
+        - AggregatorRouterUpdate
+        - LiquidityProvision
+      abis:
+        - name: AGGFlowEntrypoint
+          file: AggregatorEntrypoint/AGGFlowEntrypoint.json
+        - name: ERC20
+          file: AggregatorEntrypoint/ERC20.json
+      eventHandlers:
+        - event: AGGFlowSwap(indexed address,indexed
+            address,address,address,bool,uint256,uint256,uint256,uint256)
+          handler: handleAGGFlowSwap
+        - event: FeeCollected(address,uint256,address,uint256,address,address)
+          handler: handleFeeCollected
+        - event: RouterUpdated(indexed address,indexed address)
+          handler: handleRouterUpdated
+      file: AggregatorEntrypoint/AggregatorEntrypoint.wasm
+  - kind: ethereum
+    name: WrapperAggregator
+    network: liteforge
+    source:
+      address: "0xf664b56933f3cf0d7d69982b5a8ec9101b80059d"
+      abi: WrapperAggregator
+      startBlock: 28515000
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - Token
+        - User
+        - UserTokenStat
+        - AggregatorSwap
+      abis:
+        - name: WrapperAggregator
+          file: WrapperAggregator/WrapperAggregator.json
+        - name: ERC20
+          file: WrapperAggregator/ERC20.json
+      eventHandlers:
+        - event: SwapExecuted(indexed address,indexed
+            address,address,address,uint256,uint256,uint256)
+          handler: handleWrapperSwapExecuted
+      file: AggregatorEntrypoint/AggregatorEntrypoint.wasm

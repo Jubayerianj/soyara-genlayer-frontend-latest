@@ -1,0 +1,303 @@
+/* LiquidityPage.module.css – Ultra-dark black glass style */
+
+.page {
+  min-height: 100vh;
+  background: #000000;
+  padding: 32px 0;
+  position: relative;
+  overflow-x: hidden;
+  margin: 0; 
+}
+
+/* Darker animated blobs */
+.blob1 {
+  position: fixed;
+  top: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 100, 200, 0.08), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+.blob2 {
+  position: fixed;
+  bottom: -20%;
+  left: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 50, 150, 0.05), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.contentWrapper {
+  width: 100%;
+  max-width: 100%;          /* remove max-width constraint */
+  margin: 0;                /* remove auto margins */
+  padding: 0;               /* remove side padding */
+  position: relative;
+  z-index: 2;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.title {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.gradientText {
+  background: linear-gradient(135deg, #38bdf8, #3b82f6);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientShift 3s ease infinite;
+}
+.subtitle {
+  color: #8ba0bc;
+  font-size: 1.125rem;
+  max-width: 640px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Toggle – black glass */
+.toggleWrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 36px;
+}
+.toggleContainer {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 60px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px;
+  display: inline-flex;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.toggleButton {
+  padding: 12px 28px;
+  border-radius: 40px;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5);
+  color: #cbd5e1;
+  position: relative;
+  overflow: hidden;
+}
+.toggleButton.active {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  color: white;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+.toggleButton:not(.active):hover {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+.toggleIcon {
+  font-size: 20px;
+}
+.activeIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 2px;
+  box-shadow: 0 0 4px #3b82f6;
+}
+
+/* Main Card – black glass */
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+}
+.featureCard {
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.featureCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.cardHeader {
+  padding: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cardHeader h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #f8fafc;
+}
+.cardHeader p {
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+.cardBadge {
+  padding: 6px 14px;
+  border-radius: 40px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badgeAdd {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.badgeManage {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.cardBody {
+  padding: 28px;
+}
+
+/* ===== FORCE ALL BUTTONS INSIDE CARD TO BLACK GLASS ===== */
+.cardBody button {
+  background: rgba(10, 10, 15, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+  border-radius: 40px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer;
+}
+.cardBody button:hover:not(:disabled) {
+  background: rgba(20, 20, 30, 0.9) !important;
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  color: white !important;
+  transform: translateY(-1px);
+}
+.cardBody button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Special override for percentage buttons inside the modal (if they have inline styles) */
+.cardBody button.active {
+  background: rgba(59, 130, 246, 0.8) !important;
+  border-color: #3b82f6 !important;
+  color: white !important;
+}
+/* Ensure slider thumb is visible */
+.cardBody input[type="range"] {
+  background: rgba(255, 255, 255, 0.1);
+}
+.cardBody input[type="range"]::-webkit-slider-thumb {
+  background: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6;
+}
+
+/* Connect prompt – also dark */
+.connectPrompt {
+  text-align: center;
+  padding: 48px 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.connectIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.connectPrompt h3 {
+  font-size: 1.5rem;
+  margin-bottom: 12px;
+  color: #f8fafc;
+}
+.connectPrompt p {
+  color: #94a3b8;
+  margin-bottom: 24px;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Loader */
+.loaderContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Animations */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 0;
+  }
+  .contentWrapper {
+    padding: 0 16px;
+  }
+  .title {
+    font-size: 2rem;
+  }
+  .subtitle {
+    font-size: 0.95rem;
+  }
+  .toggleButton {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+  }
+  .toggleIcon {
+    font-size: 18px;
+  }
+  .cardHeader {
+    padding: 20px;
+  }
+  .cardHeader h2 {
+    font-size: 1.35rem;
+  }
+  .cardBody {
+    padding: 20px;
+  }
+}

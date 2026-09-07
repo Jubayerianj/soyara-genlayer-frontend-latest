@@ -1,0 +1,27 @@
+import { parseUnits } from 'viem';
+
+export const safeParseUnits = (value, decimals = 18) => {
+  if (!value || value === '') return 0n;
+  
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) return 0n;
+  
+  try {
+    // Clean up the value string
+    const cleanValue = numValue.toString();
+    return parseUnits(cleanValue, decimals);
+  } catch (error) {
+    console.error('Error parsing units:', error);
+    return 0n;
+  }
+};
+
+export const safeFormatUnits = (value, decimals = 18) => {
+  if (!value || value === 0n) return '0';
+  try {
+    return formatUnits(value, decimals);
+  } catch (error) {
+    console.error('Error formatting units:', error);
+    return '0';
+  }
+};

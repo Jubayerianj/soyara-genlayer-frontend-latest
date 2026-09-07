@@ -1,0 +1,201 @@
+specVersion: 1.3.0
+schema:
+  file: schema.graphql
+dataSources:
+  - kind: ethereum
+    name: AggregatorEntrypoint
+    network: liteforge
+    source:
+      address: "0xEb5600899BD87F0dF9200dEaD5B8098B63708C75"
+      abi: AGGFlowEntrypoint
+      startBlock: 290904
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - ProtocolDayData
+        - Token
+        - TokenDayData
+        - User
+        - UserDayData
+        - UserTokenStat
+        - Referral
+        - AggregatorSwap
+        - FeeCollectionEvent
+        - AggregatorRouterUpdate
+        - LiquidityProvision
+      abis:
+        - name: AGGFlowEntrypoint
+          file: AggregatorEntrypoint/AGGFlowEntrypoint.json
+        - name: ERC20
+          file: AggregatorEntrypoint/ERC20.json
+      eventHandlers:
+        - event: AGGFlowSwap(indexed address,indexed
+            address,address,address,bool,uint256,uint256,uint256,uint256)
+          handler: handleAGGFlowSwap
+        - event: FeeCollected(address,uint256,address,uint256,address,address)
+          handler: handleFeeCollected
+        - event: RouterUpdated(indexed address,indexed address)
+          handler: handleRouterUpdated
+      file: AggregatorEntrypoint/AggregatorEntrypoint.wasm
+  - kind: ethereum
+    name: UniswapV2Factory
+    network: liteforge
+    source:
+      address: "0x4680BCe1632824d30D2F53656dD610736c3e312e"
+      abi: UniswapV2Factory
+      startBlock: 290904
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - Token
+        - V2Pair
+        - LiquidityProvision
+      abis:
+        - name: UniswapV2Factory
+          file: UniswapV2Factory/UniswapV2Factory.json
+        - name: UniswapV2Pair
+          file: UniswapV2Factory/UniswapV2Pair.json
+        - name: ERC20
+          file: UniswapV2Factory/ERC20.json
+      eventHandlers:
+        - event: PairCreated(indexed address,indexed address,address,uint256)
+          handler: handlePairCreated
+      file: UniswapV2Factory/UniswapV2Factory.wasm
+  - kind: ethereum
+    name: UniswapV3Factory
+    network: liteforge
+    source:
+      address: "0xde6763a041f8fc94ca2ee5933736f78f6d1a11c5"
+      abi: UniswapV3Factory
+      startBlock: 290904
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - Token
+        - V3Pool
+        - LiquidityProvision
+      abis:
+        - name: UniswapV3Factory
+          file: UniswapV3Factory/factory.json
+        - name: UniswapV3Pool
+          file: UniswapV3Factory/pool.json
+        - name: ERC20
+          file: UniswapV3Factory/ERC20.json
+      eventHandlers:
+        - event: PoolCreated(indexed address,indexed address,indexed uint24,int24,address)
+          handler: handlePoolCreated
+      file: UniswapV3Factory/UniswapV3Factory.wasm
+  - kind: ethereum
+    name: UniswapV3PositionManager
+    network: liteforge
+    source:
+      address: "0x1089f046B597f259BeFDC15Bf9C90E33616BA366"
+      abi: NonfungiblePositionManager
+      startBlock: 290904
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - V3Position
+        - V3PositionEvent
+      abis:
+        - name: NonfungiblePositionManager
+          file: UniswapV3PositionManager/positionManager.json
+        - name: UniswapV3Factory
+          file: UniswapV3PositionManager/factory.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: IncreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleIncreaseLiquidity
+        - event: DecreaseLiquidity(indexed uint256,uint128,uint256,uint256)
+          handler: handleDecreaseLiquidity
+        - event: Collect(indexed uint256,address,uint256,uint256)
+          handler: handleCollect
+      file: UniswapV3PositionManager/UniswapV3PositionManager.wasm
+templates:
+  - kind: ethereum
+    name: UniswapV2PairTemplate
+    network: liteforge
+    source:
+      abi: UniswapV2Pair
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - ProtocolDayData
+        - Token
+        - TokenDayData
+        - User
+        - UserDayData
+        - UserTokenStat
+        - V2Pair
+        - V2Swap
+        - V2Mint
+        - V2Burn
+        - LiquidityProvision
+      abis:
+        - name: UniswapV2Pair
+          file: UniswapV2PairTemplate/UniswapV2Pair.json
+        - name: ERC20
+          file: UniswapV2PairTemplate/ERC20.json
+      eventHandlers:
+        - event: Mint(indexed address,uint256,uint256)
+          handler: handleMint
+        - event: Burn(indexed address,uint256,uint256,indexed address)
+          handler: handleBurn
+        - event: Swap(indexed address,uint256,uint256,uint256,uint256,indexed address)
+          handler: handleSwap
+        - event: Sync(uint112,uint112)
+          handler: handleSync
+      file: templates/UniswapV2PairTemplate/UniswapV2PairTemplate.wasm
+  - kind: ethereum
+    name: UniswapV3PoolTemplate
+    network: liteforge
+    source:
+      abi: UniswapV3Pool
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Protocol
+        - ProtocolDayData
+        - Token
+        - TokenDayData
+        - User
+        - UserDayData
+        - UserTokenStat
+        - V3Pool
+        - V3Swap
+        - V3Mint
+        - V3Burn
+        - LiquidityProvision
+      abis:
+        - name: UniswapV3Pool
+          file: UniswapV3PoolTemplate/pool.json
+        - name: ERC20
+          file: UniswapV3PoolTemplate/ERC20.json
+      eventHandlers:
+        - event: Initialize(uint160,int24)
+          handler: handleInitialize
+        - event: Mint(address,indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleMint
+        - event: Burn(indexed address,indexed int24,indexed int24,uint128,uint256,uint256)
+          handler: handleBurn
+        - event: Swap(indexed address,indexed address,int256,int256,uint160,uint128,int24)
+          handler: handleSwap
+      file: templates/UniswapV3PoolTemplate/UniswapV3PoolTemplate.wasm

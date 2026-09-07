@@ -1,0 +1,479 @@
+.form { display: flex; flex-direction: column; gap: 2rem; }
+
+.section { display: flex; flex-direction: column; gap: 1rem; }
+.sectionTitle {
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Branding & Photo */
+.brandingRow {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.avatarPreview {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.avatarPreview:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.avatarUploadOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.avatarPreview:hover .avatarUploadOverlay {
+  opacity: 1;
+}
+
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarFallback {
+  color: #60a5fa;
+  font-size: 1.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imageInputs {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.logoLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.logoFormatHint {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.uploadingBadge {
+  color: #38bdf8;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.fileUploadGroup {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fileUploadGroup input {
+  flex: 1;
+  min-width: 0;
+}
+
+.uploadBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.7rem 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.uploadBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 580px) {
+  .brandingRow {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+  .avatarPreview {
+    width: 80px;
+    height: 80px;
+  }
+  .logoLabelRow {
+    justify-content: center;
+    text-align: center;
+  }
+  .fileUploadGroup {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .uploadBtn {
+    width: 100%;
+    padding: 0.75rem;
+    box-sizing: border-box;
+  }
+}
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.label {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.7);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.hint  { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+.input, .select {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff; font-size: 0.9rem;
+  padding: 0.7rem 1rem;
+  outline: none; transition: border-color 0.2s;
+}
+.input:focus, .select:focus { border-color: #3b82f6; }
+.select option { background: #1a1a2e; }
+
+.textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.socialsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 680px) {
+  .socialsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Buy Input */
+.buyInputRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.buyInputRow input {
+  width: 100%;
+  padding-right: 4.5rem;
+}
+
+.inputUnit {
+  position: absolute;
+  right: 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.quickPresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+/* Presets Grid */
+.presetsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) {
+  .presetsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.presetCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+.presetCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+.presetCardActive {
+  background: rgba(37, 99, 235, 0.12) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.2);
+}
+
+.presetCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.presetCardTitle {
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.presetBadge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.presetTagline {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.presetMetrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  margin-top: 0.25rem;
+}
+.presetMetricItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.presetMetricLabel {
+  font-size: 0.65rem;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.presetMetricVal {
+  font-size: 0.82rem;
+  color: #f8fafc;
+  font-weight: 700;
+}
+.presetMetricValGrad {
+  font-size: 0.82rem;
+  color: #34d399;
+  font-weight: 700;
+}
+
+/* Curve Live Preview Box */
+.curvePreviewBox {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.curvePreviewHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #f8fafc;
+  font-size: 0.85rem;
+}
+.curveFlameIcon {
+  color: #f59e0b;
+}
+
+.curveStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+@media (max-width: 640px) {
+  .curveStatsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .curveStatsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.curveStatCard {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.curveStatLabel {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+.curveStatVal {
+  font-size: 0.95rem;
+  color: #f8fafc;
+  font-weight: 700;
+  font-family: monospace;
+}
+.curveStatValGrad {
+  font-size: 0.95rem;
+  color: #34d399;
+  font-weight: 700;
+  font-family: monospace;
+}
+.curveStatSub {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-family: monospace;
+}
+
+/* Radio Group */
+.radioGroup { display: flex; flex-direction: column; gap: 0.75rem; }
+.radio {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px; padding: 1rem;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.radio:has(input:checked) { border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.06); }
+.radio input { margin-top: 3px; accent-color: #3b82f6; flex-shrink: 0; }
+.radio strong { display: block; color: #fff; font-size: 0.88rem; margin-bottom: 2px; }
+.radio p { color: rgba(255,255,255,0.5); font-size: 0.78rem; margin: 0; }
+
+.error {
+  background: rgba(244,67,54,0.1); border: 1px solid rgba(244,67,54,0.3);
+  border-radius: 10px; color: #ef9a9a; font-size: 0.85rem; padding: 0.75rem 1rem;
+}
+.success {
+  background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 12px; color: #34d399; font-size: 0.85rem; padding: 1rem;
+}
+.success a { color: #60a5fa; text-decoration: underline; }
+.success code { color: #facc15; font-family: monospace; }
+
+.submit {
+  width: 100%;
+  background: linear-gradient(135deg,#013e44, #4b9ba3);
+  border: none; border-radius: 20px;
+  color: #fff; font-size: 1rem; font-weight: 700;
+  padding: 0.95rem;
+
+  cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+}
+.submit:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+:global(html[data-theme='light']) .sectionTitle,
+:global(html[data-theme='light']) .label,
+:global(html[data-theme='light']) .hint,
+:global(html[data-theme='light']) .logoFormatHint,
+:global(html[data-theme='light']) .presetName,
+:global(html[data-theme='light']) .presetTagline,
+:global(html[data-theme='light']) .presetStat span,
+:global(html[data-theme='light']) .presetStat strong,
+:global(html[data-theme='light']) .curveStatLabel,
+:global(html[data-theme='light']) .curveStatVal,
+:global(html[data-theme='light']) .curveStatSub,
+:global(html[data-theme='light']) .radio strong,
+:global(html[data-theme='light']) .radio p {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .avatarPreview,
+:global(html[data-theme='light']) .input,
+:global(html[data-theme='light']) .select,
+:global(html[data-theme='light']) .textarea,
+:global(html[data-theme='light']) .presetCard,
+:global(html[data-theme='light']) .curveStatCard,
+:global(html[data-theme='light']) .radio {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .presetCardActive {
+  background: #ffffff !important;
+  border: 2px solid #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .uploadBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .presetBadge {
+  background: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .submit {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+}

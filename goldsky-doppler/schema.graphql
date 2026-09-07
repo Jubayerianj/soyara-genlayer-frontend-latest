@@ -1,0 +1,128 @@
+"""
+Goldsky Subgraph Schema for Doppler Launchpad & DEX on LitVM (Chain ID 4441)
+Tracks tokens, pools, swaps, bonding curve state, OHLCV candles, and creator analytics.
+"""
+
+type Bundle @entity {
+  id: ID! # Always '1'
+  ethPriceUSD: BigDecimal!
+}
+
+type Factory @entity {
+  id: ID! # Airlock contract address
+  totalTokens: BigInt!
+  totalVolumeUSD: BigDecimal!
+  totalSwaps: BigInt!
+  totalMigrated: BigInt!
+}
+
+type Token @entity {
+  id: ID! # Token contract address (lowercase)
+  name: String!
+  symbol: String!
+  decimals: BigInt!
+  totalSupply: BigInt!
+  
+  # Creator & Protocol Info
+  creator: Bytes!
+  numeraire: Bytes!
+  v3Pool: Bytes
+  v2Pair: Bytes
+  isGraduated: Boolean!
+  
+  # Live Metrics
+  priceUSD: BigDecimal!
+  priceETH: BigDecimal!
+  marketCapUSD: BigDecimal!
+  bondingCurveProgress: BigDecimal!
+  
+  # Aggregated Stats
+  tradeVolumeUSD: BigDecimal!
+  totalSwaps: BigInt!
+  txCount: BigInt!
+  
+  # Timestamps & Blocks
+  createdAtTimestamp: BigInt!
+  createdAtBlockNumber: BigInt!
+  
+  # Relations
+  swaps: [Swap!]! @derivedFrom(field: "token")
+  dayData: [TokenDayData!]! @derivedFrom(field: "token")
+  hourData: [TokenHourData!]! @derivedFrom(field: "token")
+}
+
+type Pool @entity {
+  id: ID! # Pool contract address
+  token: Token!
+  numeraire: Bytes!
+  isV3: Boolean!
+  isV2: Boolean!
+  
+  sqrtPriceX96: BigInt
+  tick: BigInt
+  liquidity: BigInt
+  
+  volumeUSD: BigDecimal!
+  totalSwaps: BigInt!
+  createdAtTimestamp: BigInt!
+}
+
+type Swap @entity(immutable: true) {
+  id: ID! # txHash + "-" + logIndex
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  
+  token: Token!
+  pool: Bytes!
+  sender: Bytes!
+  recipient: Bytes!
+  origin: Bytes!
+  
+  # Amounts
+  amountToken: BigDecimal!
+  amountNumeraire: BigDecimal!
+  amountUSD: BigDecimal!
+  
+  # Direction
+  isBuy: Boolean! # True if buying token with ETH/WETH, false if selling
+}
+
+type TokenDayData @entity {
+  id: ID! # tokenAddress + "-" + dayID
+  date: Int!
+  token: Token!
+  
+  # OHLCV Prices
+  open: BigDecimal!
+  high: BigDecimal!
+  low: BigDecimal!
+  close: BigDecimal!
+  
+  volumeUSD: BigDecimal!
+  volumeToken: BigDecimal!
+  txCount: BigInt!
+}
+
+type TokenHourData @entity {
+  id: ID! # tokenAddress + "-" + hourID
+  hourStartUnix: Int!
+  token: Token!
+  
+  open: BigDecimal!
+  high: BigDecimal!
+  low: BigDecimal!
+  close: BigDecimal!
+  
+  volumeUSD: BigDecimal!
+  volumeToken: BigDecimal!
+  txCount: BigInt!
+}
+
+type MemefolioCreator @entity {
+  id: ID! # Creator Wallet Address (lowercase)
+  tokensCreatedCount: BigInt!
+  totalVolumeGeneratedUSD: BigDecimal!
+  totalClaimableFeesWETH: BigInt!
+  createdTokens: [Token!]!
+}

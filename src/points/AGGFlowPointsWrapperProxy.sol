@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+/**
+ * @title AGGFlowPointsWrapperProxy
+ * @dev Proxy contract for AGGFlowPointsWrapper using ERC1967 standard.
+ */
+contract AGGFlowPointsWrapperProxy is ERC1967Proxy {
+    constructor(address _logic, bytes memory _data) payable ERC1967Proxy(_logic, _data) {}
+}

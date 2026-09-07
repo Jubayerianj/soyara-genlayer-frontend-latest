@@ -1,0 +1,823 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+}
+
+.inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+}
+
+/* Brand Area */
+.brandCluster {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.logoWrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandText strong {
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.brandText span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Desktop Navigation */
+.desktopNav {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navLink {
+  padding: 0.5rem 1rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: all 0.2s ease;
+}
+
+.navLink:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.navLinkActive {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Actions Area */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.desktopMeta {
+  display: none;
+}
+
+.networkBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.networkBadge:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.networkDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.networkDotLive {
+  background: #7acaf5;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.networkDotWarn {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.networkBadge strong {
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.networkBadge span {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.connectedCluster {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.networkIconOnlyBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.networkIconOnlyBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: scale(1.05);
+}
+
+.networkLogoImg {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  transition: filter 0.2s ease;
+}
+
+.accountBtn {
+  height: 38px;
+  padding: 0 0.85rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.accountBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.connectWalletBtn {
+  height: 38px;
+  padding: 0 1rem;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.connectWalletBtn:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.unsupportedChainBtn {
+  height: 38px;
+  padding: 0 0.85rem;
+  border-radius: 12px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.walletWrap :global(.rk-connect-button) {
+  height: 40px !important;
+  border-radius: 12px !important;
+  font-size: 0.9rem !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 600 !important;
+}
+
+/* Global Menu (replacing separate mobile menu) */
+.moreMenu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.moreButton {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.moreButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.moreDropdown {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  width: 260px;
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 0.6rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+  z-index: 120;
+}
+
+.moreDropdown::-webkit-scrollbar {
+  width: 4px;
+}
+
+.moreDropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.moreDropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 480px) {
+  .moreDropdown {
+    position: fixed;
+    top: 80px;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+}
+
+.moreItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.moreItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.activeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+/* Mobile Controls */
+.mobileMenuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* Mobile Panel */
+.mobileSheet {
+  background: #000000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.mobilePanel {
+  padding: 1.5rem;
+}
+
+.mobileStatusCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+}
+
+.mobileStatusLabel {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.mobileStatusCard strong {
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.mobileStatusNetwork {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.mobileNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobileNavLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.mobileNavLinkActive {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.mobileSwitchButton {
+  width: 100%;
+  padding: 1rem;
+  margin-top: 1rem;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (min-width: 1180px) {
+  .mobileMenuButton {
+    display: none;
+  }
+  .desktopNav, .desktopMeta {
+    display: flex;
+  }
+}
+
+@media (min-width: 1180px) and (max-width: 1280px) {
+  .desktopNav {
+    gap: 0.25rem;
+  }
+  .navLink {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.82rem;
+  }
+}
+
+/* Tablet & Mobile responsive optimizations */
+@media (max-width: 768px) {
+  .inner {
+    padding: 0 0.85rem;
+    height: 60px;
+    gap: 0.5rem;
+  }
+  
+  .brandText strong {
+    font-size: 1rem;
+  }
+  
+  .brandText span {
+    display: none;
+  }
+  
+  .logoWrap {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .actions {
+    gap: 0.5rem;
+  }
+
+  .themeToggleBtn,
+  .moreButton {
+    width: 36px;
+    height: 36px;
+  }
+
+  .walletWrap :global(.rk-connect-button) {
+    height: 36px !important;
+    font-size: 0.82rem !important;
+    padding: 0 0.75rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .inner {
+    padding: 0 0.5rem;
+    height: 56px;
+    gap: 0.35rem;
+  }
+  
+  .brandText strong {
+    font-size: 0.88rem;
+  }
+  
+  .logoWrap {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .actions {
+    gap: 0.35rem;
+  }
+
+  .themeToggleBtn,
+  .moreButton {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .walletWrap :global(.rk-connect-button) {
+    height: 34px !important;
+    font-size: 0.78rem !important;
+    padding: 0 0.55rem !important;
+    border-radius: 10px !important;
+  }
+
+  .moreDropdown {
+    position: fixed;
+    top: 60px;
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-height: calc(100vh - 75px);
+    z-index: 999;
+  }
+}
+
+@media (max-width: 360px) {
+  .inner {
+    padding: 0 0.35rem;
+    gap: 0.25rem;
+  }
+
+  .brandText {
+    display: none;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+}
+
+/* LitPearls Dropdown CSS */
+.dropdownContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdownTrigger {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  outline: none;
+}
+
+.dropdownChevron {
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 0.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  z-index: 100;
+}
+
+.dropdownItem {
+  padding: 0.6rem 0.8rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* Nested Mobile Menu Dropdown styles */
+.nestedDropdownContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.submenuChevron {
+  transition: transform 0.2s ease;
+  color: #64748b;
+}
+
+.nestedDropdownMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+  overflow: hidden;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nestedDropdownItem {
+  font-size: 0.85rem !important;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.themeToggleBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.themeToggleBtn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #ffffff;
+  transform: scale(1.06);
+}
+
+:global(html[data-theme='light']) .header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(2, 132, 199, 0.15) !important;
+}
+
+:global(html[data-theme='light']) .brandText strong {
+  color: #090d16 !important;
+}
+
+:global(html[data-theme='light']) .brandText span {
+  color: #64748b !important;
+}
+
+:global(html[data-theme='light']) .header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .navLink {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .navLink:hover {
+  color: #0284c7 !important;
+  background: #ffffff !important;
+}
+
+:global(html[data-theme='light']) .navLinkActive {
+  color: #0284c7 !important;
+  background: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .networkBadge {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .networkBadge strong {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .dropdownContent,
+:global(html[data-theme='light']) .mobileDrawer,
+:global(html[data-theme='light']) .mobileDrawerContent {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+:global(html[data-theme='light']) .dropdownItem,
+:global(html[data-theme='light']) .drawerItem {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .dropdownItem:hover,
+:global(html[data-theme='light']) .drawerItem:hover {
+  background: #ffffff !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .themeToggleBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .themeToggleBtn:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .moreButton {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .moreButton svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+:global(html[data-theme='light']) .moreButton:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .moreButton:hover svg {
+  color: #0284c7 !important;
+  stroke: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .moreDropdown,
+:global(html[data-theme='light']) .dropdownMenu {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+}
+
+:global(html[data-theme='light']) .moreItem {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .moreItem svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+:global(html[data-theme='light']) .moreItem:hover {
+  background: #ffffff !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .moreItem:hover svg {
+  color: #0284c7 !important;
+  stroke: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .nestedDropdownMenu {
+  background: #ffffff !important;
+  border-left: 2px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .networkIconOnlyBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .networkIconOnlyBtn:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .networkLogoImg {
+  filter: brightness(0) !important;
+}
+
+:global(html[data-theme='light']) .accountBtn {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .accountBtn:hover {
+  background: #ffffff !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+:global(html[data-theme='light']) .connectWalletBtn {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .connectWalletBtn:hover {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+}

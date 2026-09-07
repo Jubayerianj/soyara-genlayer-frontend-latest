@@ -1,0 +1,378 @@
+type Protocol @entity(immutable: false) {
+  id: ID!
+  network: String!
+  totalUsers: BigInt!
+  totalAggregatorSwaps: BigInt!
+  totalV2Pairs: BigInt!
+  totalV2Swaps: BigInt!
+  totalV2Mints: BigInt!
+  totalV2Burns: BigInt!
+  totalV3Pools: BigInt!
+  totalV3Swaps: BigInt!
+  totalV3Mints: BigInt!
+  totalV3Burns: BigInt!
+  totalFeeEvents: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedAtBlock: BigInt!
+}
+
+type ProtocolDayData @entity(immutable: false) {
+  id: ID!
+  protocol: Protocol!
+  date: Int!
+  dayStartTimestamp: BigInt!
+  activeUsers: BigInt!
+  aggregatorSwaps: BigInt!
+  v2Swaps: BigInt!
+  v2LiquidityEvents: BigInt!
+  v3Swaps: BigInt!
+  v3LiquidityEvents: BigInt!
+  feeEvents: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type Token @entity(immutable: false) {
+  id: ID!
+  symbol: String!
+  name: String!
+  decimals: Int!
+  isNative: Boolean!
+  txCount: BigInt!
+  uniqueUsers: BigInt!
+  aggregatorInCount: BigInt!
+  aggregatorOutCount: BigInt!
+  v2SwapCount: BigInt!
+  v3SwapCount: BigInt!
+  v2SwapCountAgainstNative: BigInt!
+  v3SwapCountAgainstNative: BigInt!
+  feeEventCount: BigInt!
+  totalAggregatorVolumeIn: BigDecimal!
+  totalAggregatorVolumeOut: BigDecimal!
+  totalV2Volume: BigDecimal!
+  totalV3Volume: BigDecimal!
+  totalV2VolumeAgainstNative: BigDecimal!
+  totalV3VolumeAgainstNative: BigDecimal!
+  createdAtTimestamp: BigInt!
+  lastSeenTimestamp: BigInt!
+}
+
+type TokenDayData @entity(immutable: false) {
+  id: ID!
+  token: Token!
+  date: Int!
+  txCount: BigInt!
+  aggregatorInCount: BigInt!
+  aggregatorOutCount: BigInt!
+  v2SwapCount: BigInt!
+  v3SwapCount: BigInt!
+  v2SwapCountAgainstNative: BigInt!
+  v3SwapCountAgainstNative: BigInt!
+  feeEventCount: BigInt!
+  totalAggregatorVolumeIn: BigDecimal!
+  totalAggregatorVolumeOut: BigDecimal!
+  totalV2Volume: BigDecimal!
+  totalV3Volume: BigDecimal!
+  totalV2VolumeAgainstNative: BigDecimal!
+  totalV3VolumeAgainstNative: BigDecimal!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type User @entity(immutable: false) {
+  id: ID!
+  firstSeenTimestamp: BigInt!
+  lastSeenTimestamp: BigInt!
+  lastDayId: String
+  totalActions: BigInt!
+  aggregatorSwapCount: BigInt!
+  v2SwapCount: BigInt!
+  v3SwapCount: BigInt!
+  v2LiquidityActions: BigInt!
+  v3LiquidityActions: BigInt!
+  feeEvents: BigInt!
+  referralSwapCount: BigInt!
+  uniqueReferredUsers: BigInt!
+  createdAtBlock: BigInt!
+  lastUpdatedBlock: BigInt!
+}
+
+type UserDayData @entity(immutable: false) {
+  id: ID!
+  user: User!
+  date: Int!
+  totalActions: BigInt!
+  aggregatorSwapCount: BigInt!
+  v2SwapCount: BigInt!
+  v3SwapCount: BigInt!
+  v2LiquidityActions: BigInt!
+  v3LiquidityActions: BigInt!
+  feeEvents: BigInt!
+  lastUpdatedTimestamp: BigInt!
+}
+
+type UserTokenStat @entity(immutable: false) {
+  id: ID!
+  user: User!
+  token: Token!
+  lastSeenTimestamp: BigInt!
+  aggregatorSwapInCount: BigInt!
+  aggregatorSwapOutCount: BigInt!
+  v2SwapCount: BigInt!
+  v3SwapCount: BigInt!
+  liquidityActions: BigInt!
+  feeEvents: BigInt!
+  aggregatorVolumeIn: BigDecimal!
+  aggregatorVolumeOut: BigDecimal!
+  v2Volume: BigDecimal!
+  v3Volume: BigDecimal!
+  referrerFeesReceived: BigDecimal!
+  collectorFeesReceived: BigDecimal!
+}
+
+type Referral @entity(immutable: false) {
+  id: ID!
+  referrer: User!
+  user: User!
+  firstSeenTimestamp: BigInt!
+  lastSeenTimestamp: BigInt!
+  swapCount: BigInt!
+  feeEventCount: BigInt!
+}
+
+type AggregatorRouterUpdate @entity(immutable: true) {
+  id: ID!
+  oldRouter: Bytes!
+  newRouter: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type AggregatorSwap @entity(immutable: true) {
+  id: ID!
+  protocol: Protocol!
+  user: User!
+  referrer: User
+  tokenIn: Token!
+  tokenOut: Token!
+  isFeeInInput: Boolean!
+  amountIn: BigInt!
+  amountInDecimal: BigDecimal!
+  amountOut: BigInt!
+  amountOutDecimal: BigDecimal!
+  referrerFeeBps: BigInt!
+  totalFeeBps: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type FeeCollectionEvent @entity(immutable: true) {
+  id: ID!
+  protocol: Protocol!
+  user: User!
+  feeCollector: User!
+  referrer: User
+  token: Token!
+  amount: BigInt!
+  amountDecimal: BigDecimal!
+  referrerAmount: BigInt!
+  referrerAmountDecimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V2Pair @entity(immutable: false) {
+  id: ID!
+  factory: Bytes!
+  token0: Token!
+  token1: Token!
+  reserve0: BigInt!
+  reserve1: BigInt!
+  reserve0Decimal: BigDecimal!
+  reserve1Decimal: BigDecimal!
+  txCount: BigInt!
+  swapCount: BigInt!
+  mintCount: BigInt!
+  burnCount: BigInt!
+  volumeToken0: BigDecimal!
+  volumeToken1: BigDecimal!
+  createdAtTimestamp: BigInt!
+  createdAtBlock: BigInt!
+}
+
+type V2Swap @entity(immutable: true) {
+  id: ID!
+  pair: V2Pair!
+  sender: User!
+  to: User!
+  amount0In: BigInt!
+  amount1In: BigInt!
+  amount0Out: BigInt!
+  amount1Out: BigInt!
+  volumeToken0: BigDecimal!
+  volumeToken1: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V2Mint @entity(immutable: true) {
+  id: ID!
+  pair: V2Pair!
+  sender: User!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type LiquidityProvision @entity(immutable: true) {
+  id: ID!
+  protocolVersion: String!
+  user: User!
+  marketId: String!
+  token0: Token!
+  token1: Token!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type LiquidityRemoval @entity(immutable: true) {
+  id: ID!
+  protocolVersion: String!
+  user: User!
+  marketId: String!
+  token0: Token!
+  token1: Token!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V2Burn @entity(immutable: true) {
+  id: ID!
+  pair: V2Pair!
+  sender: User!
+  to: User!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V3Pool @entity(immutable: false) {
+  id: ID!
+  factory: Bytes!
+  token0: Token!
+  token1: Token!
+  fee: Int!
+  tickSpacing: Int!
+  sqrtPriceX96: BigInt!
+  tick: Int!
+  liquidity: BigInt!
+  txCount: BigInt!
+  swapCount: BigInt!
+  mintCount: BigInt!
+  burnCount: BigInt!
+  volumeToken0: BigDecimal!
+  volumeToken1: BigDecimal!
+  createdAtTimestamp: BigInt!
+  createdAtBlock: BigInt!
+}
+
+type V3Swap @entity(immutable: true) {
+  id: ID!
+  pool: V3Pool!
+  sender: User!
+  recipient: User!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  sqrtPriceX96: BigInt!
+  liquidity: BigInt!
+  tick: Int!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V3Mint @entity(immutable: true) {
+  id: ID!
+  pool: V3Pool!
+  owner: User!
+  tickLower: Int!
+  tickUpper: Int!
+  amount: BigInt!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V3Burn @entity(immutable: true) {
+  id: ID!
+  pool: V3Pool!
+  owner: User!
+  tickLower: Int!
+  tickUpper: Int!
+  amount: BigInt!
+  amount0: BigInt!
+  amount1: BigInt!
+  amount0Decimal: BigDecimal!
+  amount1Decimal: BigDecimal!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type V3Position @entity(immutable: false) {
+  id: ID!
+  tokenId: BigInt!
+  owner: User
+  token0: Bytes
+  token1: Bytes
+  fee: Int
+  tickLower: Int
+  tickUpper: Int
+  pool: Bytes
+  liquidity: BigInt!
+  collectedToken0: BigDecimal!
+  collectedToken1: BigDecimal!
+  createdAtTimestamp: BigInt!
+  lastUpdatedTimestamp: BigInt!
+  lastTransferTxHash: Bytes
+}
+
+type V3PositionEvent @entity(immutable: true) {
+  id: ID!
+  position: V3Position!
+  eventType: String!
+  owner: User
+  recipient: User
+  liquidityDelta: BigInt
+  amount0: BigInt
+  amount1: BigInt
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}

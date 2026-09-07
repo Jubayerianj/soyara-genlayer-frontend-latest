@@ -1,0 +1,344 @@
+.container {
+  margin-top: 1.5rem;
+}
+
+.card {
+  background: rgba(18, 22, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 2rem;
+  backdrop-filter: blur(20px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.flameIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+.claimActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 0.85rem 1.25rem;
+}
+
+.claimValueBox {
+  display: flex;
+  flex-direction: column;
+}
+
+.claimLabel {
+  font-size: 0.725rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claimValue {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.claimSub {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.claimPrimaryBtn {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.claimPrimaryBtn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.35);
+}
+
+.claimPrimaryBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.successBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+  color: #ffffff;
+  font-size: 0.875rem;
+}
+
+.successIcon {
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.successBanner a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* Info Grid */
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+
+.infoBox {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.infoIconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.infoBox h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.infoBox p {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Breakdown Section */
+.breakdownSection {
+  margin-top: 2rem;
+}
+
+.breakdownTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.emptyBreakdown {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+}
+
+.tableToken {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableToken strong {
+  color: #ffffff;
+}
+
+.tableToken span {
+  font-size: 0.75rem;
+  color: #60a5fa;
+}
+
+.tableBadge {
+  display: inline-block;
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+
+.greenBadge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.blueBadge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.tableProgress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 120px;
+}
+
+.tableProgressBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tableProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+
+.tableMcap {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-left: 0.35rem;
+}
+
+.tableTradeLink {
+  color: #60a5fa;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.tableTradeLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1024px) {
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 1.25rem;
+  }
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .claimActionGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+:global(html[data-theme='light']) .card {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(html[data-theme='light']) .title,
+:global(html[data-theme='light']) .amountValue,
+:global(html[data-theme='light']) .subtitle,
+:global(html[data-theme='light']) .amountLabel,
+:global(html[data-theme='light']) .statLabel,
+:global(html[data-theme='light']) .statVal,
+:global(html[data-theme='light']) .feeDetailCard strong,
+:global(html[data-theme='light']) .feeDetailCard p,
+:global(html[data-theme='light']) .tableTitle,
+:global(html[data-theme='light']) .tokensTable th,
+:global(html[data-theme='light']) .tokensTable td {
+  color: #000000 !important;
+}
+
+:global(html[data-theme='light']) .feeDetailCard,
+:global(html[data-theme='light']) .tokensTable thead tr {
+  background: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+:global(html[data-theme='light']) .tokensTable td {
+  border-bottom: 1px solid #000000 !important;
+}

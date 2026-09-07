@@ -1,0 +1,955 @@
+/* Liquidity.module.css – Black glass premium, mobile: token name above input */
+
+.liquidity {
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 0rem;
+  
+}
+
+
+.liquidity h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.card {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.inputSection {
+  margin-bottom: 0.5rem;
+}
+
+/* Switch button */
+.switch {
+  display: flex;
+  justify-content: center;
+  margin: -0.5rem 0;
+  z-index: 2;
+}
+.switch button {
+  background: rgba(25, 25, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.5rem 1rem;
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.switch button:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
+  transform: translateY(-1px);
+}
+.switch button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pool info cards */
+.poolInfo {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.poolStatusRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.existingPool {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  padding: 0.2rem 0.6rem;
+  border-radius: 40px;
+  font-size: 0.7rem;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+.newPool {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  padding: 0.2rem 0.6rem;
+  border-radius: 40px;
+  font-size: 0.7rem;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.reservesInfo {
+  margin-bottom: 0.75rem;
+}
+.reserveItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.25rem 0;
+  color: #cbd5e1;
+}
+.reserveItem span:first-child {
+  color: #94a3b8;
+}
+.reserveItem span:last-child,
+.reserveItem strong {
+  color: #f8fafc;
+  font-weight: 500;
+}
+.suggestButton {
+  width: 100%;
+  background: rgba(25, 25, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 0.5rem;
+}
+.suggestButton:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
+  transform: translateY(-1px);
+}
+.ratioCheck {
+  font-size: 0.75rem;
+  text-align: center;
+}
+.ratioWarning {
+  color: #f59e0b;
+}
+.ratioOk {
+  color: #60a5fa;
+}
+.loadingReserves {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+.newPoolInfo {
+  font-size: 0.75rem;
+  color: #60a5fa;
+}
+.LitVMNote {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+}
+
+/* Advanced Settings */
+.advancedSettings {
+  margin: 1rem 0;
+}
+.advancedSettings summary,
+.advancedSettings .settingsHeader {
+  cursor: pointer;
+  background: rgba(25, 25, 35, 0.6);
+  border-radius: 40px;
+  padding: 0.6rem 1rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  transition: background 0.2s;
+}
+.advancedSettings summary:hover,
+.advancedSettings .settingsHeader:hover {
+  background: rgba(30, 30, 45, 0.8);
+}
+.advancedSettings .settingsContent {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+}
+.advancedSettings .settingsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.advancedSettings .settingsRow label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+.advancedSettings input,
+.advancedSettings select {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.4rem 0.8rem;
+  color: white;
+  outline: none;
+}
+.advancedSettings input:focus,
+.advancedSettings select:focus {
+  border-color: #3b82f6;
+}
+
+/* Allowance Dropdown */
+.allowanceDropdown {
+  margin-top: 1rem;
+}
+.dropdownHeader {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 40px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dropdownHeader:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+.dropdownOpen {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.dropdownHeaderContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dropdownTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dropdownIcon {
+  font-size: 0.7rem;
+}
+.dropdownSummary {
+  display: flex;
+  align-items: center;
+}
+.summaryBadge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 40px;
+}
+.approved {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+.needsApproval {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+.dropdownContent {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  padding: 1rem;
+}
+.allowanceItems {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.allowanceItem {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.75rem;
+}
+.tokenAllowanceInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.tokenInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.tokenSymbol {
+  font-weight: 600;
+  color: white;
+}
+.tokenAddress {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+.allowanceStatus {
+  font-size: 0.75rem;
+}
+.approvedStatus,
+.needsApprovalStatus,
+.checkingStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.statusDetail {
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+.approveButton {
+  background: rgba(59, 130, 246, 0.8);
+  border: none;
+  border-radius: 40px;
+  padding: 0.4rem 1rem;
+  color: white;
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.approveButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #3b82f6;
+}
+.nativeTokenInfo {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 0.75rem;
+}
+.nativeTokenHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.nativeTokenDetails div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  margin-bottom: 0.25rem;
+}
+.autoApproved {
+  color: #60a5fa;
+}
+.allowanceActions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.recheckButton {
+  background: rgba(25, 25, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.recheckButton:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+.allowanceHelp {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+
+/* Main button */
+.mainButton {
+  width: 100%;
+  background: rgba(25, 25, 35, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.9rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 1rem;
+}
+.mainButton:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
+  transform: translateY(-1px);
+  color: white;
+}
+.mainButton.approve {
+  background: rgba(59, 130, 246, 0.8);
+  border-color: #3b82f6;
+  color: white;
+}
+.mainButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Error & network warning */
+.networkWarning {
+  background: rgba(245, 158, 11, 0.15);
+  border-left: 3px solid #f59e0b;
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #fcd34d;
+}
+.error {
+  background: rgba(239, 68, 68, 0.15);
+  border-left: 3px solid #ef4444;
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #fca5a5;
+}
+
+/* Debug info */
+.debugInfo {
+  margin-top: 1rem;
+  font-size: 0.7rem;
+  text-align: center;
+}
+.debugInfo details {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 0.5rem;
+}
+.debugInfo summary {
+  cursor: pointer;
+  color: #60a5fa;
+}
+.debugInfo pre {
+  font-size: 0.6rem;
+  color: #94a3b8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ===== MOBILE FIX: TOKEN SELECTOR ABOVE INPUT ===== */
+@media (max-width: 640px) {
+  .card {
+    padding: 1rem !important;
+  }
+  .liquidity h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Stack token selector on top, amount input below */
+  .tokenInputBox {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+  /* Token selector becomes a full-width block with flex layout inside */
+  .tokenSelector {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+    padding: 0.5rem 1rem !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  .tokenSelector span {
+    max-width: none !important;
+    font-size: 0.9rem !important;
+  }
+  .amountInput {
+    font-size: 1.4rem !important;
+    text-align: left !important;
+    width: 100% !important;
+    padding: 0.25rem 0 !important;
+  }
+  /* Balance info – ensure it appears below input */
+  .balanceInfo {
+    text-align: right !important;
+    margin-top: 0.25rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Compact other elements */
+  .switch button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  .poolInfo {
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  .suggestButton {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  .dropdownHeader {
+    padding: 0.4rem 0.8rem;
+  }
+  .dropdownContent {
+    padding: 0.75rem;
+  }
+  .approveButton {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.7rem;
+  }
+  .mainButton {
+    padding: 0.7rem;
+    font-size: 0.9rem;
+    margin-top: 0.75rem;
+  }
+  .networkWarning,
+  .error {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Extra small screens – further reduce padding */
+@media (max-width: 480px) {
+  .card {
+    padding: 0.75rem !important;
+  }
+  .amountInput {
+    font-size: 1.2rem !important;
+  }
+  .tokenSelector span {
+    font-size: 0.8rem !important;
+  }
+  .switch button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .poolInfo {
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+  }
+  .reserveItem {
+    font-size: 0.75rem;
+  }
+  .suggestButton {
+    padding: 0.4rem;
+    font-size: 0.75rem;
+  }
+  .dropdownHeader {
+    padding: 0.35rem 0.7rem;
+  }
+  .mainButton {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+  }
+  .debugInfo {
+    display: none;
+  }
+}
+
+
+
+/* Advanced Settings Styles */
+.advancedSettings {
+  margin: 1rem 0;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.advancedHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  background: rgba(25, 25, 35, 0.6);
+  border-radius: 40px;
+  transition: background 0.2s;
+}
+
+.advancedHeader:hover {
+  background: rgba(30, 30, 45, 0.8);
+}
+
+.advancedHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.advancedHeaderArrow {
+  display: flex;
+  align-items: center;
+}
+
+.advancedContent {
+  padding: 1rem;
+  margin-top: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+}
+
+.settingGroup {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settingGroup:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settingLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.slippageValue,
+.deadlineValue {
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #3b82f6;
+}
+
+.slippageOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.slippageOption {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.slippageOption:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.slippageOption.activeSlippage {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.customSlippage {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.2rem 0.8rem;
+}
+
+.slippageInput {
+  background: transparent;
+  border: none;
+  width: 60px;
+  color: white;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.slippageInput:focus {
+  border-color: #3b82f6;
+}
+
+.deadlineInputGroup {
+  margin-bottom: 0.75rem;
+}
+
+.deadlineSlider {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  accent-color: #3b82f6;
+}
+
+.deadlineOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.deadlineOption {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 40px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.deadlineOption:hover:not(:disabled) {
+  background: rgba(30, 30, 45, 0.9);
+}
+
+.deadlineOption.activeDeadline {
+  background: #3b82f6;
+  color: white;
+}
+
+.settingDescription {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+.minAmountsGroup {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 0.5rem;
+}
+
+.minAmountItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+  color: #cbd5e1;
+}
+
+.minAmountItem span:first-child {
+  color: #94a3b8;
+}
+
+.minAmountItem span:last-child {
+  color: #f8fafc;
+  font-weight: 500;
+}
+
+.balanceStatusGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.balanceItem {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 0.5rem;
+}
+
+.balanceInfo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: #94a3b8;
+}
+
+.balanceProgress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.balanceProgressBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.balanceProgressFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.balancePercentage {
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+
+.pairContract {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  padding: 0.75rem;
+}
+
+.contractAddress {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.addressLabel {
+  color: #94a3b8;
+}
+
+.addressValue {
+  color: #60a5fa;
+  font-family: monospace;
+}
+
+.etherscanLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: #60a5fa;
+  text-decoration: none;
+  margin-top: 0.5rem;
+  transition: color 0.2s;
+}
+
+.etherscanLink:hover {
+  color: #3b82f6;
+}
+
+/* Responsive adjustments for advanced settings */
+@media (max-width: 640px) {
+  .advancedHeader {
+    padding: 0.5rem 0.75rem;
+  }
+  .advancedHeaderContent {
+    font-size: 0.85rem;
+  }
+  .slippageOption,
+  .deadlineOption {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+  }
+  .customSlippage {
+    padding: 0.1rem 0.6rem;
+  }
+  .slippageInput {
+    width: 50px;
+    font-size: 0.7rem;
+  }
+  .settingLabel {
+    font-size: 0.8rem;
+  }
+  .minAmountItem,
+  .balanceInfo {
+    font-size: 0.7rem;
+  }
+}
+
+
+/* ========== SMART BORDER FOR EVERY BUTTON (Always Visible) ========== */
+
+/* Base button style – ensures all buttons have a visible border */
+.liquidity button,
+.card button,
+.inputSection button,
+.advancedSettings button,
+.allowanceDropdown button,
+.token-select-button,
+.max-button,
+.suggestButton,
+.switch button,
+.mainButton,
+.mainButton.approve,
+.approveButton,
+.recheckButton,
+.slippageOption,
+.deadlineOption,
+.advancedHeader {
+  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  will-change: transform, border-color, background;
+  /* Always visible border (opacity 0.35 = clearly visible but subtle) */
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Hover effect – brighten border and add glow */
+.liquidity button:not(:disabled):hover,
+.card button:not(:disabled):hover,
+.token-select-button:not(:disabled):hover,
+.mainButton:not(:disabled):hover,
+.mainButton.approve:not(:disabled):hover,
+.suggestButton:not(:disabled):hover,
+.switch button:not(:disabled):hover,
+.approveButton:not(:disabled):hover,
+.recheckButton:not(:disabled):hover,
+.slippageOption:not(:disabled):hover,
+.deadlineOption:not(:disabled):hover,
+.advancedHeader:hover {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Active / pressed state – subtle scale down */
+.liquidity button:not(:disabled):active,
+.card button:not(:disabled):active {
+  transform: translateY(1px);
+  transition: transform 0.05s;
+}
+
+/* Active option styles (slippage/deadline) */
+.slippageOption.activeSlippage,
+.deadlineOption.activeDeadline {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.1);
+}
+
+/* Max button specific */
+.max-button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.max-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Focus styles for input classes (no element selectors) */
+.amount-input:focus,
+.slippageInput:focus,
+.deadlineSlider:focus,
+.amountInput:focus {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  outline: none;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+}
+
+/* Dropdown header */
+.dropdownHeader {
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  transition: all 0.2s;
+}
+.dropdownHeader:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Advanced settings header */
+.advancedHeader {
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+.advancedHeader:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
