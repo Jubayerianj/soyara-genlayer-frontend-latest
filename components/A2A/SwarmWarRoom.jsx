@@ -348,11 +348,28 @@ export default function SwarmWarRoom({ mode = 'user' }) {
     } catch (err) {
       console.error('A2A execution failed:', err);
       if (err?.pending) {
+        // Hand it to the settlement queue rather than asking the user to come
+        // back and click again. The verdict rides an external message that is
+        // delivered only on finalization, 15-25 minutes out - "wait a moment"
+        // was off by an order of magnitude, and nothing was watching for it.
+        if (err.pendingOrder && err.pendingProgram && err.commitment) {
+          settlementQueue.enqueue({
+            commitment: err.commitment,
+            order: err.pendingOrder,
+            program: err.pendingProgram,
+            validationTxHash: err.validationTxHash || null,
+            validatedAt: Date.now(),
+            stage: 'finalising',
+            label: 'A2A trade',
+          });
+        }
         setTimeline(prev => [
           ...prev,
           {
             agent: AGENT_REGISTRY.risk,
-            text: `⏳ **Consensus approved this trade.** The verdict is being finalized to the on-chain executor. Please wait a moment and click Execute again.`,
+            text: `⏳ **Consensus approved this trade.** The verdict reaches the executor only once the round `
+              + `can no longer be appealed, roughly **15 to 25 minutes** on Bradbury. It is on the settlement `
+              + `queue now and will execute by itself - no need to wait here or click again.`,
             time: 'Pending Finalization'
           }
         ]);

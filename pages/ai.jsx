@@ -600,23 +600,40 @@ export default function AIPage() {
             validationSubmitted: true,
           };
         }
-        settlementRetryRef.current += 1;
-        const attempt = settlementRetryRef.current;
-        if (attempt <= 8) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: 'assistant',
-              content: `⏳ **Consensus approved this trade. The verdict is being delivered to the executor.**\n\nGenLayer hands a verdict to the settlement contract only once the appeal window has closed, so there is a short wait between approval and the trade becoming executable. Checking again automatically (attempt ${attempt} of 8).`,
-              toolsUsed: ['AgentValidator IC', 'Appeal window'],
-            },
-          ]);
-          setTimeout(() => { handleExecuteRef.current?.(); }, 30000);
-          return;
+        // Hand it to the settlement queue and stop occupying the foreground.
+        //
+        // The queue already polls isVerdictLive every 20s and settles the
+        // moment the verdict lands, surviving a page close. Retrying
+        // handleExecute in the foreground duplicated that badly: each attempt
+        // re-opened a request that itself blocked for the verdict wait, so
+        // eight attempts spanned far longer than the appeal window while the
+        // panel showed one unchanging "Validating" spinner.
+        if (err.pendingOrder && err.pendingProgram && err.commitment) {
+          settlementQueue.enqueue({
+            commitment: err.commitment,
+            order: err.pendingOrder,
+            program: err.pendingProgram,
+            validationTxHash: err.validationTxHash || null,
+            validatedAt: Date.now(),
+            stage: 'finalising',
+            needsApproval: Boolean(needsApproval),
+            label: `${currentProposal?.amountIn ?? ''} ${currentProposal?.tokenIn ?? ''} to ${currentProposal?.tokenOut ?? ''}`.trim(),
+          });
         }
-        setExecutionError(
-          'The consensus verdict has not reached the settlement contract yet. It is approved and will become executable once finalised - try again shortly.'
-        );
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `⏳ **Consensus approved this trade. The verdict is on its way to the executor.**\n\n`
+              + `GenLayer delivers a verdict to the settlement contract only once the round can no longer `
+              + `be appealed, which takes roughly **15 to 25 minutes** on Bradbury. That wait belongs to the `
+              + `network, not to this page.\n\n`
+              + `It is now on your settlement queue below and will execute by itself the moment the verdict `
+              + `lands - you can close this page.`,
+            toolsUsed: ['AgentValidator IC', 'Appeal window', 'Settlement queue'],
+          },
+        ]);
         return;
       }
 

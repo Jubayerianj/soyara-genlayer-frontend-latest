@@ -98,13 +98,18 @@ const ProposalPanel = ({
   // Intelligent Contract delivers its verdict as an external message and those
   // arrive only once the appeal window has closed. Showing one spinner for both
   // would make a correct, expected wait read as a stall.
+  //
+  // `validationResult.pending` means the round was SUBMITTED and we are waiting
+  // for it to finalize - which is the appeal window, not validation. Rendering
+  // it as `validating` is what made a normal 15-25 minute wait look like a
+  // stuck spinner, because the label never changed and no ETA was ever shown.
   const settlementStage = txHash
     ? 'settled'
-    : isExecuting
+    : isExecuting || validationResult?.pending
     ? 'finalising'
     : validationResult?.approved
     ? 'enforceable'
-    : isValidating || validationResult?.pending
+    : isValidating
     ? 'validating'
     : 'quoted';
 
