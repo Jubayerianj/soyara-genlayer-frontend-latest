@@ -18,11 +18,27 @@ import { CONTRACT_ADDRESSES } from '../constants/addresses';
 import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
-import { normaliseAction, assertSettlementRoute } from '../lib/actions';
+import { normaliseAction, assertSettlementRoute, DIRECT_SETTLEMENT } from '../lib/actions';
+import AGGFLOW_ENTRYPOINT_ABI from '../abi/AGGFlowEntrypoint.json';
 import { withNodeRetry, paced, describeTxError, WALLET_ONE_RETRY } from '../lib/nodeRetry';
 import { findUsableMandate, requestMandate, forgetMandate } from '../lib/mandate';
 
-export function useAgentSwapExecution(proposal) {
+/**
+ * @param proposal          the trade the agent decided on
+ * @param options.fastMode  settle directly in one block (default), rather than
+ *                          waiting for a GenLayer verdict.
+ *
+ * fastMode defaults to TRUE because the alternative is not a slightly slower
+ * trade - it is a fifteen to twenty-five minute wait. A verdict reaches the
+ * executor only when its consensus round finalizes, and no part of this app can
+ * shorten that: GenVM's EthSend emission carries no delivery-timing field, while
+ * PostMessage and DeployContract both take one. Per-trade consensus gating and
+ * per-trade speed cannot both be had here.
+ *
+ * Pass { fastMode: false } for the enforced flow, where AgentExecutor refuses to
+ * settle anything consensus has not approved.
+ */
+export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
 
@@ -603,6 +619,63 @@ export function useAgentSwapExecution(proposal) {
         } catch (err) {
           setExecutionError(err.message);
           throw err;
+        }
+
+        // ── FAST PATH: settle directly, in one block ──────────────────────
+        //
+        // The agent has already quoted the route and computed the protection
+        // floor; this signs and sends it. One transaction, one block - the same
+        // thing /swap does, and the same trust model: the user's signature is
+        // what authorises the trade, and the entrypoint's own minAmountOut check
+        // is what protects them.
+        //
+        // It is fast because it does not wait on a GenLayer verdict. A verdict
+        // is delivered to the executor only when its round finalizes, and
+        // nothing in this app can shorten that - EthSend carries no
+        // delivery-timing field. Consensus gating and per-trade speed are
+        // mutually exclusive on this platform, so this is the explicit choice
+        // of speed, not an accident.
+        //
+        // Custody is unaffected: funds move from the user's wallet to the pool
+        // in a transaction they signed, and the output is bound to their own
+        // address. No operator ever holds anything.
+        if (fastMode) {
+          assertSettlementRoute(action, DIRECT_SETTLEMENT);
+
+          const isNativeIn  = tokenInFormatted.isNative;
+          const isNativeOut = tokenOutFormatted.isNative;
+          const swapIntent = [
+            isNativeOut ? zeroAddress : tokenOutFormatted.address,
+            minAmountOutWei,
+            isNativeIn ? zeroAddress : tokenInFormatted.address,
+            amountInWei,
+          ];
+          const feeCollection = [
+            CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E',
+            5n,          // 0.05% platform fee
+            zeroAddress, // no referrer
+            0n,
+            false,
+          ];
+
+          const gasParams = await getTxGasParams(700000n);
+          const hash = await withNodeRetry(() => paced(() => executeSwapAsync({
+            address: entrypointAddress,
+            abi: AGGFLOW_ENTRYPOINT_ABI,
+            functionName: 'executeSwapWithReceiver',
+            args: [swapIntent, feeCollection, programHex, userAddress],
+            value: isNativeIn ? amountInWei : 0n,
+            ...gasParams,
+          })), { label: 'direct swap', ...WALLET_ONE_RETRY });
+
+          setActiveTxHash(hash);
+          return {
+            kind: 'swap',
+            rail: 'direct',
+            hash,
+            amountIn: proposal.amountIn,
+            explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${hash}`,
+          };
         }
 
         // ── Is a mandate ready? Then this trade takes seconds ─────────────
