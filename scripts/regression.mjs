@@ -455,5 +455,53 @@ try {
   eq('so it is distinguishable from never-arrived', dead.expired !== never.expired, true);
 } catch (e) { bad('verdict expiry state', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: the button was disabled for the right reason and said the wrong
+// one.
+//
+// On /ai, `isCheckingAllowance` was tested BEFORE `hasInsufficientBalance`, so
+// somebody with an empty wallet watched "Checking token allowance..." spin
+// rather than being told they had no funds. They reported it as a disabled
+// button with no explanation, which is what it was.
+//
+// Ordering bugs like this are invisible in review - the button IS correctly
+// disabled and the code reads fine - so the precedence is pinned here.
+// ---------------------------------------------------------------------------
+try {
+  const { executionButtonLabel, isExecutionBlocked } = await import(base + 'lib/buttonLabel.js');
+
+  // The exact combination that produced the bug: no funds AND an allowance
+  // check running at the same time.
+  const both = executionButtonLabel({ insufficient: true, checkingAllowance: true, tokenSymbol: 'USDC' });
+  eq('no funds outranks a running allowance check', both.key, 'insufficient');
+  eq('and it names the token', both.text, "Don't have enough USDC");
+
+  // It must also outrank the approval step - approving costs gas and buys
+  // nothing while the wallet is empty.
+  eq('no funds outranks needsApproval',
+     executionButtonLabel({ insufficient: true, needsApproval: true, tokenSymbol: 'USDT' }).key, 'insufficient');
+  eq('no funds outranks approving',
+     executionButtonLabel({ insufficient: true, approving: true, tokenSymbol: 'USDT' }).key, 'insufficient');
+
+  // But a trade already in flight, and a pair that cannot trade at all, both
+  // come first - they are true right now regardless of balance.
+  eq('an in-flight trade is reported over balance',
+     executionButtonLabel({ executing: true, insufficient: true }).key, 'executing');
+  eq('a missing pool is reported over balance',
+     executionButtonLabel({ noPool: true, insufficient: true }).key, 'noPool');
+
+  // An unread balance is its own state, never silently "ready".
+  eq('an unknown balance is not ready',
+     executionButtonLabel({ balanceUnknown: true }).key, 'balanceUnknown');
+  eq('and it blocks the button', isExecutionBlocked({ balanceUnknown: true }), true);
+
+  // Falls back to a sentence that still makes sense with no token name.
+  eq('works without a token symbol',
+     executionButtonLabel({ insufficient: true }).text, "Don't have enough balance");
+
+  eq('nothing wrong means ready', executionButtonLabel({}).key, 'ready');
+  eq('and ready is clickable', isExecutionBlocked({}), false);
+} catch (e) { bad('execution button label precedence', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

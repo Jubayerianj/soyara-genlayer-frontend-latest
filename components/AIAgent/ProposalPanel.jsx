@@ -440,7 +440,11 @@ const ProposalPanel = ({
               <button
                 type="button"
                 onClick={onApprove}
-                disabled={isApproving}
+                // Also refuses when the balance is short. Approving costs real
+                // gas, and an approval for a token you hold none of buys
+                // nothing - the user would pay, wait, and then find the execute
+                // button greyed out anyway.
+                disabled={isApproving || hasInsufficientBalance || isNotExecutable}
                 style={{
                   background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                   border: 'none',
@@ -462,6 +466,10 @@ const ProposalPanel = ({
                     <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
                     Approving {proposal.tokenIn}...
                   </>
+                ) : hasInsufficientBalance ? (
+                  `Don't have enough ${proposal.tokenIn}`
+                ) : isNotExecutable ? (
+                  'No Liquidity Pool for This Pair'
                 ) : (
                   `1. Approve ${proposal.tokenIn} (one time)`
                 )}
@@ -495,15 +503,21 @@ const ProposalPanel = ({
                   <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
                   Settling on Soyara DEX...
                 </>
+              ) : isNotExecutable ? (
+                'No Liquidity Pool for This Pair'
+              ) : hasInsufficientBalance ? (
+                // Checked BEFORE the allowance spinner. It used to come after,
+                // so someone with an empty wallet watched "Checking token
+                // allowance..." instead of being told the actual problem - and
+                // if that check was slow they never saw the reason at all.
+                // Having no funds outranks every other state: nothing else
+                // matters until it is fixed.
+                `Don't have enough ${proposal.tokenIn}`
               ) : isCheckingAllowance ? (
                 <>
                   <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
                   Checking token allowance...
                 </>
-              ) : isNotExecutable ? (
-                'No Liquidity Pool for This Pair'
-              ) : hasInsufficientBalance ? (
-                `Don't have enough ${proposal.tokenIn}`
               ) : (
                 needsApproval ? '2. Execute Trade (Approve First)' : 'Confirm & Execute on GenLayer'
               )}
