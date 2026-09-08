@@ -212,7 +212,27 @@ export function useSettlementQueue({ enabled = true } = {}) {
             continue;
           }
 
-          // Not live yet, so there is nothing to do but wait.
+          // Not live yet - so DRIVE it, rather than only watching.
+          //
+          // A GenLayer round sits in Accepted until someone calls finalize, and
+          // nothing in the protocol does. The verdict rides an external message
+          // delivered only at finalization, so an unfinalized round produces a
+          // verdict that never reaches the executor and a trade that waits on
+          // an approval consensus already granted.
+          //
+          // This queue is the only thing that outlives a single request and
+          // keeps polling these rounds, so it is the keeper. The server gates
+          // the attempt (nothing before the appeal window could have closed, at
+          // most once a minute per round), which is why calling it on every
+          // tick is cheap.
+          if (entry.validationTxHash) {
+            fetch('/api/finalize-round', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ txHash: entry.validationTxHash, submittedAt: entry.validatedAt || entry.createdAt }),
+            }).catch(() => { /* the next tick tries again */ });
+          }
+
           //
           // There used to be an attempt here at a faster rail, where attestors
           // read the verdict the IC had recorded and signed it for the executor
