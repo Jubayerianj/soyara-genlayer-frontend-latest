@@ -19,6 +19,7 @@ import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
 import { normaliseAction, assertSettlementRoute } from '../lib/actions';
+import { withNodeRetry } from '../lib/nodeRetry';
 
 export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
@@ -528,26 +529,26 @@ export function useAgentSwapExecution(proposal) {
 
       if (isWrapOp) {
         const gasParams = await getTxGasParams(200000n);
-        const hash = await executeSwapAsync({
+        const hash = await withNodeRetry(() => executeSwapAsync({
           address: wgenAddress,
           abi: [{ type: 'function', name: 'deposit', inputs: [], outputs: [], stateMutability: 'payable' }],
           functionName: 'deposit',
           value: amountInWei,
           ...gasParams,
-        });
+        }), { label: 'agent wrap' });
         setActiveTxHash(hash);
         return { kind: 'wrap', hash, amountIn: proposal.amountIn };
       }
 
       if (isUnwrapOp) {
         const gasParams = await getTxGasParams(200000n);
-        const hash = await executeSwapAsync({
+        const hash = await withNodeRetry(() => executeSwapAsync({
           address: wgenAddress,
           abi: [{ type: 'function', name: 'withdraw', inputs: [{ name: 'wad', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
           functionName: 'withdraw',
           args: [amountInWei],
           ...gasParams,
-        });
+        }), { label: 'agent unwrap' });
         setActiveTxHash(hash);
         return { kind: 'unwrap', hash, amountIn: proposal.amountIn };
       }

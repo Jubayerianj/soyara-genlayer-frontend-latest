@@ -9,6 +9,7 @@ import { DEX_CONFIG } from '../../constants/dex';
 import { buildProgram } from '../../utils/programBuilder';
 import AGGFLOW_ENTRYPOINT_ABI from '../../abi/AGGFlowEntrypoint.json';
 import { ERC20_ABI } from '../../constants/abis';
+import { withNodeRetry, describeTxError } from '../../lib/nodeRetry';
 
 const FEE_COLLECTOR = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
 const FEE_BPS = 5n; // 0.05%
@@ -117,7 +118,7 @@ export function useSwap({
         show: true,
         status: 'error',
         txHash: activeTxHash,
-        message: txReceiptError?.shortMessage || txReceiptError?.message || 'Transaction failed',
+        message: describeTxError(txReceiptError, 'Transaction'),
       }));
     }
   }, [activeTxHash, isTxSuccess, isTxError, txReceiptError, refetchBalances, refetchAllowance]);
@@ -170,12 +171,18 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(400000n);
-      const hash = await approveWriteAsync({
+      const hash = await withNodeRetry(() => approveWriteAsync({
         address: fromToken.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [activeSpender, amountInWei],
         ...gasParams,
+      }), {
+        label: 'approve',
+        onRetry: ({ attempt, max }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'approval',
+          message: `Node busy, retrying approval (${attempt}/${max}). Your wallet will ask again.`,
+        }),
       });
 
       setActiveTxHash(hash);
@@ -193,7 +200,7 @@ export function useSwap({
         show: true,
         status: 'error',
         txHash: null,
-        message: err?.shortMessage || err?.message || 'Approval rejected by user',
+        message: describeTxError(err, 'Approval'),
         type: 'approval',
       });
     }
@@ -273,7 +280,7 @@ export function useSwap({
         }
       } catch {}
 
-      const hash = await swapWriteAsync({
+      const hash = await withNodeRetry(() => swapWriteAsync({
         address: entrypointAddress,
         abi: AGGFLOW_ENTRYPOINT_ABI,
         functionName: isCustomReceiver ? 'executeSwapWithReceiver' : 'executeSwap',
@@ -282,6 +289,12 @@ export function useSwap({
           : [swapIntent, feeCollection, program],
         value: fromToken.isNative ? amountInWei : 0n,
         ...gasParams,
+      }), {
+        label: 'swap',
+        onRetry: ({ attempt, max }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'swap',
+          message: `Node busy, retrying swap (${attempt}/${max}). Your wallet will ask again.`,
+        }),
       });
 
       setActiveTxHash(hash);
@@ -299,7 +312,7 @@ export function useSwap({
         show: true,
         status: 'error',
         txHash: null,
-        message: err?.shortMessage || err?.message || 'Transaction rejected by user',
+        message: describeTxError(err, 'Swap'),
         type: 'swap',
       });
     }
@@ -336,12 +349,18 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(200000n);
-      const hash = await wrapWriteAsync({
+      const hash = await withNodeRetry(() => wrapWriteAsync({
         address: wethAddress,
         abi: WETH_ABI,
         functionName: 'deposit',
         value: amountInWei,
         ...gasParams,
+      }), {
+        label: 'wrap',
+        onRetry: ({ attempt, max }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'wrap',
+          message: `Node busy, retrying wrap (${attempt}/${max}). Your wallet will ask again.`,
+        }),
       });
 
       setActiveTxHash(hash);
@@ -358,7 +377,7 @@ export function useSwap({
         show: true,
         status: 'error',
         txHash: null,
-        message: err?.shortMessage || err?.message || 'Wrap transaction rejected',
+        message: describeTxError(err, 'Wrap'),
         type: 'wrap',
       });
     }
@@ -379,12 +398,18 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(200000n);
-      const hash = await unwrapWriteAsync({
+      const hash = await withNodeRetry(() => unwrapWriteAsync({
         address: wethAddress,
         abi: WETH_ABI,
         functionName: 'withdraw',
         args: [amountInWei],
         ...gasParams,
+      }), {
+        label: 'unwrap',
+        onRetry: ({ attempt, max }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'unwrap',
+          message: `Node busy, retrying unwrap (${attempt}/${max}). Your wallet will ask again.`,
+        }),
       });
 
       setActiveTxHash(hash);
@@ -401,7 +426,7 @@ export function useSwap({
         show: true,
         status: 'error',
         txHash: null,
-        message: err?.shortMessage || err?.message || 'Unwrap transaction rejected',
+        message: describeTxError(err, 'Unwrap'),
         type: 'unwrap',
       });
     }

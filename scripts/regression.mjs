@@ -154,5 +154,76 @@ try {
   }
 } catch (e) { bad('liquidity commitment', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: a busy node read as a broken contract.
+//
+// Bradbury rate-limits by gas throughput and refuses eth_sendRawTransaction
+// with -32005 plus a retryAfterMs hint. The transaction is never submitted and
+// nothing reverts, but viem wraps it as a ContractFunctionExecutionError, so
+// the /swap page told users:
+//
+//   The contract function "deposit" reverted with the following reason: ...
+//
+// Both halves are false, and it was reported as wrap being broken. The server
+// routes had retried this for months; no client write did.
+// ---------------------------------------------------------------------------
+try {
+  const { isNodeThrottle, retryDelayFrom, isUserRejection, describeTxError, withNodeRetry } =
+    await import(base + 'lib/nodeRetry.js');
+
+  // The exact strings the node and viem produced, from the two user reports.
+  const wrapErr = {
+    shortMessage: 'The contract function "deposit" reverted with the following reason:',
+    message: 'RPC 0x107d Custom eth_sendRawTransaction: server returned an error response: '
+      + 'error code -32005: transaction gas rate limit exceeded: node is at capacity, '
+      + 'retry in ~562ms, data: {"retryAfterMs":562}',
+  };
+  const swapErr = {
+    shortMessage: 'The contract function "executeSwap" reverted with the following reason:',
+    message: 'error code -32005: transaction gas rate limit exceeded: node is at capacity, '
+      + 'retry in ~632ms, data: {"retryAfterMs":632}',
+  };
+
+  eq('throttle detected despite the "reverted" wrapper (wrap)', isNodeThrottle(wrapErr), true);
+  eq('throttle detected despite the "reverted" wrapper (swap)', isNodeThrottle(swapErr), true);
+
+  // The node's own hint must be honoured, not a fixed sleep.
+  const d = retryDelayFrom(wrapErr, 0);
+  eq('waits at least the hinted 562ms', d >= 562, true);
+  eq('and does not sleep absurdly long', d <= 8000, true);
+  eq('backs off further on later attempts', retryDelayFrom(wrapErr, 2) > d, true);
+
+  // A throttle must never be described as a revert.
+  const msg = describeTxError(wrapErr, 'Wrap');
+  eq('throttle is not called a revert', /revert/i.test(msg), false);
+  eq('throttle names the real cause', /capacity/i.test(msg), true);
+
+  // A declined signature must NOT be retried at the user.
+  const declined = { shortMessage: 'User rejected the request.', code: 4001 };
+  eq('user rejection recognised', isUserRejection(declined), true);
+  eq('user rejection is not a throttle', isNodeThrottle(declined), false);
+
+  let calls = 0;
+  await withNodeRetry(async () => { calls += 1; throw declined; }, { label: 't', max: 3 })
+    .catch(() => {});
+  eq('a declined signature is asked exactly once', calls, 1);
+
+  // A throttle recovers without the caller knowing.
+  calls = 0;
+  const out = await withNodeRetry(async () => {
+    calls += 1;
+    if (calls < 3) throw { ...wrapErr, message: 'retry in ~1ms, {"retryAfterMs":1}' };
+    return '0xdeadbeef';
+  }, { label: 't', max: 3 });
+  eq('throttled send eventually succeeds', out, '0xdeadbeef');
+  eq('and it took the retries to get there', calls, 3);
+
+  // A real revert must still fail fast rather than being retried.
+  calls = 0;
+  const real = { shortMessage: 'execution reverted: INSUFFICIENT_OUTPUT_AMOUNT' };
+  await withNodeRetry(async () => { calls += 1; throw real; }, { label: 't', max: 3 }).catch(() => {});
+  eq('a genuine revert is not retried', calls, 1);
+} catch (e) { bad('node throttle handling', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

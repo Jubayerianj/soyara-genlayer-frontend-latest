@@ -6,6 +6,7 @@ import { useReadContract, useWriteContract } from 'wagmi';
 import { ERC20_ABI } from '../../constants/abis';
 
 import { parseUnits } from '../../components/utils/format';
+import { withNodeRetry } from '../../lib/nodeRetry';
 
 export const useApproval = (token, spender, amount) => {
   const { writeContractAsync, isPending } = useWriteContract();
@@ -41,12 +42,12 @@ export const useApproval = (token, spender, amount) => {
     }
 
     try {
-      const txHash = await writeContractAsync({
+      const txHash = await withNodeRetry(() => writeContractAsync({
         address: token.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spender, parseUnits(amount, token.decimals)],
-      });
+      }), { label: 'approve' });
       
       return txHash;
     } catch (error) {
@@ -62,12 +63,12 @@ export const useApproval = (token, spender, amount) => {
     }
 
     try {
-      const txHash = await writeContractAsync({
+      const txHash = await withNodeRetry(() => writeContractAsync({
         address: token.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spender, 2n ** 256n - 1n], // Max uint256
-      });
+      }), { label: 'approve-infinite' });
       
       return txHash;
     } catch (error) {
