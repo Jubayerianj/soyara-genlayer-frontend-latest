@@ -426,7 +426,7 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
     if (hasInsufficientBalance) {
       const sym = fromTokenObj?.symbol || 'token';
       const err = new Error(
-        `Insufficient ${sym} balance for this trade. Reduce the amount and request a fresh quote.`
+        `Don't have enough ${sym} for this trade. Reduce the amount and request a fresh quote.`
       );
       err.insufficientBalance = true;
       setExecutionError(err.message);

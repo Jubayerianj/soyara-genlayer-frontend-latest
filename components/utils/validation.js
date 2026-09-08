@@ -129,7 +129,7 @@ export const validateSwapInputs = ({
       const formattedBalance = parseFloat(balanceFormatted).toFixed(6);
       return {
         isValid: false,
-        message: `Insufficient balance. Available: ${formattedBalance} ${fromToken.symbol}`,
+        message: `Don't have enough ${fromToken.symbol}. You have ${formattedBalance}.`,
         field: 'balance',
         code: 'INSUFFICIENT_BALANCE'
       };
@@ -709,7 +709,7 @@ export const formatValidationError = (error, chainId = 4441) => {
     'INVALID_AMOUNT': 'Invalid amount',
     'INVALID_AMOUNT_FORMAT': 'Invalid amount format',
     'ZERO_AMOUNT': 'Amount must be greater than 0',
-    'INSUFFICIENT_BALANCE': 'Insufficient balance',
+    'INSUFFICIENT_BALANCE': "Don't have enough balance",
     'QUOTE_LOADING': 'Please wait for quote...',
     'BELOW_MINIMUM_WARNING': 'Expected output below minimum (warning)',
     'NO_LIQUIDITY_WARNING': 'No liquidity found (try anyway)',
@@ -811,7 +811,7 @@ export const validateSimpleSwap = ({
     try {
       const parsedAmount = parseUnits(fromAmount, fromToken.decimals || 18);
       if (parsedAmount > fromTokenBalance) {
-        return { isValid: false, message: 'Insufficient balance' };
+        return { isValid: false, message: "Don't have enough balance" };
       }
     } catch (error) {
       // If we can't parse, still allow (contract will handle)

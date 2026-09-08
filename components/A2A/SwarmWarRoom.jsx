@@ -610,7 +610,7 @@ Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct p
               {isNotExecutable
                 ? 'No Liquidity Pool for This Pair'
                 : hasInsufficientBalance
-                ? `Insufficient ${proposalForExecution?.tokenIn || 'Token'} Balance`
+                ? `Don't have enough ${proposalForExecution?.tokenIn || 'balance'}`
                 : execState === 'approving'
                 ? `Approving ${proposalForExecution?.tokenIn}...`
                 : execState === 'executing' || isTxWaiting

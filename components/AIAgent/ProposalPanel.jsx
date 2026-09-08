@@ -503,7 +503,7 @@ const ProposalPanel = ({
               ) : isNotExecutable ? (
                 'No Liquidity Pool for This Pair'
               ) : hasInsufficientBalance ? (
-                `Insufficient ${proposal.tokenIn} Balance`
+                `Don't have enough ${proposal.tokenIn}`
               ) : (
                 needsApproval ? '2. Execute Trade (Approve First)' : 'Confirm & Execute on GenLayer'
               )}

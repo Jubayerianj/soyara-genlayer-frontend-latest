@@ -18,6 +18,10 @@ const SwapActionButton = ({
   priceImpact = 0,
   needsApproval = false,
   approvalToken = null,
+  // The token being sold, so an insufficient balance can name it. Without this
+  // the button said only "Insufficient Balance" and a user holding several
+  // tokens could not tell which one was short.
+  fromTokenSymbol = null,
   chainId = 4221, // Default to GenLayer
   isConnected,
   ...props
@@ -103,9 +107,21 @@ const SwapActionButton = ({
           className: 'primary',
           showSpinner: false
         };
+      case 'loading_balance':
+        return {
+          text: 'Checking balance...',
+          icon: <Wallet size={18} />,
+          className: 'disabled',
+          showSpinner: true
+        };
       case 'insufficient_balance':
         return {
-          text: 'Insufficient Balance',
+          // Says what is wrong rather than only refusing. A greyed-out button
+          // with no reason is the most common way people conclude an app is
+          // broken when in fact they simply have nothing to trade with.
+          text: fromTokenSymbol
+            ? `Don't have enough ${fromTokenSymbol}`
+            : "Don't have enough balance",
           icon: <AlertTriangle size={18} />,
           className: 'disabled',
           showSpinner: false

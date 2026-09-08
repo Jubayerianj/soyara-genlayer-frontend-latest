@@ -1536,6 +1536,7 @@ const Swap = ({ referrerAddress, referrerFeeBps = 0n, initialFromToken, initialT
             tooltip={buttonState.tooltip}
             needsApproval={needsApproval}
             approvalToken={fromToken?.symbol}
+            fromTokenSymbol={fromToken?.symbol}
             isConnected={isConnected}
           />
         </div>

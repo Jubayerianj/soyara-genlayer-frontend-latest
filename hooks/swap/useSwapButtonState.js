@@ -98,7 +98,25 @@ export const useSwapButtonState = ({
     }
 
     // Check balance
+    // A balance we have not read yet is not a balance we know is sufficient.
+    //
+    // Both branches below used to be wrapped in "if the balance is loaded",
+    // so while it was still loading the check was skipped entirely and the
+    // button went live. Someone with an empty wallet could click Swap and get
+    // a revert instead of being told the plain reason. Waiting is a state of
+    // its own, and it is not "ready".
     const isFromNative = fromToken.isNative || fromToken.symbol === 'GEN';
+    const balanceKnown = isFromNative
+      ? (ethBalance !== undefined && ethBalance !== null)
+      : (fromTokenBalance !== undefined && fromTokenBalance !== null);
+
+    if (!balanceKnown) {
+      state = 'loading_balance';
+      isDisabled = true;
+      tooltip = `Checking your ${fromToken.symbol || 'token'} balance...`;
+      return { state, isDisabled, tooltip, needsConfirmation };
+    }
+
     if (isFromNative) {
       if (ethBalance !== undefined && ethBalance !== null) {
         const ethBalanceNum = parseFloat(formatUnits(ethBalance, 18));
