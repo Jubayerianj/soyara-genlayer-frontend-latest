@@ -9,7 +9,7 @@ import { DEX_CONFIG } from '../../constants/dex';
 import { buildProgram } from '../../utils/programBuilder';
 import AGGFLOW_ENTRYPOINT_ABI from '../../abi/AGGFlowEntrypoint.json';
 import { ERC20_ABI } from '../../constants/abis';
-import { withNodeRetry, describeTxError, WALLET_NO_RETRY } from '../../lib/nodeRetry';
+import { withNodeRetry, describeTxError, describeSimulationFailure, WALLET_NO_RETRY } from '../../lib/nodeRetry';
 
 const FEE_COLLECTOR = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
 const FEE_BPS = 5n; // 0.05%
@@ -124,7 +124,16 @@ export function useSwap({
   }, [activeTxHash, isTxSuccess, isTxError, txReceiptError, refetchBalances, refetchAllowance]);
 
   // ---------- Gas Fee Helper ----------
-  const getTxGasParams = useCallback(async (fallbackGasLimit = 3500000n) => {
+  // Gas we ask for is not free to ask for.
+  //
+  // Bradbury rate-limits by GAS THROUGHPUT ("transaction gas rate limit
+  // exceeded: node is at capacity"), so an oversized limit consumes an
+  // oversized share of that budget and gets refused even when the node would
+  // happily take the real transaction. A single-hop AGGFlow swap costs roughly
+  // 200-300k and a multi-hop one 400-500k; this fallback was 3,500,000, more
+  // than ten times what any of these calls use, and it was reached silently
+  // whenever gas estimation failed.
+  const getTxGasParams = useCallback(async (fallbackGasLimit = 700000n) => {
     let params = {
       gas: fallbackGasLimit,
     };
@@ -238,7 +247,7 @@ export function useSwap({
     });
 
     try {
-      const gasParams = await getTxGasParams(3500000n);
+      const gasParams = await getTxGasParams(700000n);
       const program = buildProgram(fromToken, toToken, route, wethAddress);
       const swapIntent = [
         toToken.isNative ? zeroAddress : toToken.address,
@@ -256,8 +265,19 @@ export function useSwap({
 
       const isCustomReceiver = targetReceiver && targetReceiver.toLowerCase() !== userAddress.toLowerCase();
 
-      try {
-        if (publicClient && userAddress) {
+      // Estimate, and treat a FAILED estimate as information rather than as
+      // nothing.
+      //
+      // This used to be `.catch(() => null)` followed by a silent fall back to
+      // a 3.5M gas limit. But estimation failing almost always means the
+      // transaction would revert - most often the entrypoint is not approved
+      // for this token, or the route went stale. Swallowing that sent a
+      // doomed transaction with an enormous gas limit, which the node's gas
+      // rate limiter refused, and the user was told the node was busy when
+      // their actual problem was an allowance.
+      let estimateError = null;
+      if (publicClient && userAddress) {
+        try {
           const simGas = await publicClient.estimateContractGas({
             address: entrypointAddress,
             abi: AGGFLOW_ENTRYPOINT_ABI,
@@ -267,12 +287,29 @@ export function useSwap({
               : [swapIntent, feeCollection, program],
             value: fromToken.isNative ? amountInWei : 0n,
             account: userAddress,
-          }).catch(() => null);
+          });
           if (simGas && simGas > 0n) {
-            gasParams.gas = (simGas * 130n) / 100n;
+            // Headroom for the route moving between estimate and inclusion,
+            // capped so a strange estimate cannot reintroduce a huge request.
+            const withHeadroom = (simGas * 130n) / 100n;
+            gasParams.gas = withHeadroom > 1200000n ? 1200000n : withHeadroom;
           }
+        } catch (e) {
+          estimateError = e;
         }
-      } catch {}
+      }
+
+      if (estimateError) {
+        console.warn('[swap] gas estimation failed - the swap would likely revert:', estimateError?.shortMessage || estimateError?.message);
+        setTransactionStatus({
+          show: true,
+          status: 'error',
+          txHash: null,
+          message: describeSimulationFailure(estimateError, fromToken?.symbol),
+          type: 'swap',
+        });
+        return;
+      }
 
       const hash = await withNodeRetry(() => swapWriteAsync({
         address: entrypointAddress,

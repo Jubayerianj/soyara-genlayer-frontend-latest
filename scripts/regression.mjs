@@ -261,5 +261,34 @@ try {
   eq('an absent receipt does not throw', roundStatusName(undefined), null);
 } catch (e) { bad('receipt status field', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: an allowance problem reported as node congestion.
+//
+// The swap asked for 3,500,000 gas - more than ten times what an AGGFlow swap
+// uses - because gas estimation was `.catch(() => null)` into that fallback.
+// Estimation fails mainly when the transaction WOULD revert, most often an
+// unapproved token. Bradbury rate-limits by gas throughput, so the oversized
+// request was refused, and the user was told the node was at capacity while
+// their real problem was an allowance they could have fixed in one click.
+// ---------------------------------------------------------------------------
+try {
+  const { describeSimulationFailure } = await import(base + 'lib/nodeRetry.js');
+
+  const allowance = { shortMessage: 'execution reverted: ERC20: transfer amount exceeds allowance' };
+  const msg = describeSimulationFailure(allowance, 'USDT');
+  eq('an allowance failure names the allowance', /approve/i.test(msg), true);
+  eq('and does not blame the node', /capacity|busy/i.test(msg), false);
+  eq('and names the token', /USDT/.test(msg), true);
+
+  const balance = describeSimulationFailure({ shortMessage: 'transfer amount exceeds balance' }, 'USDT');
+  eq('a balance failure names the balance', /Not enough USDT/i.test(balance), true);
+
+  const slip = describeSimulationFailure({ shortMessage: 'execution reverted: INSUFFICIENT_OUTPUT_AMOUNT' });
+  eq('a slippage failure says the price moved', /slippage|price moved/i.test(slip), true);
+
+  eq('an unknown failure still says it was not submitted',
+     /not submitted/i.test(describeSimulationFailure({ shortMessage: 'weird' })), true);
+} catch (e) { bad('simulation failure messages', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);
