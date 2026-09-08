@@ -72,6 +72,27 @@ export default async function handler(req, res) {
 
   // ── A live mandate is the whole point: check before spending a round ──────
   if (lookupMandateId) {
+    // Every poll also DRIVES finalization, and that is not incidental.
+    //
+    // A GenLayer round sits in Accepted until somebody calls finalize, and the
+    // mandate's recordMandate message is delivered only at that point. This
+    // route used to nudge exactly once, immediately after issuing - when the
+    // round was zero seconds old and the gate correctly refused it as far too
+    // early - and then nothing ever called again. The round was approved by
+    // consensus and simply never delivered, so a perfectly good mandate stayed
+    // invisible forever.
+    //
+    // finalizeRound gates itself (nothing before the appeal window could have
+    // closed, at most once a minute per round), so calling it on every poll is
+    // cheap and is what eventually lands the mandate.
+    if (req.body?.roundTxHash) {
+      const k = process.env.AGENT_PRIVATE_KEY;
+      if (k) {
+        const acct = privateKeyToAccount(k.startsWith('0x') ? k : `0x${k}`);
+        finalizeRound(req.body.roundTxHash, acct, req.body.roundSubmittedAt).catch(() => {});
+      }
+    }
+
     try {
       const [live, m] = await Promise.all([
         publicClient.readContract({ address: executor, abi: AGENT_EXECUTOR_ABI, functionName: 'isMandateLive', args: [lookupMandateId] }),
@@ -157,7 +178,11 @@ export default async function handler(req, res) {
       ...result,
       // The caller polls with this until `live` turns true, then trades with it.
       mandateId,
-      note: 'A mandate becomes usable once its round finalizes. Poll this route with mandateId.',
+      // Poll with these so each check also nudges the round toward
+      // finalization; without that nothing ever delivers the mandate.
+      roundTxHash: result?.txHash || null,
+      roundSubmittedAt: Date.now(),
+      note: 'A mandate becomes usable once its round finalizes. Poll this route with mandateId and roundTxHash.',
     });
   } catch (err) {
     console.error('[agent-mandate] failed:', err?.shortMessage || err?.message);

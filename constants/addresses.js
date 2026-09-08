@@ -33,7 +33,7 @@ export const CONTRACT_ADDRESSES = {
     // signs covers the whole order - route, fee, fee collector, user and the
     // validated quote. The two are bound to each other, so they must be replaced
     // together: the IC holds the executor address, and the executor holds the IC's.
-    agentValidator: "0x0c4F0F784cC06fb6964e2C9Ab4704ebfB4d64cFb",
+    agentValidator: "0xd1D809A1210cc039AEdBF5cD04628416Ad0e6a92",
     liquidityValidator: "0xEFb9473B5269A79d72Df4b6E73E310791a185eeC",
     // AgentExecutor - deployed 2026-09-04 on GenLayer Bradbury Testnet (chain 4221)
     // Tx: broadcast/deployGenlayer.sol/4221/run-latest.json
@@ -43,7 +43,7 @@ export const CONTRACT_ADDRESSES = {
 };
 
 export const INTELLIGENT_CONTRACTS = {
-  agentValidator: "0x0c4F0F784cC06fb6964e2C9Ab4704ebfB4d64cFb",
+  agentValidator: "0xd1D809A1210cc039AEdBF5cD04628416Ad0e6a92",
   liquidityValidator: "0xEFb9473B5269A79d72Df4b6E73E310791a185eeC"
 };
 
