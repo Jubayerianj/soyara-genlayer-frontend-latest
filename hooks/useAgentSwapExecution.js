@@ -194,12 +194,27 @@ export function useAgentSwapExecution(proposal) {
     if (!publicClient) return params;
     try {
       const block = await publicClient.getBlock({ blockTag: 'latest' }).catch(() => null);
-      const baseFee = block?.baseFeePerGas ?? 1000000000n;
-      params.maxFeePerGas = (baseFee * 180n) / 100n + 1000000000n;
-      params.maxPriorityFeePerGas = 1000000000n;
+      const baseFee = block?.baseFeePerGas ?? 100000000n; // ~0.1 gwei, the observed Bradbury base fee
+      // Fees derived from the chain's ACTUAL base fee.
+      //
+      // This used to send maxPriorityFeePerGas = 1 gwei with an 8 gwei
+      // maxFeePerGas fallback. Bradbury's base fee is about 0.098 gwei, so the
+      // tip alone was ten times the entire base fee and the fallback ceiling
+      // was eighty times it. The node limits by GAS RATE, and an inflated fee
+      // makes every transaction look far larger than it is - while also
+      // overpaying for it.
+      //
+      // Standard EIP-1559 sizing instead: a tip that is a small fraction of the
+      // base fee, and a ceiling of twice the base fee plus that tip, which
+      // absorbs several blocks of base-fee growth.
+      const tip = baseFee / 10n > 0n ? baseFee / 10n : 100000n;
+      params.maxPriorityFeePerGas = tip;
+      params.maxFeePerGas = baseFee * 2n + tip;
     } catch {
-      params.maxFeePerGas = 8000000000n;
-      params.maxPriorityFeePerGas = 1000000000n;
+      // No block available. Size from the observed base fee (~0.1 gwei)
+      // rather than the old 8 gwei, which was eighty times too high.
+      params.maxPriorityFeePerGas = 10000000n;   // 0.01 gwei
+      params.maxFeePerGas = 300000000n;          // 0.3 gwei
     }
     return params;
   }, [publicClient]);
