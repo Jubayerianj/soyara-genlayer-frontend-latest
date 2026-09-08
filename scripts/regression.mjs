@@ -415,5 +415,45 @@ try {
   eq('WALLET_NO_RETRY still never re-prompts', prompts, 1);
 } catch (e) { bad('wallet retry policy', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: an EXPIRED verdict reported forever as "still finalising".
+//
+// isVerdictLive() is false both for a verdict that has not arrived and one that
+// arrived and aged out. Callers collapsed that into pending: !live, so an
+// expired approval was described as a round still in progress. Because the
+// commitment is derived from the order's fields, retrying rebuilt the same
+// identifier, found the same dead entry, and said "in progress" again - an
+// infinite wait for something that already came and went.
+//
+// Measured on chain: commitment 0x582f7f9a... had verdictExpiry 1788867679
+// against a chain time of 1788868987. Recorded, then expired 21.8 minutes
+// earlier, while the app kept telling the user to retry shortly.
+// ---------------------------------------------------------------------------
+try {
+  const { readVerdictState } = await import(base + 'lib/verdict.js');
+  const now = Math.floor(Date.now() / 1000);
+  const abi = [];
+
+  const clientReturning = (live, expiry) => ({
+    readContract: async ({ functionName }) =>
+      functionName === 'isVerdictLive' ? live : BigInt(expiry),
+  });
+
+  const never = await readVerdictState({ publicClient: clientReturning(false, 0), executor: '0x', abi, commitment: '0x' });
+  eq('never recorded is not expired', never.expired, false);
+  eq('and is not live', never.live, false);
+  eq('and is marked as never recorded', never.everRecorded, false);
+
+  const live = await readVerdictState({ publicClient: clientReturning(true, now + 3600), executor: '0x', abi, commitment: '0x' });
+  eq('a live verdict is live', live.live, true);
+  eq('and is not expired', live.expired, false);
+
+  // The exact on-chain values that produced the infinite wait.
+  const dead = await readVerdictState({ publicClient: clientReturning(false, now - 1308), executor: '0x', abi, commitment: '0x' });
+  eq('a lapsed verdict is EXPIRED, not pending', dead.expired, true);
+  eq('and is known to have been recorded', dead.everRecorded, true);
+  eq('so it is distinguishable from never-arrived', dead.expired !== never.expired, true);
+} catch (e) { bad('verdict expiry state', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

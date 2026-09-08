@@ -641,6 +641,10 @@ export function useAgentSwapExecution(proposal) {
           // will pick the verdict up; surfacing this as a hard error would tell
           // the user their trade failed when it is simply still settling.
           err.pending = Boolean(agentResult.pending);
+          // An expired verdict must never be reported as pending: waiting on it
+          // is an infinite wait for an approval that already lapsed.
+          err.verdictExpired = Boolean(agentResult.verdictExpired);
+          if (err.verdictExpired) err.pending = false;
           err.commitment = agentResult.commitment;
           // Everything needed to resume THIS settlement. Retrying without them
           // would re-quote, rebuild the route, and end up waiting on a

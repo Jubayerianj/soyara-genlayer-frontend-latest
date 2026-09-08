@@ -599,6 +599,21 @@ export default function AIPage() {
       // The retry MUST carry the order back, or it would re-quote, rebuild the
       // route, and end up waiting on a different identifier from the one
       // consensus is finalising.
+      if (err?.verdictExpired) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `⌛ **That approval expired before it could settle.**\n\n`
+              + `GenLayer approved the trade, but a verdict is time-boxed so it cannot be spent `
+              + `against a stale price. Nothing was spent and nothing moved.\n\n`
+              + `Ask me for the trade again and I will run a fresh round on a current quote.`,
+            toolsUsed: ['AgentValidator IC', 'Verdict TTL'],
+          },
+        ]);
+        return;
+      }
+
       if (err?.pending) {
         if (err.pendingOrder && err.pendingProgram) {
           settlementHandoffRef.current = {

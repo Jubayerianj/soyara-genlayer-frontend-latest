@@ -51,7 +51,7 @@ import { CONTRACT_ADDRESSES } from '../../constants/addresses.js';
 import { validateSwapOrder, finalizeRound } from '../../lib/genlayer.js';
 import { leaseAgent } from '../../lib/agentPool.js';
 import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swapOrder.js';
-import { obtainVerdict, isVerdictLive, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
+import { obtainVerdict, isVerdictLive, readVerdictState, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
 
 // GenLayer Bradbury Testnet chain config (chain ID 4221)
 const genLayerBradbury = {
@@ -274,6 +274,30 @@ export default async function handler(req, res) {
     const alreadyLive = await isVerdictLive({
       publicClient, executor: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI, commitment,
     });
+
+    // An EXPIRED verdict is not a pending one.
+    //
+    // The round already ran and its approval already lapsed, so waiting is
+    // futile - and because the commitment is derived from the order's fields,
+    // retrying rebuilds the same identifier and finds the same dead entry. The
+    // only way forward is a fresh round, which needs a commitment that is not
+    // already spent or stale.
+    const vstate = await readVerdictState({
+      publicClient, executor: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI, commitment,
+    });
+    if (vstate.expired) {
+      console.log(`[agent-execute] verdict for ${commitment.slice(0, 10)}... EXPIRED at ${vstate.expiry}; a fresh round is required`);
+      return res.status(409).json({
+        success: false,
+        verdictExpired: true,
+        error:
+          'GenLayer approved this trade, but the approval expired before it was settled. '
+          + 'Approvals are time-boxed so a verdict cannot be spent against a stale price. '
+          + 'Request a fresh quote and run consensus again - nothing was spent.',
+        commitment,
+        expiredAt: vstate.expiry,
+      });
+    }
 
     let verdict;
     if (alreadyLive) {

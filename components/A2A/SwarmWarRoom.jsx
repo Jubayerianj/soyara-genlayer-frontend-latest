@@ -348,6 +348,17 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       setTimeline(prev => [...prev, { agent: AGENT_REGISTRY.dev, text, time: 'Settlement' }]);
     } catch (err) {
       console.error('A2A execution failed:', err);
+      if (err?.verdictExpired) {
+        setTimeline(prev => [...prev, {
+          agent: AGENT_REGISTRY.risk,
+          text: `⌛ **That approval expired before settlement.** A verdict is time-boxed so it cannot be `
+            + `spent against a stale price. Nothing moved. Re-run the swarm for a fresh quote and round.`,
+          time: 'Verdict expired',
+        }]);
+        setExecState(null);
+        return;
+      }
+
       if (err?.pending) {
         // Hand it to the settlement queue rather than asking the user to come
         // back and click again. The verdict rides an external message that is
