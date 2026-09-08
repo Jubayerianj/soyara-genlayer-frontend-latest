@@ -323,5 +323,57 @@ try {
   eq('a rejected send does not wedge the queue', after, 'survived');
 } catch (e) { bad('send pacing', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: we rate-limited ourselves and blamed the network.
+//
+// finalizeIdlenessTxs is not a read - it BROADCASTS from the agent account, and
+// it cannot succeed until the appeal window has closed. It was called on every
+// poll tick, once every 4 seconds, and its failure was swallowed as "expected
+// while the window is open". A single pending settlement therefore fired a
+// stream of doomed transactions from the agent account.
+//
+// On this deployment the agent key IS the operator's wallet address, so those
+// nudges consumed the very gas-rate budget the user's own swap needed, and the
+// swap failed with "node is at capacity".
+// ---------------------------------------------------------------------------
+try {
+  const { shouldNudgeFinalize, _resetNudgeState } = await import(base + 'lib/genlayer.js');
+  _resetNudgeState();
+
+  const tx = '0xround';
+  const t0 = 1_800_000_000_000;
+
+  eq('a brand new round is never nudged', shouldNudgeFinalize(tx, t0), false);
+  eq('nor four seconds later, the old poll cadence', shouldNudgeFinalize(tx, t0 + 4_000), false);
+  eq('nor after five minutes', shouldNudgeFinalize(tx, t0 + 5 * 60_000), false);
+
+  // Past the point where the window could have closed, one nudge is allowed.
+  eq('after ten minutes a nudge is allowed', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 1), true);
+  eq('but not again immediately', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 2_000), false);
+  eq('and not again within the minute', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 59_000), false);
+  eq('a minute later, once more', shouldNudgeFinalize(tx, t0 + 11 * 60_000 + 2), true);
+
+  // The old behaviour would have sent ~150 transactions in the first ten
+  // minutes; the gate sends none.
+  _resetNudgeState();
+  let sent = 0;
+  for (let ms = 0; ms < 10 * 60_000; ms += 4_000) {
+    if (shouldNudgeFinalize('0xb', t0 + ms)) sent += 1;
+  }
+  eq('no transactions at all during the window', sent, 0, 'was 150 before');
+
+  // And once past it, the cadence is per-minute rather than per-4-seconds.
+  let after = 0;
+  for (let ms = 10 * 60_000; ms < 20 * 60_000; ms += 4_000) {
+    if (shouldNudgeFinalize('0xb', t0 + ms)) after += 1;
+  }
+  eq('roughly one nudge a minute afterwards', after <= 11, true, `${after} in ten minutes`);
+
+  // Rounds are tracked independently.
+  _resetNudgeState();
+  shouldNudgeFinalize('0xc', t0);
+  eq('a second round has its own clock', shouldNudgeFinalize('0xd', t0), false);
+} catch (e) { bad('finalize nudge gating', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);
