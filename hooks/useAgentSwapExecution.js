@@ -19,7 +19,7 @@ import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
 import { normaliseAction, assertSettlementRoute } from '../lib/actions';
-import { withNodeRetry } from '../lib/nodeRetry';
+import { withNodeRetry, WALLET_NO_RETRY } from '../lib/nodeRetry';
 
 export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
@@ -535,7 +535,7 @@ export function useAgentSwapExecution(proposal) {
           functionName: 'deposit',
           value: amountInWei,
           ...gasParams,
-        }), { label: 'agent wrap' });
+        }), { label: 'agent wrap', ...WALLET_NO_RETRY });
         setActiveTxHash(hash);
         return { kind: 'wrap', hash, amountIn: proposal.amountIn };
       }
@@ -548,7 +548,7 @@ export function useAgentSwapExecution(proposal) {
           functionName: 'withdraw',
           args: [amountInWei],
           ...gasParams,
-        }), { label: 'agent unwrap' });
+        }), { label: 'agent unwrap', ...WALLET_NO_RETRY });
         setActiveTxHash(hash);
         return { kind: 'unwrap', hash, amountIn: proposal.amountIn };
       }

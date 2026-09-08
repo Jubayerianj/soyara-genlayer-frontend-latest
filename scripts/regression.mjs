@@ -225,5 +225,41 @@ try {
   eq('a genuine revert is not retried', calls, 1);
 } catch (e) { bad('node throttle handling', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: the app could not see a verdict the contract had already given.
+//
+// genlayer-js returns a receipt with MIXED key conventions - `resultName` and
+// `txExecutionResultName` are camelCase, but the round status is `status_name`.
+// Every read used `receipt.statusName`, which is undefined, so:
+//
+//   - `decided` (ACCEPTED || FINALIZED) was always false; and
+//   - a null status maps to phase 1 in ConsensusProgress, "waiting for
+//     validator selection", which past 90s renders as "the round has not been
+//     picked up by a validator set - a known testnet condition".
+//
+// The IC had approved 7 of 7 rounds while the app blamed the network.
+// ---------------------------------------------------------------------------
+try {
+  const { roundStatusName } = await import(base + 'lib/genlayer.js');
+
+  // The shape genlayer-js actually returns, from a real Bradbury receipt.
+  const real = {
+    status: 7,
+    status_name: 'FINALIZED',
+    resultName: 'AGREE',
+    txExecutionResultName: 'FINISHED_WITH_RETURN',
+  };
+  eq('reads the snake_case status the SDK really sends', roundStatusName(real), 'FINALIZED');
+  eq('a decided round is recognised as decided',
+     ['ACCEPTED', 'FINALIZED'].includes(roundStatusName(real)), true);
+
+  // Tolerate a future SDK that switches to camelCase, rather than breaking again.
+  eq('camelCase still works', roundStatusName({ statusName: 'ACCEPTED' }), 'ACCEPTED');
+  eq('snake_case wins when both are present',
+     roundStatusName({ status_name: 'FINALIZED', statusName: 'PENDING' }), 'FINALIZED');
+  eq('a receipt with no status is null, not a guess', roundStatusName({}), null);
+  eq('an absent receipt does not throw', roundStatusName(undefined), null);
+} catch (e) { bad('receipt status field', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

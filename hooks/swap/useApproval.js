@@ -6,7 +6,7 @@ import { useReadContract, useWriteContract } from 'wagmi';
 import { ERC20_ABI } from '../../constants/abis';
 
 import { parseUnits } from '../../components/utils/format';
-import { withNodeRetry } from '../../lib/nodeRetry';
+import { withNodeRetry, WALLET_NO_RETRY } from '../../lib/nodeRetry';
 
 export const useApproval = (token, spender, amount) => {
   const { writeContractAsync, isPending } = useWriteContract();
@@ -47,7 +47,7 @@ export const useApproval = (token, spender, amount) => {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spender, parseUnits(amount, token.decimals)],
-      }), { label: 'approve' });
+      }), { label: 'approve', ...WALLET_NO_RETRY });
       
       return txHash;
     } catch (error) {

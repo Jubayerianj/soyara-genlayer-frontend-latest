@@ -54,6 +54,23 @@ function phaseIndex(statusName) {
   return i === -1 ? 1 : i;
 }
 
+// Do we actually KNOW the round is sitting at activation, or do we merely have
+// nothing to go on?
+//
+// These were conflated, and it produced a confidently wrong message. The SDK
+// receipt spells the round status `status_name`, while every read used
+// `statusName`, so the status arrived null - and a null status maps to phase 1,
+// activation. The panel then told users "the round has not been picked up by a
+// validator set yet, this is a known testnet condition, there is nothing to fix
+// on your side" about rounds the contract had already approved.
+//
+// Blaming the network is the one claim worth being sure of, so it now requires
+// a status that really is an activation-phase status.
+function isKnownActivationPhase(statusName) {
+  if (!statusName) return false;
+  return PHASES[1].match.includes(String(statusName).toUpperCase());
+}
+
 export default function ConsensusProgress({
   statusName,
   txHash,
@@ -73,8 +90,9 @@ export default function ConsensusProgress({
 
   const current = phaseIndex(statusName);
   // Sitting at activation for a long time is the specific Bradbury failure mode
-  // worth naming, rather than a generic "still working".
-  const stalledAtActivation = current <= 1 && elapsed > 90;
+  // worth naming, rather than a generic "still working". Only say it when the
+  // round really is reported as being at activation.
+  const stalledAtActivation = isKnownActivationPhase(statusName) && elapsed > 90;
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   const clock = mins > 0 ? `${mins}m ${String(secs).padStart(2, '0')}s` : `${secs}s`;
@@ -115,7 +133,9 @@ export default function ConsensusProgress({
           <strong style={{ color: '#f59e0b' }}>This is taking longer than usual.</strong>{' '}
           {stalledAtActivation
             ? 'The round has not been picked up by a validator set yet. On Bradbury this is a known testnet condition - only the network can activate a transaction, so there is nothing to fix on your side.'
-            : 'The validator set has not returned a verdict yet.'}{' '}
+            : statusName
+            ? `The round is at ${String(statusName).toLowerCase()} and has not returned a verdict yet.`
+            : 'Still waiting on a status for this round.'}{' '}
           Your trade is unaffected and no funds have moved. You can close this page - the round is
           saved and will be re-checked automatically when you come back.
         </div>
