@@ -20,6 +20,7 @@ import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
 import { normaliseAction, assertSettlementRoute } from '../lib/actions';
 import { withNodeRetry, paced, describeTxError, WALLET_ONE_RETRY } from '../lib/nodeRetry';
+import { findUsableMandate, requestMandate, forgetMandate } from '../lib/mandate';
 
 export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
@@ -604,6 +605,43 @@ export function useAgentSwapExecution(proposal) {
           throw err;
         }
 
+        // ── Is a mandate ready? Then this trade takes seconds ─────────────
+        //
+        // A live mandate means consensus has already authorised trades of this
+        // shape, so settlement is one transaction instead of a fresh round and
+        // its appeal window. If there is no usable mandate we start one in the
+        // background - it will not help THIS trade, but it makes every later
+        // one instant - and fall through to per-order consensus meanwhile.
+        const tokenInAddr  = tokenInFormatted.isNative ? zeroAddress : tokenInFormatted.address;
+        const tokenOutAddr = tokenOutFormatted.isNative ? zeroAddress : tokenOutFormatted.address;
+
+        let mandateId = null;
+        try {
+          const m = await findUsableMandate({
+            user: userAddress,
+            tokenIn: tokenInAddr,
+            tokenOut: tokenOutAddr,
+            amountIn: amountInWei.toString(),
+          });
+          if (m.usable) {
+            mandateId = m.mandateId;
+          } else {
+            // A mandate that exists but cannot serve this trade is worse than
+            // none: it will keep being offered. Drop it and ask for a new one.
+            if (m.mandateId) forgetMandate(userAddress, tokenInAddr, tokenOutAddr);
+            requestMandate({
+              user: userAddress,
+              tokenIn: tokenInAddr,
+              tokenOut: tokenOutAddr,
+              // Room for this trade and a number more like it, without handing
+              // over an unbounded authority.
+              maxAmountIn: (amountInWei * 2n).toString(),
+              totalBudgetIn: (amountInWei * 20n).toString(),
+              slippageBps: slippageNum,
+            }).catch(() => { /* background; never blocks a trade */ });
+          }
+        } catch { /* the slow path always works */ }
+
         const agentExecRes = await fetch('/api/agent-execute', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -620,6 +658,9 @@ export function useAgentSwapExecution(proposal) {
             // round against, or the one a previous `pending` attempt handed
             // back. Either way settlement waits on THAT commitment instead of
             // quoting again and starting a second round.
+            // When present the server settles through executeSwapUnderMandate,
+            // which is one transaction and needs no round.
+            mandateId,
             pendingOrder:        resumeState?.pendingOrder,
             pendingProgram:      resumeState?.pendingProgram,
             validationSubmitted: resumeState?.validationSubmitted,

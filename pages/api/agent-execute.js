@@ -269,7 +269,58 @@ export default async function handler(req, res) {
     //
     // So settlement now waits for the verdict to arrive as an external message
     // on finalization. That is slower, and it is the actual GenLayer guarantee.
-    const settlementRail = 'genlayer_consensus';
+    let settlementRail = 'genlayer_consensus';
+
+    // ── FAST PATH: a mandate consensus already approved ───────────────────────
+    //
+    // If a live mandate covers this exact trade, settlement is one transaction
+    // and takes seconds. No round, no appeal window, no queue.
+    //
+    // This is not a bypass. The mandate was written by recordMandate, which is
+    // onlyValidator, so only a consensus round could have created it. And the
+    // executor still checks every trade against it: the route by hash, the fee
+    // and its collector, the user, the per-trade ceiling and the lifetime
+    // budget - and it prices the trade itself from the pinned pool's live
+    // reserves rather than trusting anything sent here.
+    if (req.body?.mandateId) {
+      const mandateId = req.body.mandateId;
+      try {
+        const live = await publicClient.readContract({
+          address: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI,
+          functionName: 'isMandateLive', args: [mandateId],
+        });
+
+        if (live) {
+          console.log(`[agent-execute] mandate ${mandateId.slice(0, 10)}... is live - settling immediately`);
+          const isNativeIn = order.tokenIn === zeroAddress;
+          const fastHash = await sendWithRetry(() => walletClient.writeContract({
+            address: agentExecutorAddress,
+            abi: AGENT_EXECUTOR_ABI,
+            functionName: 'executeSwapUnderMandate',
+            args: [mandateId, order.amountIn, order.minAmountOut, order.feeBps, aggProgram],
+            value: isNativeIn ? order.amountIn : 0n,
+          }), 'executeSwapUnderMandate');
+
+          const fastReceipt = await publicClient.waitForTransactionReceipt({ hash: fastHash });
+          if (fastReceipt.status === 'success') {
+            return res.status(200).json({
+              success: true,
+              rail: 'mandate',
+              hash: fastHash,
+              mandateId,
+              commitment,
+              explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${fastHash}`,
+            });
+          }
+          // A reverted fast settlement is not fatal - fall through to the slow
+          // path rather than failing the trade outright. The most likely cause
+          // is the mandate's budget or per-trade ceiling being reached.
+          console.warn('[agent-execute] mandate settlement reverted; falling back to per-order consensus');
+        }
+      } catch (e) {
+        console.warn('[agent-execute] mandate path unavailable, using consensus:', e?.shortMessage || e?.message);
+      }
+    }
 
     const alreadyLive = await isVerdictLive({
       publicClient, executor: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI, commitment,
