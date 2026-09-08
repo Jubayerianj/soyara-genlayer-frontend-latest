@@ -19,7 +19,7 @@ import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
 import { normaliseAction, assertSettlementRoute } from '../lib/actions';
-import { withNodeRetry, paced, describeTxError, WALLET_NO_RETRY } from '../lib/nodeRetry';
+import { withNodeRetry, paced, describeTxError, WALLET_ONE_RETRY } from '../lib/nodeRetry';
 
 export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
@@ -332,7 +332,7 @@ export function useAgentSwapExecution(proposal) {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [approvalSpender, MAX_UINT256],
-      })), { label: `approve ${symbol}`, ...WALLET_NO_RETRY });
+      })), { label: `approve ${symbol}`, ...WALLET_ONE_RETRY });
       // Wait before moving to the next one, so a second wallet prompt does not
       // race the first transaction.
       if (publicClient && hash) {
@@ -539,7 +539,7 @@ export function useAgentSwapExecution(proposal) {
           functionName: 'deposit',
           value: amountInWei,
           ...gasParams,
-        })), { label: 'agent wrap', ...WALLET_NO_RETRY });
+        })), { label: 'agent wrap', ...WALLET_ONE_RETRY });
         setActiveTxHash(hash);
         return { kind: 'wrap', hash, amountIn: proposal.amountIn };
       }
@@ -552,7 +552,7 @@ export function useAgentSwapExecution(proposal) {
           functionName: 'withdraw',
           args: [amountInWei],
           ...gasParams,
-        })), { label: 'agent unwrap', ...WALLET_NO_RETRY });
+        })), { label: 'agent unwrap', ...WALLET_ONE_RETRY });
         setActiveTxHash(hash);
         return { kind: 'unwrap', hash, amountIn: proposal.amountIn };
       }

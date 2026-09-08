@@ -9,7 +9,7 @@ import { DEX_CONFIG } from '../../constants/dex';
 import { buildProgram } from '../../utils/programBuilder';
 import AGGFLOW_ENTRYPOINT_ABI from '../../abi/AGGFlowEntrypoint.json';
 import { ERC20_ABI } from '../../constants/abis';
-import { withNodeRetry, describeTxError, describeSimulationFailure, paced, WALLET_NO_RETRY } from '../../lib/nodeRetry';
+import { withNodeRetry, describeTxError, describeSimulationFailure, paced, WALLET_ONE_RETRY } from '../../lib/nodeRetry';
 
 const FEE_COLLECTOR = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
 const FEE_BPS = 5n; // 0.05%
@@ -186,7 +186,12 @@ export function useSwap({
         functionName: 'approve',
         args: [activeSpender, amountInWei],
         ...gasParams,
-      })), { label: 'approve', ...WALLET_NO_RETRY });
+      })), { label: 'approve', ...WALLET_ONE_RETRY,
+        onRetry: ({ waitMs }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'approve',
+          message: `Node was busy. Retrying in ${Math.round(waitMs / 100) / 10}s - your wallet will ask once more.`,
+        }),
+      });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -320,7 +325,12 @@ export function useSwap({
           : [swapIntent, feeCollection, program],
         value: fromToken.isNative ? amountInWei : 0n,
         ...gasParams,
-      })), { label: 'swap', ...WALLET_NO_RETRY });
+      })), { label: 'swap', ...WALLET_ONE_RETRY,
+        onRetry: ({ waitMs }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'swap',
+          message: `Node was busy. Retrying in ${Math.round(waitMs / 100) / 10}s - your wallet will ask once more.`,
+        }),
+      });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -380,7 +390,12 @@ export function useSwap({
         functionName: 'deposit',
         value: amountInWei,
         ...gasParams,
-      })), { label: 'wrap', ...WALLET_NO_RETRY });
+      })), { label: 'wrap', ...WALLET_ONE_RETRY,
+        onRetry: ({ waitMs }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'wrap',
+          message: `Node was busy. Retrying in ${Math.round(waitMs / 100) / 10}s - your wallet will ask once more.`,
+        }),
+      });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -423,7 +438,12 @@ export function useSwap({
         functionName: 'withdraw',
         args: [amountInWei],
         ...gasParams,
-      })), { label: 'unwrap', ...WALLET_NO_RETRY });
+      })), { label: 'unwrap', ...WALLET_ONE_RETRY,
+        onRetry: ({ waitMs }) => setTransactionStatus({
+          show: true, status: 'pending', txHash: null, type: 'unwrap',
+          message: `Node was busy. Retrying in ${Math.round(waitMs / 100) / 10}s - your wallet will ask once more.`,
+        }),
+      });
 
       setActiveTxHash(hash);
       setTransactionStatus({

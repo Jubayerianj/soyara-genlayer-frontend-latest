@@ -375,5 +375,45 @@ try {
   eq('a second round has its own clock', shouldNudgeFinalize('0xd', t0), false);
 } catch (e) { bad('finalize nudge gating', e.message); }
 
+// ---------------------------------------------------------------------------
+// Wallet writes: exactly one retry, never more.
+//
+// Three retries asked people to sign the same swap four times, which reads as
+// the app trying to charge twice. Zero retries failed outright inside a
+// throttle window the node itself said was under 1.2 seconds. One is the
+// middle: at most one extra prompt, waiting the delay the node asked for.
+// ---------------------------------------------------------------------------
+try {
+  const { withNodeRetry, WALLET_ONE_RETRY, WALLET_NO_RETRY } = await import(base + 'lib/nodeRetry.js');
+  const throttle = { message: 'error code -32005: node is at capacity, retry in ~1ms, {"retryAfterMs":1}' };
+
+  let prompts = 0;
+  const ok = await withNodeRetry(async () => {
+    prompts += 1;
+    if (prompts === 1) throw throttle;   // first attempt lands in the window
+    return '0xhash';
+  }, { label: 'approve', ...WALLET_ONE_RETRY });
+  eq('a throttled wallet send succeeds on the retry', ok, '0xhash');
+  eq('and asks the person exactly twice, never more', prompts, 2);
+
+  // Persistent throttling must stop at two, not spiral.
+  prompts = 0;
+  await withNodeRetry(async () => { prompts += 1; throw throttle; },
+    { label: 'approve', ...WALLET_ONE_RETRY }).catch(() => {});
+  eq('a persistent throttle stops after one retry', prompts, 2);
+
+  // A declined signature is still never repeated.
+  prompts = 0;
+  await withNodeRetry(async () => { prompts += 1; throw { code: 4001, shortMessage: 'User rejected the request.' }; },
+    { label: 'approve', ...WALLET_ONE_RETRY }).catch(() => {});
+  eq('a declined signature is still asked once only', prompts, 1);
+
+  // And the no-retry option still exists for callers that need it.
+  prompts = 0;
+  await withNodeRetry(async () => { prompts += 1; throw throttle; },
+    { label: 'x', ...WALLET_NO_RETRY }).catch(() => {});
+  eq('WALLET_NO_RETRY still never re-prompts', prompts, 1);
+} catch (e) { bad('wallet retry policy', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

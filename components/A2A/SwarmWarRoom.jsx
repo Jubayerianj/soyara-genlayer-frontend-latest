@@ -14,6 +14,7 @@ import ActivityPanel from '../ActivityPanel';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
 import styles from '../../styles/A2A.module.css';
+import { describeTxError } from '../../lib/nodeRetry';
 
 const PRESET_CHIPS = [
   { label: '100 USDC to WGEN', query: 'Swap 100 USDC to WGEN with 0.3% slippage' },
@@ -146,7 +147,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       setBalanceRefreshKey((k) => k + 1);
     } else if (isTxFailed && activeTxHash) {
       setExecState('error');
-      setExecErrorMsg('Transaction reverted on GenLayer');
+      setExecErrorMsg('The settlement transaction reverted on GenLayer.');
     }
   }, [isTxSuccess, isTxFailed, activeTxHash]);
 
@@ -377,7 +378,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         return;
       }
       setExecState('error');
-      setExecErrorMsg(err?.shortMessage || err?.message || 'Execution rejected by user or network');
+      // Not err.shortMessage. For a node throttle viem says 'The contract
+      // function "approve" reverted with the following reason: ... -32005 ...',
+      // which is wrong twice over - approve was never called, and nothing
+      // reverted. This page kept showing that after /ai was fixed, because it
+      // has its own error handler.
+      setExecErrorMsg(describeTxError(err, 'Execution'));
     }
   };
 
