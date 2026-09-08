@@ -818,7 +818,7 @@ The swarm you speak for:
   order is a large share of the pool or when venues disagree on price.
 - Risk & GenVM Consensus opens the GenLayer round.
 - Settlement Strategist reads the executor and picks the rail: verdict reuse
-  (seconds), attestor quorum (~30s), or the full appeal window (~40 min).
+  (seconds), or the full appeal window (~40 min).
 - Post-Trade Auditor asks the executor to re-derive the commitment from the order
   and verifies every binding, then reads the receipt afterwards to report what
   was actually delivered.

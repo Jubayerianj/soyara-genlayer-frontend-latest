@@ -70,7 +70,7 @@ export const AGENT_REGISTRY = {
     role: 'Verdict Rail & Timing',
     icon: '🚦',
     color: '#a78bfa',
-    badge: 'Consensus / Attestor Rails'
+    badge: 'Verdict Rails'
   },
   auditor: {
     id: 'agent_auditor',
@@ -804,7 +804,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   yield {
     agent: A.settlement,
     type: 'MESSAGE',
-    text: `Reading executor state to choose a settlement rail - verdict reuse, attestor quorum, or the full appeal window.`,
+    text: `Reading executor state to choose a settlement rail - verdict reuse, or the full appeal window.`,
     status: 'working'
   };
 
@@ -815,7 +815,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     deadline: risk.proposal?.deadline,
   }).catch((err) => ({ rail: 'unknown', eta: null, rationale: `Executor state unavailable: ${err.message}`, blockers: [] }));
 
-  const RAIL_LABEL = { reuse: '♻️ Verdict reuse', attestor: '⚡ Attestor quorum', consensus: '🐢 Full appeal window', blocked: '⛔ Blocked', unknown: '❔ Unknown' };
+  const RAIL_LABEL = { reuse: '♻️ Verdict reuse', consensus: '🐢 Full appeal window', blocked: '⛔ Blocked', unknown: '❔ Unknown' };
   yield {
     agent: A.settlement,
     type: 'SETTLEMENT_PLAN',

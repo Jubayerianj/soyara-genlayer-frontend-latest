@@ -212,18 +212,14 @@ export function useSettlementQueue({ enabled = true } = {}) {
             continue;
           }
 
-          // Not live yet, but that does not mean waiting.
+          // Not live yet, so there is nothing to do but wait.
           //
-          // The settlement route tries the attestation rail first: attestors
-          // read the verdict the IC recorded (available seconds after the round
-          // decides) and sign the same commitment, which the executor verifies
-          // on chain. So a trade normally settles here, in seconds, and only
-          // falls through to the appeal window if that rail is switched off.
-          if (!entry.needsApproval && !entry.fastRailTried) {
-            update(entry.id, { fastRailTried: true });
-            await settle({ ...entry, fastRailTried: true });
-            continue;
-          }
+          // There used to be an attempt here at a faster rail, where attestors
+          // read the verdict the IC had recorded and signed it for the executor
+          // seconds after the round decided. The executor no longer accepts
+          // that, because it could not tell a signature backed by a real
+          // verdict from one that was not. The verdict now arrives only when
+          // the round finalizes, so polling is the whole strategy.
           // A recorded but lapsed verdict is a distinct outcome from one that
           // never arrived, and only one of them is worth re-running.
           if (Number(expiry) > 0 && Number(expiry) * 1000 < Date.now()) {

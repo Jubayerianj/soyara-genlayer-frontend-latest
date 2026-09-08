@@ -206,7 +206,7 @@ export default async function handler(req, res) {
         address: agentExecutorAddress,
         abi: AGENT_EXECUTOR_ABI,
         functionName: 'executeRemoveLiquidityV2',
-        args: [user, tokenA, tokenB, lpToken, burn, aMin, bMin, deadlineBig, []],
+        args: [user, tokenA, tokenB, lpToken, burn, aMin, bMin, deadlineBig],
       }),
       'executeRemoveLiquidityV2'
     );

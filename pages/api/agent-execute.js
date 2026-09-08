@@ -52,7 +52,6 @@ import { validateSwapOrder, finalizeRound } from '../../lib/genlayer.js';
 import { leaseAgent } from '../../lib/agentPool.js';
 import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swapOrder.js';
 import { obtainVerdict, isVerdictLive, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
-import { gatherAttestations } from '../../lib/attest.js';
 
 // GenLayer Bradbury Testnet chain config (chain ID 4221)
 const genLayerBradbury = {
@@ -254,50 +253,30 @@ export default async function handler(req, res) {
     const lease = leaseAgent?.();
     const nudge = (txHash) => finalizeRound(txHash, lease?.account || account);
 
-    // ── FAST RAIL ────────────────────────────────────────────────────────────
+    // ── ONE RAIL ─────────────────────────────────────────────────────────────
     //
-    // Ask the attestors before settling in to wait.
+    // There used to be a fast rail here: a quorum of attestors read the verdict
+    // out of the IC as soon as the round was accepted and signed the same
+    // commitment, so settlement did not have to wait out the appeal window.
+    // It has been removed, along with the executor entry points that accepted
+    // it.
     //
-    // The consensus round decides in about twenty seconds; what takes forty
-    // minutes is finalization, and the only reason settlement waits for it is
-    // that the IC's verdict travels as an external message. The verdict itself
-    // is readable from the IC as soon as the round is accepted, so if attestors
-    // will vouch for it the executor can verify their quorum over the same
-    // commitment and settle now.
+    // The reason is that nothing ON CHAIN tied an attestation to a verdict the
+    // IC had really recorded. The check lived here, in this server. To the
+    // executor, M signatures were simply a substitute for GenLayer consensus,
+    // which is the one thing the executor exists to refuse. A guarantee that
+    // depends on the honesty of the process asking for it is not a guarantee.
     //
-    // This never widens what may settle. gatherAttestations refuses unless the
-    // IC has recorded an approval for this exact commitment, and the executor
-    // still checks every parameter against it. The rail can also be switched off
-    // on chain by setting the threshold to zero, in which case this falls
-    // through to the consensus rail below.
-    let attestations = [];
-    let settlementRail = 'genlayer_consensus';
+    // So settlement now waits for the verdict to arrive as an external message
+    // on finalization. That is slower, and it is the actual GenLayer guarantee.
+    const settlementRail = 'genlayer_consensus';
 
     const alreadyLive = await isVerdictLive({
       publicClient, executor: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI, commitment,
     });
 
-    if (!alreadyLive) {
-      try {
-        const att = await gatherAttestations(commitment);
-        if (att.ok) {
-          attestations = att.attestations;
-          settlementRail = 'attestor_quorum';
-          console.log(`[agent-execute] fast rail: ${att.attestors.length} attestations over ${commitment.slice(0, 10)}...`);
-        } else if (att.status === 403) {
-          // The IC recorded a REFUSAL. That is a verdict, and waiting will not
-          // turn it into an approval.
-          return res.status(403).json({
-            success: false, notValidated: true, error: att.error, commitment,
-          });
-        }
-      } catch (e) {
-        console.warn('[agent-execute] attestation unavailable, falling back to the consensus rail:', e.message);
-      }
-    }
-
     let verdict;
-    if (alreadyLive || attestations.length > 0) {
+    if (alreadyLive) {
       verdict = { live: true, pending: false, rejected: false, reason: null, validationTxHash: validationTxHash || null };
     } else if (validationSubmitted) {
       // A round is already in flight for exactly this commitment. Opening a
@@ -366,14 +345,14 @@ export default async function handler(req, res) {
     //      NoConsensusVerdict if anything differs from what was approved
     //   3. Pulls tokenIn from the user, routes, and sends output straight to them
     //
-    // `attestations` is empty on the consensus rail (the executor already holds
-    // the verdict) and carries the quorum on the fast rail.
+    // There is no attestations argument any more: the executor already holds
+    // the verdict, or the call reverts with NoConsensusVerdict.
     const isNative = order.tokenIn === zeroAddress;
     const execTxHash = await sendWithRetry(() => walletClient.writeContract({
       address: agentExecutorAddress,
       abi: AGENT_EXECUTOR_ABI,
       functionName: 'executeSwap',
-      args: [order, aggProgram, attestations],
+      args: [order, aggProgram],
       value: isNative ? order.amountIn : 0n,
     }), 'executeSwap');
 

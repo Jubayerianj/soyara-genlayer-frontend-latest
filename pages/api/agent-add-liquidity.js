@@ -288,13 +288,12 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 4: Execute - checks and CONSUMES the verdict ───────────────────
-    // The trailing empty array is the attestation slot; this deployment settles
-    // on the GenLayer consensus rail, so there are no signatures to present.
+    // A recorded GenLayer verdict is the only thing that satisfies this call.
     const execTxHash = await sendWithRetry(() => walletClient.writeContract({
       address: agentExecutorAddress,
       abi: AGENT_EXECUTOR_ABI,
       functionName: 'executeAddLiquidityV2',
-      args: [user, tokenA, tokenB, aFinal, bFinal, aMinFinal, bMinFinal, deadlineBig, []],
+      args: [user, tokenA, tokenB, aFinal, bFinal, aMinFinal, bMinFinal, deadlineBig],
     }), 'executeAddLiquidityV2');
     const execReceipt = await publicClient.waitForTransactionReceipt({ hash: execTxHash });
 

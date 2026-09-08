@@ -60,7 +60,6 @@ const SWAP_ORDER_COMPONENTS = [
 
 export const EXECUTOR_READ_ABI = [
   { inputs: [], name: 'paused', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
-  { inputs: [], name: 'attestorThreshold', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ type: 'bytes32' }], name: 'commitmentUsed', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ type: 'bytes32' }], name: 'verdictExpiry', outputs: [{ type: 'uint64' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ type: 'bytes32' }], name: 'isVerdictLive', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
@@ -272,13 +271,16 @@ export class SettlementStrategistAgent {
   /**
    * Decide which rail can settle this verdict, from executor state.
    *
-   * There are three, and they differ by nearly three orders of magnitude in
-   * latency, so guessing is not acceptable:
+   * There are two:
    *
    *   reuse     - a live verdict already covers this exact commitment. Instant.
-   *   attestor  - an EIP-712 attestor quorum can carry the verdict now (~30s).
    *   consensus - wait for the GenLayer round to finalize and deliver the
    *               verdict over its ghost contract (appeal window, ~40 min).
+   *
+   * There was a third, an EIP-712 attestor quorum that carried the verdict in
+   * about thirty seconds. It has been removed from the executor: nothing on
+   * chain tied a signature to a verdict the IC had actually recorded, so those
+   * keys were a substitute for consensus rather than a shortcut to it.
    *
    * Every field below is read from the deployed executor. A rail this agent
    * cannot prove is available is never offered.
@@ -292,7 +294,7 @@ export class SettlementStrategistAgent {
       client.readContract({ address: executor, abi: EXECUTOR_READ_ABI, functionName, args })
         .catch(() => null);
 
-    const [paused, threshold] = await Promise.all([read('paused'), read('attestorThreshold')]);
+    const paused = await read('paused');
 
     let used = null;
     let expiry = null;
@@ -307,8 +309,6 @@ export class SettlementStrategistAgent {
     const expirySec = expiry != null ? Number(expiry) : 0;
     const verdictLive = expirySec > now;
     const secondsToExpiry = verdictLive ? expirySec - now : 0;
-    const thresholdNum = threshold != null ? Number(threshold) : 0;
-
     const blockers = [];
     if (paused === true) blockers.push('The executor is paused - no rail can settle while it is.');
     if (used === true) blockers.push('This commitment has already been consumed. Verdicts are single use; a fresh round is required.');
@@ -326,18 +326,12 @@ export class SettlementStrategistAgent {
       eta = '~2 seconds';
       rationale = `A verdict for this exact commitment is already recorded on the executor and stays valid for `
         + `${formatDuration(secondsToExpiry)}. Nothing needs to be re-decided - settlement is a single call.`;
-    } else if (thresholdNum > 0) {
-      rail = 'attestor';
-      eta = '~30 seconds';
-      rationale = `The attestor rail is armed with a **${thresholdNum}-of-N** threshold, so the verdict can be carried `
-        + `by signed attestations as soon as the consensus round decides, instead of waiting out the appeal window. `
-        + `The executor still authenticates it: attestors are a separate role that can never also be an agent.`;
     } else {
       rail = 'consensus';
       eta = '~40 minutes';
-      rationale = `No attestor threshold is configured, so the verdict arrives the slow way: the GenLayer round must `
-        + `finalize and deliver it to the executor over the validator's ghost contract. That wait is the appeal `
-        + `window, and it belongs to the network.`;
+      rationale = `The verdict arrives the only way it can: the GenLayer round must finalize and deliver it to the `
+        + `executor over the validator's ghost contract. That wait is the appeal window, and it belongs to the `
+        + `network. Nothing this server signs can shorten it, which is the point.`;
     }
 
     return {
@@ -347,7 +341,6 @@ export class SettlementStrategistAgent {
       verdictLive,
       verdictExpiry: expirySec || null,
       secondsToExpiry,
-      attestorThreshold: thresholdNum,
       deadline: deadline != null ? Number(deadline) : null,
       secondsToDeadline: deadline != null ? Number(deadline) - now : null,
       executor,
@@ -595,23 +588,16 @@ export function buildDebate({ analysis, route, intent, strategy, phase = 'market
   if (strategy?.rail === 'consensus') {
     turns.push({
       from: 'settlement', to: 'intent',
-      text: `No attestor threshold is configured on the executor, so this verdict has to travel the slow way: the `
-        + `GenLayer round finalizes and delivers it over the validator's ghost contract. That wait is the appeal `
-        + `window and it belongs to the network, so the trade goes on the settlement queue rather than holding you `
-        + `on this page. The one signature it needs is taken now, while you are here.`,
+      text: `This verdict travels the only road there is: the GenLayer round finalizes and delivers it over the `
+        + `validator's ghost contract. That wait is the appeal window and it belongs to the network, so the trade `
+        + `goes on the settlement queue rather than holding you on this page. The one signature it needs is taken `
+        + `now, while you are here.`,
     });
   } else if (strategy?.rail === 'reuse') {
     turns.push({
       from: 'settlement', to: 'risk',
       text: `A live verdict already covers this commitment - I am not asking for another round. Settling straight off `
         + `the recorded verdict, which is why this run costs seconds instead of the appeal window.`,
-    });
-  } else if (strategy?.rail === 'attestor') {
-    turns.push({
-      from: 'settlement', to: 'auditor',
-      text: `Taking the attestor rail: **${strategy.attestorThreshold}-of-N** signed attestations carry the decided verdict `
-        + `without waiting out the appeal window. The executor still authenticates it, and an attestor can never also be `
-        + `an agent - the contract rejects that role overlap outright.`,
     });
   } else if (strategy?.rail === 'blocked') {
     turns.push({ from: 'settlement', to: 'intent', text: `⛔ ${strategy.rationale}` });

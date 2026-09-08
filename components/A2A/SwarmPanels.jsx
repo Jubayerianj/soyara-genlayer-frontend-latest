@@ -88,7 +88,6 @@ export function MarketReadPanel({ analysis, route }) {
 
 const RAIL = {
   reuse: { tone: '#10b981', label: 'Verdict reuse' },
-  attestor: { tone: '#a78bfa', label: 'Attestor quorum' },
   consensus: { tone: '#f59e0b', label: 'Appeal window' },
   blocked: { tone: '#ef4444', label: 'Blocked' },
   unknown: { tone: '#94a3b8', label: 'Unknown' },
@@ -97,9 +96,9 @@ const RAIL = {
 /**
  * Which rail will carry the verdict, and how long it has.
  *
- * The three rails differ by nearly three orders of magnitude in latency, and
- * the user was previously given no way to tell which one they were on - so a
- * two-second settlement and a forty-minute one looked identical while waiting.
+ * The two rails differ by three orders of magnitude in latency, and the user
+ * was previously given no way to tell which one they were on - so a two-second
+ * settlement and a forty-minute one looked identical while waiting.
  */
 export function SettlementRailPanel({ strategy }) {
   if (!strategy) return null;
@@ -117,7 +116,6 @@ export function SettlementRailPanel({ strategy }) {
       </div>
       <div style={body}>{strategy.rationale}</div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '0.66rem', color: 'var(--text-muted, #94a3b8)' }}>
-        {strategy.attestorThreshold > 0 && <span>Attestor threshold {strategy.attestorThreshold}-of-N</span>}
         {mins != null && <span>Verdict valid {mins} min</span>}
         {strategy.secondsToDeadline > 0 && <span>Order valid {Math.round(strategy.secondsToDeadline / 60)} min</span>}
         {strategy.paused && <span style={{ color: '#ef4444' }}>Executor paused</span>}
