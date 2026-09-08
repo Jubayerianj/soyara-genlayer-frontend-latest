@@ -6,7 +6,7 @@ import { useReadContract, useWriteContract } from 'wagmi';
 import { ERC20_ABI } from '../../constants/abis';
 
 import { parseUnits } from '../../components/utils/format';
-import { withNodeRetry, WALLET_NO_RETRY } from '../../lib/nodeRetry';
+import { withNodeRetry, paced, WALLET_NO_RETRY } from '../../lib/nodeRetry';
 
 export const useApproval = (token, spender, amount) => {
   const { writeContractAsync, isPending } = useWriteContract();
@@ -42,12 +42,12 @@ export const useApproval = (token, spender, amount) => {
     }
 
     try {
-      const txHash = await withNodeRetry(() => writeContractAsync({
+      const txHash = await withNodeRetry(() => paced(() => writeContractAsync({
         address: token.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spender, parseUnits(amount, token.decimals)],
-      }), { label: 'approve', ...WALLET_NO_RETRY });
+      })), { label: 'approve', ...WALLET_NO_RETRY });
       
       return txHash;
     } catch (error) {
@@ -63,12 +63,12 @@ export const useApproval = (token, spender, amount) => {
     }
 
     try {
-      const txHash = await withNodeRetry(() => writeContractAsync({
+      const txHash = await withNodeRetry(() => paced(() => writeContractAsync({
         address: token.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spender, 2n ** 256n - 1n], // Max uint256
-      }), { label: 'approve-infinite' });
+      })), { label: 'approve-infinite', ...WALLET_NO_RETRY });
       
       return txHash;
     } catch (error) {

@@ -36,6 +36,7 @@ import BalanceStrip from '../components/BalanceStrip';
 import { recordActivity } from '../lib/txStore';
 import { useTheme } from '../components/contexts/ThemeContext';
 import aiStyles from '../styles/AIPage.module.css';
+import { describeTxError } from '../lib/nodeRetry';
 
 const STARTER_PROMPTS = [
   'Swap 100 USDC to GEN with the best route',
@@ -498,7 +499,10 @@ export default function AIPage() {
       ]);
     } catch (err) {
       console.error('Approval failed:', err);
-      setExecutionError(err?.shortMessage || err?.message || 'Token approval rejected by user');
+      // Not `err.shortMessage`: for a node throttle viem's short message reads
+      // 'The contract function "approve" reverted', which is wrong twice over -
+      // approve was never called, and nothing reverted.
+      setExecutionError(describeTxError(err, 'Approval'));
     }
   };
 

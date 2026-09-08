@@ -19,7 +19,7 @@ import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
 import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
 import { normaliseAction, assertSettlementRoute } from '../lib/actions';
-import { withNodeRetry, WALLET_NO_RETRY } from '../lib/nodeRetry';
+import { withNodeRetry, paced, describeTxError, WALLET_NO_RETRY } from '../lib/nodeRetry';
 
 export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
@@ -323,12 +323,16 @@ export function useAgentSwapExecution(proposal) {
     let hash = null;
     const approved = [];
     for (const { address, symbol, refetch } of targets) {
-      hash = await approveAsync({
+      // Through the pacing gate like every other send. An approve is only ~46k
+      // gas, but the limiter is a gas RATE limit: an approve followed straight
+      // away by a settlement is two sends inside a second from one account, and
+      // the node refuses the second. Spacing them is what stops that.
+      hash = await withNodeRetry(() => paced(() => approveAsync({
         address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [approvalSpender, MAX_UINT256],
-      });
+      })), { label: `approve ${symbol}`, ...WALLET_NO_RETRY });
       // Wait before moving to the next one, so a second wallet prompt does not
       // race the first transaction.
       if (publicClient && hash) {
@@ -529,26 +533,26 @@ export function useAgentSwapExecution(proposal) {
 
       if (isWrapOp) {
         const gasParams = await getTxGasParams(200000n);
-        const hash = await withNodeRetry(() => executeSwapAsync({
+        const hash = await withNodeRetry(() => paced(() => executeSwapAsync({
           address: wgenAddress,
           abi: [{ type: 'function', name: 'deposit', inputs: [], outputs: [], stateMutability: 'payable' }],
           functionName: 'deposit',
           value: amountInWei,
           ...gasParams,
-        }), { label: 'agent wrap', ...WALLET_NO_RETRY });
+        })), { label: 'agent wrap', ...WALLET_NO_RETRY });
         setActiveTxHash(hash);
         return { kind: 'wrap', hash, amountIn: proposal.amountIn };
       }
 
       if (isUnwrapOp) {
         const gasParams = await getTxGasParams(200000n);
-        const hash = await withNodeRetry(() => executeSwapAsync({
+        const hash = await withNodeRetry(() => paced(() => executeSwapAsync({
           address: wgenAddress,
           abi: [{ type: 'function', name: 'withdraw', inputs: [{ name: 'wad', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable' }],
           functionName: 'withdraw',
           args: [amountInWei],
           ...gasParams,
-        }), { label: 'agent unwrap', ...WALLET_NO_RETRY });
+        })), { label: 'agent unwrap', ...WALLET_NO_RETRY });
         setActiveTxHash(hash);
         return { kind: 'unwrap', hash, amountIn: proposal.amountIn };
       }

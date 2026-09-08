@@ -290,5 +290,38 @@ try {
      /not submitted/i.test(describeSimulationFailure({ shortMessage: 'weird' })), true);
 } catch (e) { bad('simulation failure messages', e.message); }
 
+// ---------------------------------------------------------------------------
+// Shipped bug: we tripped the node's rate limiter with our own flows.
+//
+// The limiter is a GAS RATE limit, so it is about how close together sends
+// arrive, not only how big they are. An approve immediately followed by a
+// settlement is two transactions inside a second from one account, and the
+// node refused the second - even for a ~46k approve. Every client send now
+// passes through one gate that serialises them and keeps them apart.
+// ---------------------------------------------------------------------------
+try {
+  const { paced } = await import(base + 'lib/nodeRetry.js');
+
+  const started = [];
+  const t0 = Date.now();
+  const results = await Promise.all([
+    paced(async () => { started.push(Date.now() - t0); return 'a'; }),
+    paced(async () => { started.push(Date.now() - t0); return 'b'; }),
+    paced(async () => { started.push(Date.now() - t0); return 'c'; }),
+  ]);
+
+  eq('every paced send still resolves', results.join(''), 'abc');
+  eq('and they run in the order they were queued', started.length, 3);
+  eq('consecutive sends are separated', started[1] - started[0] >= 1000, true,
+     `gap was ${started[1] - started[0]}ms`);
+  eq('the third waits behind the second too', started[2] - started[1] >= 1000, true,
+     `gap was ${started[2] - started[1]}ms`);
+
+  // A failed send must not stall everything queued behind it.
+  await paced(async () => { throw new Error('boom'); }).catch(() => {});
+  const after = await paced(async () => 'survived');
+  eq('a rejected send does not wedge the queue', after, 'survived');
+} catch (e) { bad('send pacing', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

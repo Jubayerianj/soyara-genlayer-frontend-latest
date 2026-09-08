@@ -9,7 +9,7 @@ import { DEX_CONFIG } from '../../constants/dex';
 import { buildProgram } from '../../utils/programBuilder';
 import AGGFLOW_ENTRYPOINT_ABI from '../../abi/AGGFlowEntrypoint.json';
 import { ERC20_ABI } from '../../constants/abis';
-import { withNodeRetry, describeTxError, describeSimulationFailure, WALLET_NO_RETRY } from '../../lib/nodeRetry';
+import { withNodeRetry, describeTxError, describeSimulationFailure, paced, WALLET_NO_RETRY } from '../../lib/nodeRetry';
 
 const FEE_COLLECTOR = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
 const FEE_BPS = 5n; // 0.05%
@@ -180,13 +180,13 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(400000n);
-      const hash = await withNodeRetry(() => approveWriteAsync({
+      const hash = await withNodeRetry(() => paced(() => approveWriteAsync({
         address: fromToken.address,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [activeSpender, amountInWei],
         ...gasParams,
-      }), { label: 'approve', ...WALLET_NO_RETRY });
+      })), { label: 'approve', ...WALLET_NO_RETRY });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -311,7 +311,7 @@ export function useSwap({
         return;
       }
 
-      const hash = await withNodeRetry(() => swapWriteAsync({
+      const hash = await withNodeRetry(() => paced(() => swapWriteAsync({
         address: entrypointAddress,
         abi: AGGFLOW_ENTRYPOINT_ABI,
         functionName: isCustomReceiver ? 'executeSwapWithReceiver' : 'executeSwap',
@@ -320,7 +320,7 @@ export function useSwap({
           : [swapIntent, feeCollection, program],
         value: fromToken.isNative ? amountInWei : 0n,
         ...gasParams,
-      }), { label: 'swap', ...WALLET_NO_RETRY });
+      })), { label: 'swap', ...WALLET_NO_RETRY });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -374,13 +374,13 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(200000n);
-      const hash = await withNodeRetry(() => wrapWriteAsync({
+      const hash = await withNodeRetry(() => paced(() => wrapWriteAsync({
         address: wethAddress,
         abi: WETH_ABI,
         functionName: 'deposit',
         value: amountInWei,
         ...gasParams,
-      }), { label: 'wrap', ...WALLET_NO_RETRY });
+      })), { label: 'wrap', ...WALLET_NO_RETRY });
 
       setActiveTxHash(hash);
       setTransactionStatus({
@@ -417,13 +417,13 @@ export function useSwap({
 
     try {
       const gasParams = await getTxGasParams(200000n);
-      const hash = await withNodeRetry(() => unwrapWriteAsync({
+      const hash = await withNodeRetry(() => paced(() => unwrapWriteAsync({
         address: wethAddress,
         abi: WETH_ABI,
         functionName: 'withdraw',
         args: [amountInWei],
         ...gasParams,
-      }), { label: 'unwrap', ...WALLET_NO_RETRY });
+      })), { label: 'unwrap', ...WALLET_NO_RETRY });
 
       setActiveTxHash(hash);
       setTransactionStatus({
