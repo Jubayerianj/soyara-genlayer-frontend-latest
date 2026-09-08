@@ -36,7 +36,7 @@ import BalanceStrip from '../components/BalanceStrip';
 import { recordActivity } from '../lib/txStore';
 import { useTheme } from '../components/contexts/ThemeContext';
 import aiStyles from '../styles/AIPage.module.css';
-import { describeTxError } from '../lib/nodeRetry';
+import { describeTxError, explainThrottle, isNodeThrottle } from '../lib/nodeRetry';
 
 const STARTER_PROMPTS = [
   'Swap 100 USDC to GEN with the best route',
@@ -503,6 +503,9 @@ export default function AIPage() {
       // 'The contract function "approve" reverted', which is wrong twice over -
       // approve was never called, and nothing reverted.
       setExecutionError(describeTxError(err, 'Approval'));
+      if (isNodeThrottle(err)) {
+        explainThrottle().then(setExecutionError).catch(() => {});
+      }
     }
   };
 

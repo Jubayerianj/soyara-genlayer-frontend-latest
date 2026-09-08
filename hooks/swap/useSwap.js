@@ -9,7 +9,7 @@ import { DEX_CONFIG } from '../../constants/dex';
 import { buildProgram } from '../../utils/programBuilder';
 import AGGFLOW_ENTRYPOINT_ABI from '../../abi/AGGFlowEntrypoint.json';
 import { ERC20_ABI } from '../../constants/abis';
-import { withNodeRetry, describeTxError, describeSimulationFailure, paced, WALLET_ONE_RETRY } from '../../lib/nodeRetry';
+import { withNodeRetry, describeTxError, describeSimulationFailure, explainThrottle, isNodeThrottle, paced, WALLET_ONE_RETRY } from '../../lib/nodeRetry';
 
 const FEE_COLLECTOR = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
 const FEE_BPS = 5n; // 0.05%
@@ -211,6 +211,13 @@ export function useSwap({
         message: describeTxError(err, 'Approval'),
         type: 'approval',
       });
+      // A throttle deserves a real diagnosis, not "try again in a few seconds".
+      // Ask which endpoint actually refused, and say so.
+      if (isNodeThrottle(err)) {
+        explainThrottle().then((detail) => setTransactionStatus({
+          show: true, status: 'error', txHash: null, type: 'approval', message: detail,
+        })).catch(() => {});
+      }
     }
   }, [fromToken, activeSpender, userAddress, fromAmount, approveWriteAsync, getTxGasParams]);
 
@@ -350,6 +357,13 @@ export function useSwap({
         message: describeTxError(err, 'Swap'),
         type: 'swap',
       });
+      // A throttle deserves a real diagnosis, not "try again in a few seconds".
+      // Ask which endpoint actually refused, and say so.
+      if (isNodeThrottle(err)) {
+        explainThrottle().then((detail) => setTransactionStatus({
+          show: true, status: 'error', txHash: null, type: 'swap', message: detail,
+        })).catch(() => {});
+      }
     }
   }, [
     fromToken,
@@ -414,6 +428,13 @@ export function useSwap({
         message: describeTxError(err, 'Wrap'),
         type: 'wrap',
       });
+      // A throttle deserves a real diagnosis, not "try again in a few seconds".
+      // Ask which endpoint actually refused, and say so.
+      if (isNodeThrottle(err)) {
+        explainThrottle().then((detail) => setTransactionStatus({
+          show: true, status: 'error', txHash: null, type: 'wrap', message: detail,
+        })).catch(() => {});
+      }
     }
   }, [fromToken, fromAmount, wethAddress, wrapWriteAsync, getTxGasParams]);
 
@@ -462,6 +483,13 @@ export function useSwap({
         message: describeTxError(err, 'Unwrap'),
         type: 'unwrap',
       });
+      // A throttle deserves a real diagnosis, not "try again in a few seconds".
+      // Ask which endpoint actually refused, and say so.
+      if (isNodeThrottle(err)) {
+        explainThrottle().then((detail) => setTransactionStatus({
+          show: true, status: 'error', txHash: null, type: 'unwrap', message: detail,
+        })).catch(() => {});
+      }
     }
   }, [fromToken, fromAmount, wethAddress, unwrapWriteAsync, getTxGasParams]);
 

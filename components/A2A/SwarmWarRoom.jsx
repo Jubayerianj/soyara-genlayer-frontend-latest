@@ -14,7 +14,7 @@ import ActivityPanel from '../ActivityPanel';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
 import styles from '../../styles/A2A.module.css';
-import { describeTxError } from '../../lib/nodeRetry';
+import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
 
 const PRESET_CHIPS = [
   { label: '100 USDC to WGEN', query: 'Swap 100 USDC to WGEN with 0.3% slippage' },
@@ -384,6 +384,9 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       // reverted. This page kept showing that after /ai was fixed, because it
       // has its own error handler.
       setExecErrorMsg(describeTxError(err, 'Execution'));
+      if (isNodeThrottle(err)) {
+        explainThrottle().then(setExecErrorMsg).catch(() => {});
+      }
     }
   };
 
