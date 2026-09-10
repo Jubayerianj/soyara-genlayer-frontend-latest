@@ -34,9 +34,22 @@ import { useAgentSwapExecution } from '../hooks/useAgentSwapExecution';
 import ActivityPanel from '../components/ActivityPanel';
 import BalanceStrip from '../components/BalanceStrip';
 import { recordActivity } from '../lib/txStore';
+import { recallMandateIds, ensureMandateRequested } from '../lib/mandate';
 import { useTheme } from '../components/contexts/ThemeContext';
 import aiStyles from '../styles/AIPage.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../lib/nodeRetry';
+
+/** Raw units to a short readable figure for chat copy. */
+function humanAmount(raw, decimals = 18) {
+  try {
+    const v = BigInt(raw);
+    const base = 10n ** BigInt(decimals);
+    const frac = (v % base).toString().padStart(decimals, '0').slice(0, 4).replace(/0+$/, '');
+    return frac ? `${v / base}.${frac}` : `${v / base}`;
+  } catch {
+    return String(raw ?? '');
+  }
+}
 
 const STARTER_PROMPTS = [
   'Swap 100 USDC to GEN with the best route',
@@ -65,7 +78,7 @@ export default function AIPage() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Welcome to **Soyara AI Trading** on **GenLayer Testnet**!\n\nI am your specialized DeFi trading assistant. Every execution proposal is verified by decentralized AI consensus on **GenVM** via the **AgentValidator** (`" + INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8) + "...`) and **LiquidityValidator** Intelligent Contracts.\n\nAsk me for real-time swap quotes, route comparisons, fee analysis, or to prepare trade proposals!",
+      content: "Welcome to **Soyara AI Trading** on **GenLayer Testnet**!\n\nI am your specialized DeFi trading assistant. Every trade I prepare is approved by decentralized AI consensus on **GenVM** through the **AgentValidator** Intelligent Contract (`" + INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8) + "...`), and settles only through **AgentExecutor**, which refuses anything consensus did not authorise.\n\nAsk me for real-time swap quotes, route comparisons, fee analysis, or to prepare trade proposals!",
       toolsUsed: ['GenVM Consensus', 'AgentValidator IC', 'DeFi Analytics'],
     }
   ]);
@@ -96,6 +109,9 @@ export default function AIPage() {
   // appeal window is finite: if it has not landed after this many tries,
   // something other than the window is wrong and the user should be told.
   const settlementRetryRef = useRef(0);
+  // Mandates the executor refused at settlement this session. Kept out of
+  // later validations so a refusal the pre-check cannot foresee cannot loop.
+  const failedMandatesRef = useRef(new Set());
 
   // Trades waiting on their consensus verdict.
   //
@@ -341,6 +357,33 @@ export default function AIPage() {
     }
   }, []);
 
+  // Request a consensus mandate for this pair and direction, in the background,
+  // and say so. The mandate is an authority over the user's trades in this
+  // direction, so it is never asked for silently: the chat states its bounds.
+  const requestFastLane = useCallback((order, proposal) => {
+    ensureMandateRequested({
+      user: order.user,
+      tokenIn: order.tokenIn,
+      tokenOut: order.tokenOut,
+      amountIn: order.amountIn,
+      slippageBps: Number(order.slippageBps) || 100,
+    }).then((r) => {
+      if (r.status !== 'requested') return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `**Fast lane requested.** I asked GenLayer for a trading mandate for ${proposal.tokenIn} to `
+            + `${proposal.tokenOut}: up to ${humanAmount(r.requested?.maxAmountIn)} ${proposal.tokenIn} per trade and `
+            + `${humanAmount(r.requested?.totalBudgetIn)} ${proposal.tokenIn} in total, for 24 hours. Consensus checks the `
+            + `pool and sets its own limits. Once the round finalizes, trades like this one settle in seconds, each `
+            + `still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
+          toolsUsed: ['AgentValidator IC', 'Consensus mandate'],
+        },
+      ]);
+    }).catch(() => { /* background; never blocks a trade */ });
+  }, []);
+
   // Validate current proposal with GenLayer Intelligent Contract.
   // `retryRound` > 0 means this is an automatic re-run after a GenVM round that
   // ended without a majority (UNDETERMINED / LEADER_TIMEOUT / VALIDATORS_TIMEOUT).
@@ -367,9 +410,14 @@ export default function AIPage() {
         headers: { 'Content-Type': 'application/json' },
         // `user` is required because it is part of the settlement commitment -
         // a verdict is bound to the address that will actually receive the
-        // output. (It used to be sent for the mandate fast path, which admitted
-        // trades through a view and has been removed.)
-        body: JSON.stringify({ ...proposal, user: userAddress }),
+        // output. `mandateIds` lets the route settle this trade under a
+        // mandate an earlier round issued, if one covers it, instead of
+        // opening a round of its own.
+        body: JSON.stringify({
+          ...proposal,
+          user: userAddress,
+          mandateIds: recallMandateIds(userAddress).filter((id) => !failedMandatesRef.current.has(id.toLowerCase())),
+        }),
       });
 
       const data = await res.json();
@@ -380,6 +428,43 @@ export default function AIPage() {
           pendingProgram:      data.pendingProgram,
           validationSubmitted: Boolean(data.validationSubmitted),
         };
+      }
+
+      // ── Covered by a mandate: no round, settles in one transaction ────────
+      if (data.approved && data.rail === 'mandate') {
+        setValidationResult(data);
+        setIsValidating(false);
+        recordActivity({
+          id: `mandate-${data.mandate_id}-${Date.now()}`,
+          kind: 'swap',
+          user: userAddress,
+          pair: `${proposal.tokenIn} → ${proposal.tokenOut}`,
+          label: `Swap ${proposal.amountIn} ${proposal.tokenIn} → ${proposal.tokenOut}`,
+          proposalId: data.mandate_id,
+          status: 'approved',
+          reason: data.reason,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `**Covered by your GenLayer mandate** \`${String(data.mandate_id).slice(0, 12)}...\`\n\n`
+              + `An earlier consensus round approved trades like this one: this pair and direction, up to `
+              + `${humanAmount(data.mandate?.maxAmountIn)} ${proposal.tokenIn} per trade, with `
+              + `${humanAmount(data.mandate?.remainingBudget)} ${proposal.tokenIn} of its budget left. `
+              + `AgentExecutor checks this trade against that mandate and prices it from the pool itself, so `
+              + `**Execute settles it in one transaction** with no new round.`,
+            toolsUsed: ['AgentValidator IC', 'Consensus mandate', 'AgentExecutor'],
+          }
+        ]);
+        return;
+      }
+
+      // Ask for a mandate in the background when one could carry trades like
+      // this. It does not make THIS trade faster - it has its own round now -
+      // but the next one in this direction settles in seconds.
+      if (data.rail === 'consensus' && data.mandate_eligible && data.pendingOrder && (data.approved || data.pending)) {
+        requestFastLane(data.pendingOrder, proposal);
       }
 
       // Consensus round still in flight - poll status instead of reporting rejection.
@@ -509,9 +594,9 @@ export default function AIPage() {
     }
   };
 
-  // Execute swap on-chain via the one-time approval gate (/api/agent-execute) -
-  // see hooks/useAgentSwapExecution.js for the full flow (approve → resolve pool
-  // route → build program → AgentExecutor one-time approval → settle).
+  // Settle through AgentExecutor on the rail consensus chose (/api/agent-execute):
+  // this trade's own verdict, or a mandate an earlier round issued. See
+  // hooks/useAgentSwapExecution.js.
   const handleExecute = async () => {
     try {
       setBalanceSnapshot(liveBalances);
@@ -548,12 +633,17 @@ export default function AIPage() {
           settleTxHash: result.hash,
           status: 'settled',
         });
+        const authority = result.rail === 'mandate'
+          ? `✅ Settled by **AgentExecutor** under consensus mandate \`${String(result.mandateId).slice(0, 12)}...\`, `
+            + `which checked this trade against the mandate and priced it from the pool.`
+          : `✅ Settled by **AgentExecutor** against this trade's own consensus verdict. The commitment `
+            + `\`${String(result.commitment).slice(0, 12)}...\` is single use and is now spent.`;
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: `🚀 **Trade Executed via AgentExecutor!**\n\n✅ One-time approval bound and consumed on AgentExecutor.\n✅ Settlement routed through GenLayer-consensus-gated approval hash.\n\nTrade Hash: \`${result.tradeHash?.slice(0, 14)}...\`\nApprove Tx: \`${result.approveTxHash?.slice(0, 10)}...\`\n\nExecution Tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
-            toolsUsed: ['AgentExecutor', 'AGGFlowEntrypoint', 'GenLayer Bradbury'],
+            content: `🚀 **Trade settled.**\n\n${authority}\n\nSettlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
+            toolsUsed: ['AgentExecutor', 'AGGFlowEntrypoint', result.rail === 'mandate' ? 'Consensus mandate' : 'Consensus verdict'],
           }
         ]);
       } else if (result.kind === 'remove_liquidity') {
@@ -561,7 +651,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `💸 **Liquidity Withdrawn via AgentExecutor!**\n\n✅ One-time approval bound and consumed.\n\nLP burned: \`${result.lpBurned}\`\nApprove Tx: \`${result.approveTxHash?.slice(0, 10)}...\`\n\nExecution Tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
+            content: `💸 **Liquidity withdrawn via AgentExecutor.** The consensus verdict for this withdrawal was consumed.\n\nLP burned: \`${result.lpBurned}\`\n\nExecution Tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
             toolsUsed: ['AgentExecutor', 'UniswapV2Router', 'GenLayer Bradbury'],
           }
         ]);
@@ -574,18 +664,33 @@ export default function AIPage() {
             toolsUsed: ['AgentExecutor', 'UniswapV2Router', 'GenLayer Bradbury'],
           }
         ]);
-      } else if (result.kind === 'swap_fallback') {
+      }
+    } catch (err) {
+      console.error('Execution failed:', err);
+
+      // The mandate could not carry this trade after all - spent, expired, or
+      // the best route moved off its pool. Nothing was sent. Validate again,
+      // which gives the trade its own consensus round.
+      if (err?.mandateUnavailable) {
+        // Not offered again this session: if the executor refused it for a
+        // reason the pre-check cannot see, offering it again would loop.
+        const failedId = validationResult?.mandate_id;
+        if (failedId) failedMandatesRef.current.add(String(failedId).toLowerCase());
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: `🚀 **Trade Submitted!**\n\nExecution is broadcasting on GenLayer Bradbury Testnet...\n\n⚠️ *Note: Running in fallback mode - AgentExecutor not yet deployed.*\n\nTx Hash: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`,
-            toolsUsed: ['AGGFlowEntrypoint', 'GenLayer Bradbury'],
-          }
+            content: `ℹ️ **Your mandate no longer covers this trade.** ${err.message}\n\n`
+              + `Nothing was sent. Running this trade through its own consensus round now.`,
+            toolsUsed: ['AgentExecutor', 'Consensus mandate'],
+          },
         ]);
+        setValidationResult(null);
+        settlementHandoffRef.current = null;
+        resetExecution();
+        if (currentProposal) handleValidateRef.current?.(0, currentProposal);
+        return;
       }
-    } catch (err) {
-      console.error('Execution failed:', err);
 
       // Not a failure at all: consensus has approved the trade and the verdict
       // is still crossing to the executor.

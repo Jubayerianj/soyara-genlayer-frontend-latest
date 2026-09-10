@@ -10,6 +10,7 @@ import { TOKEN_LIST } from '../../constants/tokens.js';
 import { quoteBestRouteMultiHop } from '../../lib/dexQuote.js';
 import { parseIntent } from '../../lib/parseIntent.js';
 import { describeRoundPhase, mergeVerdictResponse } from '../../lib/settlement.js';
+import { recallMandateIds } from '../../lib/mandate.js';
 import { MarketAnalystAgent, SettlementStrategistAgent, PostTradeAuditorAgent, buildDebate } from './analysts.js';
 // One definition of the liquidity handoff, shared with the /ai API route.
 import { POOLS_URL, isLiquidityIntent, liquidityRedirectMessage } from '../../lib/pools.js';
@@ -261,7 +262,7 @@ export class RiskValidatorAgent {
    *   progress is pushed to the UI directly - otherwise /a2a sat silent for the
    *   whole round and looked frozen.
    */
-  static async validate(intent, route, userAddress, onProgress = null) {
+  static async validate(intent, route, userAddress, onProgress = null, { excludeMandateIds = [] } = {}) {
     const entrypoint = CONTRACT_ADDRESSES[4221]?.aggregatorEntrypoint || '0x95feE6Cb918Ed9C621E36082EE8D998873031EaA';
     // Quantised to a 10-minute boundary so identical trades share a
     // proposal_id and can reuse an existing on-chain verdict instead of paying
@@ -320,6 +321,11 @@ export class RiskValidatorAgent {
       router: proposal.router,
       deadline: proposal.deadline,
       extraData: proposal.extraData,
+      // Mandates an earlier round issued for this user. If one covers this
+      // exact trade on its best route, the route settles it under that mandate
+      // and opens no round of its own; otherwise the trade gets its own round.
+      mandateIds: recallMandateIds(userAddress)
+        .filter((id) => !excludeMandateIds.map((x) => String(x).toLowerCase()).includes(id.toLowerCase())),
     };
 
     // Call live GenLayer Intelligent Contract via API
@@ -472,10 +478,20 @@ export class RiskValidatorAgent {
     // something no verdict exists for.
     const commitment = genlayerResult?.commitment || null;
 
+    // Which consensus authority settles this trade, as the validate route
+    // decided before opening anything. Never inferred here.
+    const rail = genlayerResult?.approved ? (genlayerResult?.rail || null) : null;
+    const mandateId = rail === 'mandate' ? (genlayerResult?.mandate_id || null) : null;
+
     return {
       proposal,
-      tradeHash: commitment || tradeHash,
+      tradeHash: mandateId || commitment || tradeHash,
       commitment,
+      rail,
+      mandateId,
+      mandate: genlayerResult?.mandate || null,
+      mandateEligible: Boolean(genlayerResult?.mandate_eligible),
+      mandateNote: genlayerResult?.mandate_note || null,
       // The queue needs this to drive finalization: a decided round sits in
       // Accepted until somebody calls finalize, and the verdict rides an
       // external message that is only emitted at that point.
@@ -500,7 +516,9 @@ export class RiskValidatorAgent {
             ? `Still awaiting consensus (tx ${genlayerResult?.tx_hash?.slice(0, 10)}...) - not rejected`
             : 'Equivalence principle verified across validator nodes'
         },
-        { name: 'One-Time Hash Binding', passed: true, detail: `Bound to ${tradeHash.slice(0, 10)}...` }
+        rail === 'mandate'
+          ? { name: 'Consensus Mandate', passed: true, detail: `Covered by mandate ${String(mandateId).slice(0, 10)}...; AgentExecutor checks and prices the trade against it` }
+          : { name: 'Single-Use Commitment', passed: Boolean(commitment), detail: commitment ? `Verdict bound to ${String(commitment).slice(0, 10)}...` : 'No commitment returned yet' }
       ]
     };
   }
@@ -510,43 +528,36 @@ export class RiskValidatorAgent {
 
 export class DevInspectorAgent {
   static inspect(intent, route, risk) {
-    const entrypoint = CONTRACT_ADDRESSES[4221]?.aggregatorEntrypoint || '0x95feE6Cb918Ed9C621E36082EE8D998873031EaA';
-    
-    // Build dummy AGGFlow aggregator program bytecode for inspection
+    const executor = CONTRACT_ADDRESSES[4221]?.agentExecutor;
+
+    // The real program the order binds, not an illustration of one. It is what
+    // the executor will hash and compare against the committed routeHash.
+    const program = risk?.pendingProgram || null;
     const isV3 = route.chosenRoute.includes('V3');
-    const mockProgram = '0x01' + (isV3 ? '03' : '02') + route.tokenIn.address.slice(2) + route.tokenOut.address.slice(2) + '0000000000000000';
+    const onMandate = risk?.rail === 'mandate';
+
+    // The reverts the deployed executor actually raises for each tamper.
+    const tamperVectors = onMandate
+      ? [
+          { param: 'route program', tamperedValue: 'any other aggProgram', predictedRevert: 'RouteMismatch(mandate.routeHash, keccak256(program))', secure: true },
+          { param: 'amountIn', tamperedValue: 'above the per-trade ceiling', predictedRevert: 'MandateAmountExceeded(amountIn, maxAmountIn)', secure: true },
+          { param: 'minAmountOut', tamperedValue: '0', predictedRevert: 'QuoteInconsistent(minAmountOut, expectedOut) - the executor prices the pool itself', secure: true },
+          { param: 'recipient (user)', tamperedValue: 'not settable', predictedRevert: 'None needed: the recipient is read from the mandate, not from calldata', secure: true },
+        ]
+      : [
+          { param: 'amountIn', tamperedValue: (parseFloat(intent.amountIn) * 1.5).toString(), predictedRevert: 'NoConsensusVerdict(commitment) - a different order hashes to a commitment no verdict backs', secure: true },
+          { param: 'minAmountOut', tamperedValue: '0', predictedRevert: 'QuoteInconsistent - the floor must sit one slippage band below the validated quote', secure: true },
+          { param: 'recipient (user)', tamperedValue: '0xAttackerAddress000000000000000000000000', predictedRevert: 'NoConsensusVerdict(commitment) - the user is inside the commitment', secure: true },
+          { param: 'replay execution', tamperedValue: 'executeSwap() 2nd time', predictedRevert: 'CommitmentAlreadyUsed(commitment) - verdicts are single use', secure: true },
+        ];
 
     return {
-      calldataSize: `${mockProgram.length / 2} bytes`,
-      rawProgram: mockProgram,
-      targetContract: entrypoint,
+      calldataSize: program ? `${(program.length - 2) / 2} bytes` : 'not built yet',
+      rawProgram: program,
+      targetContract: executor,
+      settlementCall: onMandate ? 'AgentExecutor.executeSwapUnderMandate' : 'AgentExecutor.executeSwap',
       gasEstimate: isV3 ? '138,420 gas (~$0.0001)' : '112,850 gas (~$0.00008)',
-      tamperVectors: [
-        {
-          param: 'amountIn',
-          tamperedValue: (parseFloat(intent.amountIn) * 1.5).toString(),
-          predictedRevert: 'TradeNotApproved(0x...) - Hash mismatch',
-          secure: true
-        },
-        {
-          param: 'minAmountOut',
-          tamperedValue: '0',
-          predictedRevert: 'TradeNotApproved(0x...) - Hash mismatch',
-          secure: true
-        },
-        {
-          param: 'recipient (user)',
-          tamperedValue: '0xAttackerAddress000000000000000000000000',
-          predictedRevert: 'TradeNotApproved(0x...) - Hash mismatch',
-          secure: true
-        },
-        {
-          param: 'replay execution',
-          tamperedValue: 'executeSwap() 2nd time',
-          predictedRevert: 'TradeNotApproved(0x...) - Approval deleted on 1st use',
-          secure: true
-        }
-      ],
+      tamperVectors,
       stateOverrides: {
         balanceCheck: 'PASSED',
         allowanceCheck: 'REQUIRES_ERC20_APPROVE',
@@ -753,20 +764,28 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   yield {
     agent: A.risk,
     type: 'MESSAGE',
-    text: `Broadcasting to the AgentValidator Intelligent Contract (\`${INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8)}...\`) `
-      + `for GenVM consensus. Validators do not take my word for the route: they decode the aggregator program, verify `
-      + `each pool against the factory, and re-derive the quote from live reserves before approving. Repeating the same `
-      + `request inside 10 minutes reuses the recorded verdict and is near-instant.`,
+    text: `Checking whether a consensus mandate you already hold covers this trade. If not, broadcasting it to the `
+      + `AgentValidator Intelligent Contract (\`${INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8)}...\`) for its own GenVM `
+      + `round. Validators do not take my word for the route: they decode the aggregator program, verify each pool `
+      + `against the factory, and re-derive the quote from live reserves before approving.`,
     status: 'working'
   };
 
-  const risk = await RiskValidatorAgent.validate(intent, route, userAddress, config.onProgress || null);
+  const risk = await RiskValidatorAgent.validate(
+    intent, route, userAddress, config.onProgress || null,
+    { excludeMandateIds: config.excludeMandateIds || [] },
+  );
 
   yield {
     agent: A.risk,
     type: 'CONSENSUS_REACHED',
     data: risk,
-    text: risk.isApproved
+    text: risk.isApproved && risk.rail === 'mandate'
+      ? `✅ **Covered by your GenLayer mandate** \`${String(risk.mandateId).slice(0, 14)}...\`. An earlier consensus round `
+        + `approved trades like this one for you, this pair and direction, within fixed limits, so no new round is needed. `
+        + `AgentExecutor checks this trade against the mandate and prices it from the pool itself. Handing to `
+        + `**${A.settlement.name}**...`
+      : risk.isApproved
       ? `✅ **GenLayer consensus reached.** All ${risk.checks.length} guardrails passed. The verdict is bound to `
         + `\`${String(risk.tradeHash).slice(0, 14)}...\` - a commitment covering the route, the fee and its recipient, `
         + `you, and the quote it was checked against. Handing to **${A.settlement.name}** to pick a rail...`
@@ -804,18 +823,21 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   yield {
     agent: A.settlement,
     type: 'MESSAGE',
-    text: `Reading executor state to choose a settlement rail - verdict reuse, or the full appeal window.`,
+    text: `Reading executor state for the authority this trade settles on - a consensus mandate, a live verdict, or `
+      + `the full appeal window.`,
     status: 'working'
   };
 
   await yieldFrame();
   const strategy = await SettlementStrategistAgent.plan({
+    rail: risk.rail,
+    mandateId: risk.mandateId,
     commitment: risk.commitment,
     order: risk.pendingOrder,
     deadline: risk.proposal?.deadline,
   }).catch((err) => ({ rail: 'unknown', eta: null, rationale: `Executor state unavailable: ${err.message}`, blockers: [] }));
 
-  const RAIL_LABEL = { reuse: '♻️ Verdict reuse', consensus: '🐢 Full appeal window', blocked: '⛔ Blocked', unknown: '❔ Unknown' };
+  const RAIL_LABEL = { mandate: '⚡ Consensus mandate', reuse: '♻️ Verdict reuse', consensus: '🐢 Full appeal window', blocked: '⛔ Blocked', unknown: '❔ Unknown' };
   yield {
     agent: A.settlement,
     type: 'SETTLEMENT_PLAN',
@@ -843,11 +865,15 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   // The team's requirement, checked live against the deployed executor rather
   // than asserted. The contract re-derives the commitment from the order; if any
   // field differs from what consensus saw, the hashes diverge and this fails.
+  const onMandate = risk.rail === 'mandate';
   yield {
     agent: A.auditor,
     type: 'MESSAGE',
-    text: `Re-deriving the commitment from the executor and checking every binding: route bytes, fee, fee collector, `
-      + `recipient, quote, deadline.`,
+    text: onMandate
+      ? `Reading the mandate back from the executor and checking every binding: recipient, pair and direction, route `
+        + `hash, per-trade ceiling, remaining budget, fee and collector, router.`
+      : `Re-deriving the commitment from the executor and checking every binding: route bytes, fee, fee collector, `
+        + `recipient, quote, deadline.`,
     status: 'working'
   };
 
@@ -857,6 +883,8 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     program: risk.pendingProgram,
     commitment: risk.commitment,
     user: userAddress,
+    rail: onMandate ? 'mandate' : 'consensus',
+    mandateId: risk.mandateId,
   }).catch((err) => ({ checks: [{ name: 'Pre-flight', passed: false, detail: err.message }], passed: false, allBound: false }));
 
   const failed = audit.checks.filter((c) => !c.passed);
@@ -864,7 +892,12 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     agent: A.auditor,
     type: 'AUDIT_PREFLIGHT',
     data: audit,
-    text: audit.passed
+    text: audit.passed && onMandate
+      ? `✅ **${audit.checks.length}/${audit.checks.length} mandate bindings verified on-chain.** The executor holds a `
+        + `mandate the validator wrote for you, this pair and direction, and the aggregator program hashes to the route `
+        + `the validators built. The settlement agent can choose only the size of this trade, inside the ceilings `
+        + `consensus set; the executor prices it from the pool.`
+      : audit.passed
       ? `✅ **${audit.checks.length}/${audit.checks.length} bindings verified on-chain.** The executor derives the same `
         + `commitment from this order that consensus approved, and the aggregator program hashes to the committed `
         + `routeHash. Nothing between here and settlement can change the route, the fee, the recipient or the quote `
@@ -890,8 +923,9 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     agent: A.dev,
     type: 'DEV_INSPECTED',
     data: devInspection,
-    text: `Inspection complete. Aggregator bytecode: ${devInspection.calldataSize} | est. gas: ${devInspection.gasEstimate}. `
-      + `4/4 parameter tamper vectors verified immune to replay and redirection.`,
+    text: `Inspection complete. Route program: ${devInspection.calldataSize}, settled by **${devInspection.settlementCall}** `
+      + `| est. gas: ${devInspection.gasEstimate}. Each tamper vector reverts on chain: `
+      + devInspection.tamperVectors.map((t) => `${t.param} → \`${t.predictedRevert.split(' - ')[0]}\``).join('; ') + '.',
     status: 'complete'
   };
 

@@ -106,13 +106,19 @@ ok('the direct pair labels both sides correctly',
 console.log('\nSettlement Strategist (live executor)');
 const plan = await SettlementStrategistAgent.plan({ commitment: '0x' + '11'.repeat(32), deadline: Math.floor(Date.now() / 1000) + 3600 });
 ok('executor is readable', plan.executor && plan.paused === false);
-ok('attestor threshold is read, not assumed', plan.attestorThreshold > 0, `${plan.attestorThreshold}-of-N`);
 ok('an unknown commitment is not treated as live', plan.verdictLive === false);
-ok('picks the fast rail when attestors are armed', plan.rail === 'attestor', `rail=${plan.rail} eta=${plan.eta}`);
-ok('rationale is specific', /\d/.test(plan.rationale));
+// The attestor rail is gone from the executor. A verdict that is not yet on
+// chain can only arrive when its round finalizes, and the plan must say so.
+ok('an unapproved commitment waits for its own verdict', plan.rail === 'consensus', `rail=${plan.rail} eta=${plan.eta}`);
+ok('no attestor rail is offered', !('attestorThreshold' in plan) && plan.rail !== 'attestor');
+ok('rationale names the appeal window', /appeal window/i.test(plan.rationale));
 
 const expired = await SettlementStrategistAgent.plan({ commitment: '0x' + '11'.repeat(32), deadline: Math.floor(Date.now() / 1000) - 60 });
 ok('a passed deadline blocks settlement', expired.rail === 'blocked', expired.blockers[0] || '');
+
+// A mandate the executor does not hold must never be offered as the fast rail.
+const ghost = await SettlementStrategistAgent.plan({ rail: 'mandate', mandateId: '0x' + '22'.repeat(32) });
+ok('an unrecorded mandate blocks rather than promising seconds', ghost.rail === 'blocked', ghost.blockers[0] || '');
 
 console.log('\nPost-Trade Auditor');
 const noOrder = await PostTradeAuditorAgent.preflight({ order: null, program: null, commitment: null, user: '0x0000000000000000000000000000000000000001' });
@@ -134,6 +140,16 @@ ok('the settlement pass never speaks for the market analyst',
 const slowRail = buildDebate({ analysis: { concerns: [] }, route: badRoute, intent: { slippageBps: 100 }, strategy: { rail: 'consensus' }, phase: 'settlement' });
 ok('the slow rail is explained rather than silently falling through',
    slowRail.length === 1 && slowRail[0].from === 'settlement');
+const mandateRail = buildDebate({ analysis: { concerns: [] }, route: badRoute, intent: { slippageBps: 100 }, strategy: { rail: 'mandate' }, phase: 'settlement' });
+ok('the mandate rail is explained, and says the executor prices it',
+   mandateRail.length === 1 && /prices the trade/i.test(mandateRail[0].text));
+
+console.log('\nPost-Trade Auditor on the mandate rail');
+const noMandate = await PostTradeAuditorAgent.preflight({
+  order: null, program: null, commitment: null, user: '0x0000000000000000000000000000000000000001',
+  rail: 'mandate', mandateId: null,
+});
+ok('refuses to claim mandate bindings it cannot check', noMandate.passed === false && noMandate.allBound === false);
 
 console.log(`\n${fail === 0 ? 'All swarm agent checks passed.' : fail + ' CHECK(S) FAILED'}  (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

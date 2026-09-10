@@ -32,15 +32,29 @@
 // msg.sender is the IC's address), the commitment spans the entire order, and
 // the quote is settled at the value it was validated at.
 //
-// TWO WAYS IN
-// -----------
-// Normally /api/genlayer-validate has already built the order and started its
-// consensus round, and passes both here. This route then only waits for the
-// verdict to reach the executor and settles - one round per trade.
+// TWO RAILS, ONE PER TRADE
+// ------------------------
+// Every trade this route settles goes through AgentExecutor, and the executor
+// needs an authority only the AgentValidator IC can write. /api/genlayer-validate
+// decides which one a trade uses before any round is opened, and the caller
+// passes that decision back as `rail`:
 //
-// Called without them it does the whole thing itself: quote, build, validate,
-// wait, settle. That path is kept so the route works standalone, but it is the
-// slow one, because it starts a round the caller could have started earlier.
+//   consensus  the order's own verdict. /api/genlayer-validate has built the
+//              order and opened its round, and passes both here; this route
+//              waits for the verdict to reach the executor and calls
+//              `executeSwap`, which consumes it. One round per trade.
+//   mandate    a mandate an earlier round issued covers this exact order.
+//              This route re-checks that, then calls `executeSwapUnderMandate`
+//              once. No round, no appeal window.
+//
+// A trade never falls from one rail to the other inside a request. If it could,
+// the same intent might settle under the mandate now and again later when its
+// own verdict landed.
+//
+// Called without an order it does the whole consensus rail itself: quote,
+// build, validate, wait, settle. That path is kept so the route works
+// standalone, but it is the slow one, because it starts a round the caller
+// could have started earlier.
 //
 // FAIL-CLOSED: if any step fails, the entire settlement is aborted.
 
@@ -52,6 +66,17 @@ import { validateSwapOrder, finalizeRound } from '../../lib/genlayer.js';
 import { leaseAgent } from '../../lib/agentPool.js';
 import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swapOrder.js';
 import { obtainVerdict, isVerdictLive, readVerdictState, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
+import { findCoveringMandate, expectedOutUnderMandate, mandateMinAmountOut } from '../../lib/mandateCoverage.js';
+
+const V2_PAIR_ABI = [
+  { name: 'getReserves', type: 'function', stateMutability: 'view', inputs: [],
+    outputs: [{ type: 'uint112' }, { type: 'uint112' }, { type: 'uint32' }] },
+  { name: 'token0', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+];
+
+/** Revert names a mandate settlement can hit, and what each one means for the caller. */
+const MANDATE_UNAVAILABLE = /NoMandate|MandateExpired|MandateRevoked|MandateAmountExceeded|MandateBudgetExceeded|RouteMismatch|FeeTooHigh|RouterNotApproved|NotCanonicalPool|FactoryNotSet/;
+const PRICE_MOVED = /QuoteInconsistent|InsufficientAmountAfterFees|0x499c1728|INSUFFICIENT_OUTPUT/;
 
 // GenLayer Bradbury Testnet chain config (chain ID 4221)
 const genLayerBradbury = {
@@ -140,9 +165,22 @@ export default async function handler(req, res) {
     // The round to finalize while waiting. Without it a resumed settlement can
     // only watch, and finalization is a call somebody has to make.
     validationTxHash,
+    // Which authority settles this trade, as /api/genlayer-validate decided.
+    // Only an explicit 'mandate' takes the mandate rail; anything else is the
+    // consensus rail, which is the one every older caller already used.
+    rail: requestedRail,
+    mandateId,
   } = req.body;
 
   const resuming = Boolean(pendingOrder && pendingProgram);
+  const onMandateRail = requestedRail === 'mandate';
+
+  if (onMandateRail && (!resuming || !mandateId)) {
+    return res.status(400).json({
+      success: false,
+      error: 'The mandate rail needs the order it was checked against and the mandate id. Validate the trade again.',
+    });
+  }
 
   if (!resuming && (!user || !tokenIn || !tokenOut || !amountIn || slippageBps === undefined || !deadline)) {
     return res.status(400).json({ error: 'Missing required trade parameters' });
@@ -250,10 +288,15 @@ export default async function handler(req, res) {
     // decided; the executor is what will enforce it, and between the two sits
     // the finalization delay - external messages from an IC are delivered on
     // finalization, never on acceptance.
-    const lease = leaseAgent?.();
-    const nudge = (txHash) => finalizeRound(txHash, lease?.account || account);
+    //
+    // Any funded account may finalize, so the relayer nudges. A sender lane is
+    // leased only if this request actually opens a round (see `submit` below):
+    // this route used to lease one on every call and never give it back, so a
+    // handful of settle attempts parked every lane for its full TTL and
+    // /api/genlayer-validate reported "all lanes are mid-round" to new trades.
+    const nudge = (txHash) => finalizeRound(txHash, account);
 
-    // ── ONE RAIL ─────────────────────────────────────────────────────────────
+    // ── NO ATTESTOR RAIL ─────────────────────────────────────────────────────
     //
     // There used to be a fast rail here: a quorum of attestors read the verdict
     // out of the IC as soon as the round was accepted and signed the same
@@ -269,57 +312,123 @@ export default async function handler(req, res) {
     //
     // So settlement now waits for the verdict to arrive as an external message
     // on finalization. That is slower, and it is the actual GenLayer guarantee.
-    let settlementRail = 'genlayer_consensus';
+    const settlementRail = 'consensus';
 
-    // ── FAST PATH: a mandate consensus already approved ───────────────────────
+    // ── MANDATE RAIL: an authority an earlier consensus round issued ─────────
     //
-    // If a live mandate covers this exact trade, settlement is one transaction
-    // and takes seconds. No round, no appeal window, no queue.
+    // One transaction, seconds, no round and no appeal window. It is not a
+    // bypass: the mandate was written by recordMandate, which is onlyValidator,
+    // so only a consensus round could have created it, and the executor checks
+    // this trade against it - user, pair, direction, per-trade ceiling,
+    // lifetime budget, fee and collector, router, and the route by hash - and
+    // prices it itself from the pinned pool's live reserves.
     //
-    // This is not a bypass. The mandate was written by recordMandate, which is
-    // onlyValidator, so only a consensus round could have created it. And the
-    // executor still checks every trade against it: the route by hash, the fee
-    // and its collector, the user, the per-trade ceiling and the lifetime
-    // budget - and it prices the trade itself from the pinned pool's live
-    // reserves rather than trusting anything sent here.
-    if (req.body?.mandateId) {
-      const mandateId = req.body.mandateId;
-      try {
-        const live = await publicClient.readContract({
-          address: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI,
-          functionName: 'isMandateLive', args: [mandateId],
+    // This branch never hands over to the consensus rail. Either the mandate
+    // settles this trade, or the caller is told it cannot and validates again.
+    if (onMandateRail) {
+      const coverage = await findCoveringMandate({
+        publicClient, executor: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI,
+        mandateIds: [mandateId], order, aggProgram,
+      });
+      if (!coverage.covered) {
+        return res.status(409).json({
+          success: false,
+          rail: 'mandate',
+          mandateUnavailable: true,
+          mandateId,
+          error:
+            `This trade is no longer covered by its mandate (${String(coverage.reasons?.[0] || 'not covered').replace(/^0x[0-9a-fA-F]{8}: /, '')}). `
+            + 'Nothing was sent. Validate it again to settle it against its own consensus verdict.',
         });
-
-        if (live) {
-          console.log(`[agent-execute] mandate ${mandateId.slice(0, 10)}... is live - settling immediately`);
-          const isNativeIn = order.tokenIn === zeroAddress;
-          const fastHash = await sendWithRetry(() => walletClient.writeContract({
-            address: agentExecutorAddress,
-            abi: AGENT_EXECUTOR_ABI,
-            functionName: 'executeSwapUnderMandate',
-            args: [mandateId, order.amountIn, order.minAmountOut, order.feeBps, aggProgram],
-            value: isNativeIn ? order.amountIn : 0n,
-          }), 'executeSwapUnderMandate');
-
-          const fastReceipt = await publicClient.waitForTransactionReceipt({ hash: fastHash });
-          if (fastReceipt.status === 'success') {
-            return res.status(200).json({
-              success: true,
-              rail: 'mandate',
-              hash: fastHash,
-              mandateId,
-              commitment,
-              explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${fastHash}`,
-            });
-          }
-          // A reverted fast settlement is not fatal - fall through to the slow
-          // path rather than failing the trade outright. The most likely cause
-          // is the mandate's budget or per-trade ceiling being reached.
-          console.warn('[agent-execute] mandate settlement reverted; falling back to per-order consensus');
-        }
-      } catch (e) {
-        console.warn('[agent-execute] mandate path unavailable, using consensus:', e?.shortMessage || e?.message);
       }
+      const m = coverage.mandate;
+
+      // The floor the executor will accept, computed the way it computes it.
+      let minAmountOut;
+      try {
+        const [reserves, token0] = await Promise.all([
+          publicClient.readContract({ address: m.pool, abi: V2_PAIR_ABI, functionName: 'getReserves' }),
+          publicClient.readContract({ address: m.pool, abi: V2_PAIR_ABI, functionName: 'token0' }),
+        ]);
+        const inIsToken0 = String(token0).toLowerCase() === String(order.tokenIn).toLowerCase();
+        const expectedOut = expectedOutUnderMandate({
+          amountIn: order.amountIn,
+          feeBps: order.feeBps,
+          reserveIn: inIsToken0 ? reserves[0] : reserves[1],
+          reserveOut: inIsToken0 ? reserves[1] : reserves[0],
+        });
+        minAmountOut = mandateMinAmountOut({ order, mandate: m, expectedOut });
+      } catch (e) {
+        return res.status(503).json({
+          success: false, rail: 'mandate',
+          error: `The mandate's pool could not be read, so nothing was sent: ${e?.shortMessage || e?.message}`,
+        });
+      }
+
+      const args = [mandateId, order.amountIn, minAmountOut, order.feeBps, aggProgram];
+
+      // Simulate first. A revert here costs nothing and names the reason; a
+      // revert on chain costs gas and says less.
+      try {
+        await publicClient.simulateContract({
+          account, address: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI,
+          functionName: 'executeSwapUnderMandate', args,
+        });
+      } catch (e) {
+        const why = `${e?.shortMessage || ''} ${e?.message || ''}`;
+        if (PRICE_MOVED.test(why)) {
+          return res.status(409).json({
+            success: false, rail: 'mandate', stale: true, mandateId,
+            error: 'The pool moved past your slippage tolerance since this trade was quoted. Nothing was sent. '
+              + 'Request a fresh quote.',
+          });
+        }
+        return res.status(409).json({
+          success: false, rail: 'mandate', mandateUnavailable: MANDATE_UNAVAILABLE.test(why), mandateId,
+          error: `The executor would refuse this trade under its mandate (${(e?.shortMessage || e?.message || 'reverted').slice(0, 200)}). `
+            + 'Nothing was sent.',
+        });
+      }
+
+      console.log(`[agent-execute] mandate ${mandateId.slice(0, 10)}... covers this order - settling now`);
+      const execTxHash = await sendWithRetry(() => walletClient.writeContract({
+        address: agentExecutorAddress,
+        abi: AGENT_EXECUTOR_ABI,
+        functionName: 'executeSwapUnderMandate',
+        args,
+      }), 'executeSwapUnderMandate');
+
+      let receipt;
+      try {
+        receipt = await publicClient.waitForTransactionReceipt({ hash: execTxHash });
+      } catch {
+        // Sent, outcome unknown. Retrying could settle the trade twice, so the
+        // caller is given the hash and told to look rather than to try again.
+        return res.status(504).json({
+          success: false, rail: 'mandate', sentUnconfirmed: true, execTxHash, mandateId,
+          error: `The settlement transaction was sent but is not confirmed yet (${execTxHash}). Do not retry; `
+            + 'check the transaction first.',
+        });
+      }
+
+      if (receipt.status !== 'success') {
+        return res.status(500).json({
+          success: false, rail: 'mandate', execTxHash, mandateId,
+          error: 'executeSwapUnderMandate reverted on chain. Nothing moved. Validate the trade again.',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        rail: 'mandate',
+        execTxHash,
+        // Older clients read `hash` on this rail.
+        hash: execTxHash,
+        mandateId,
+        blockNumber: receipt.blockNumber.toString(),
+        minAmountOut: minAmountOut.toString(),
+        explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${execTxHash}`,
+      });
     }
 
     const alreadyLive = await isVerdictLive({
@@ -374,7 +483,23 @@ export default async function handler(req, res) {
         executor: agentExecutorAddress,
         abi: AGENT_EXECUTOR_ABI,
         commitment,
-        submit: () => validateSwapOrder({ ...order, aggProgram }, lease ? { account: lease.account } : {}),
+        // A lane is held only while its round is in flight: GenLayer queues
+        // rounds per sender, so reusing a lane mid-round collides. A round
+        // that decided at once hands its lane straight back.
+        submit: async () => {
+          const lease = leaseAgent();
+          try {
+            const r = await validateSwapOrder({ ...order, aggProgram }, lease ? { account: lease.account } : {});
+            if (lease) {
+              if (r?.pending && r?.txHash) lease.markSubmitted(r.txHash);
+              else lease.release();
+            }
+            return r;
+          } catch (e) {
+            lease?.release();
+            throw e;
+          }
+        },
         finalize: nudge,
       });
     }
@@ -454,10 +579,9 @@ export default async function handler(req, res) {
       explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${execTxHash}`,
       quotedAmountOut: order.quotedAmountOut.toString(),
       minAmountOut: order.minAmountOut.toString(),
-      verifiedVia: { path: settlementRail, commitment },
-      // Which road the verdict travelled. Both require a consensus approval
-      // for this exact commitment; they differ only in how it reached the
-      // executor, and therefore in how long it took.
+      verifiedVia: { path: 'genlayer_consensus', commitment },
+      // The authority this settlement consumed: the order's own single-use
+      // verdict. The mandate rail returns earlier with rail 'mandate'.
       rail: settlementRail,
     });
 

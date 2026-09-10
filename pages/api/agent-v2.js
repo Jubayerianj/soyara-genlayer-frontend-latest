@@ -45,8 +45,11 @@ const GENLAYER_KNOWLEDGE = {
   rpc: 'https://rpc-bradbury.genlayer.com',
   explorer: 'https://explorer-bradbury.genlayer.com',
   contracts: {
+    // The settlement pair: the IC that writes verdicts and mandates, and the
+    // executor that refuses anything it did not write. The separate
+    // LiquidityValidator contract is not listed: it authorises nothing.
     agentValidator: INTELLIGENT_CONTRACTS.agentValidator,
-    liquidityValidator: INTELLIGENT_CONTRACTS.liquidityValidator,
+    agentExecutor: CONTRACT_ADDRESSES[4221].agentExecutor,
     aggFlowEntrypoint: CONTRACT_ADDRESSES[4221].aggregatorEntrypoint,
     v2Router: CONTRACT_ADDRESSES[4221].router,
     v3Router: CONTRACT_ADDRESSES[4221].v3Router,
@@ -330,11 +333,11 @@ const tools = [
       },
       {
         name: 'get_contract_info',
-        description: 'Fetch deployed GenLayer Intelligent Contract addresses and security parameters (AgentValidator, LiquidityValidator).',
+        description: 'Fetch the deployed settlement contracts (AgentValidator IC, AgentExecutor) and routing addresses.',
         parameters: {
           type: 'OBJECT',
           properties: {
-            contractType: { type: 'STRING', description: 'Contract name or type', enum: ['all', 'agentValidator', 'liquidityValidator', 'routers'] }
+            contractType: { type: 'STRING', description: 'Contract name or type', enum: ['all', 'agentValidator', 'agentExecutor', 'routers'] }
           },
           required: ['contractType']
         }
@@ -416,62 +419,10 @@ async function buildProposalObject(action, params) {
         : `No liquidity pool exists for ${tokenInSym}/${tokenOutSym} on Soyara DEX. The rate shown is a reference estimate only and cannot be executed.`,
       genlayerContract: INTELLIGENT_CONTRACTS.agentValidator,
     };
-  } else if (action === 'ADD_LIQUIDITY') {
-    const tokenA = normalizeToken(params.tokenA) || 'GEN';
-    const tokenB = normalizeToken(params.tokenB) || 'USDC';
-    const amountA = parseFloat(params.amountA || 10);
-    const amountB = parseFloat(params.amountB || 20);
-    const model = params.model === 'v3' ? 'V3 Concentrated (0.05%)' : 'V2 Classic AMM';
-
-    const tokenAObj = getTokenObject(tokenA);
-    const tokenBObj = getTokenObject(tokenB);
-
-    const decimalsA = tokenAObj?.decimals || 18;
-    const decimalsB = tokenBObj?.decimals || 18;
-
-    const amountARaw = parseUnits(String(amountA), decimalsA).toString();
-    const amountBRaw = parseUnits(String(amountB), decimalsB).toString();
-    const minAmountARaw = ((BigInt(amountARaw) * 9950n) / 10000n).toString();
-    const minAmountBRaw = ((BigInt(amountBRaw) * 9950n) / 10000n).toString();
-
-    return {
-      action: 'ADD_LIQUIDITY',
-      tokenA,
-      tokenB,
-      tokenIn: tokenA,
-      tokenOut: tokenB,
-      tokenAAddress: tokenAObj?.address || '0x0000000000000000000000000000000000000000',
-      tokenBAddress: tokenBObj?.address || '0x0000000000000000000000000000000000000000',
-      tokenInAddress: tokenAObj?.address || '0x0000000000000000000000000000000000000000',
-      tokenOutAddress: tokenBObj?.address || '0x0000000000000000000000000000000000000000',
-      amountA,
-      amountB,
-      amountARaw,
-      amountBRaw,
-      minAmountA: (amountA * 0.995).toFixed(4),
-      minAmountB: (amountB * 0.995).toFixed(4),
-      minAmountARaw,
-      minAmountBRaw,
-      amount0Desired: amountARaw,
-      amount1Desired: amountBRaw,
-      amount0Min: minAmountARaw,
-      amount1Min: minAmountBRaw,
-      amountIn: amountA,
-      minAmountOut: amountB,
-      expectedOutput: `LP Position (${tokenA}-${tokenB})`,
-      slippage: '0.50%',
-      slippageBps: 50,
-      priceImpact: '<0.01%',
-      route: model,
-      model: params.model || 'v2',
-      router: params.model === 'v3' ? CONTRACT_ADDRESSES[4221].v3PositionManager : CONTRACT_ADDRESSES[4221].router,
-      deadline,
-      isLiveQuote: true,
-      executable: true,
-      genlayerContract: INTELLIGENT_CONTRACTS.agentValidator,
-    };
   }
 
+  // No liquidity proposals: this agent hands liquidity to the pools app, and
+  // a builder for one (including a V3 variant nothing can settle) was dead code.
   return null;
 }
 
@@ -817,8 +768,12 @@ The swarm you speak for:
 - Market Analyst reads the live reserves behind that quote and objects when the
   order is a large share of the pool or when venues disagree on price.
 - Risk & GenVM Consensus opens the GenLayer round.
-- Settlement Strategist reads the executor and picks the rail: verdict reuse
-  (seconds), or the full appeal window (~40 min).
+- Settlement Strategist reads the executor and reports the rail. Every rail
+  settles through AgentExecutor, which refuses anything the AgentValidator IC
+  did not authorise: a consensus mandate an earlier round issued for this user
+  and pair (seconds), a verdict already on chain (seconds), or this trade's own
+  verdict after the appeal window (~40 min). There is no path that skips the
+  executor.
 - Post-Trade Auditor asks the executor to re-derive the commitment from the order
   and verifies every binding, then reads the receipt afterwards to report what
   was actually delivered.

@@ -130,9 +130,10 @@ export default function SdkPage() {
 
           <p style={{ color: muted, fontSize: '0.78rem', lineHeight: 1.55, marginBottom: 0, marginTop: 14 }}>
             Settlement functions on <code>AgentExecutor</code> carry an <code>onlyAgent</code> modifier,
-            so the caller must be a registered agent. The contract now supports{' '}
-            <strong>multiple agents</strong>, so you can register your own address and settle directly
-            rather than routing through someone else&apos;s server.
+            so the caller must be a registered agent. The executor supports{' '}
+            <strong>multiple agents</strong>: the owner can register your address, so you relay trades
+            from your own key instead of through someone else&apos;s server. Either way the executor
+            settles only what the AgentValidator Intelligent Contract authorised.
           </p>
         </section>
 
@@ -176,16 +177,22 @@ if (verdict.approved) {
               Contract. Validators are selected by VRF, each independently re-executes the proposal,
               then they commit and reveal. This takes tens of seconds - by design, not a bug.
             </li>
-            <li>The verdict is recorded in contract state and read back with <code>get_validation</code>.</li>
             <li>
-              Settlement derives the proposal id <strong>on-chain from the exact parameters being
-              settled</strong> and checks that verdict itself. Passing <code>validationApproved: true</code>{' '}
-              is not enough - a fabricated id returns <strong>403</strong>.
+              The verdict is recorded in contract state (read back with <code>get_validation</code>) and,
+              when the round finalizes, the Intelligent Contract delivers it to <code>AgentExecutor</code>{' '}
+              itself. <code>recordVerdict</code> is <code>onlyValidator</code>: no key an operator holds can
+              write one, the owner&apos;s included.
             </li>
             <li>
-              <code>AgentExecutor</code> binds a one-time hash over those parameters and{' '}
-              <strong>consumes</strong> it. Change any parameter and it reverts with{' '}
-              <code>TradeNotApproved</code>; the hash cannot be replayed.
+              Settlement re-derives the commitment from the <strong>exact order being settled</strong> -
+              route, fee, fee collector, recipient, quote, deadline, nonce - and consumes the matching
+              verdict. Change any field and it reverts with <code>NoConsensusVerdict</code>; a second
+              attempt reverts with <code>CommitmentAlreadyUsed</code>.
+            </li>
+            <li>
+              Repeated trades in one direction can instead settle under a <strong>mandate</strong> an
+              earlier round issued. The executor checks each trade against it - size, budget, fee, route -
+              and prices it from the pool itself, so they settle in seconds without a round each.
             </li>
           </ol>
           <p style={{ color: muted, fontSize: '0.78rem', marginBottom: 0, marginTop: 12 }}>

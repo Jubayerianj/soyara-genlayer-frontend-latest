@@ -1,11 +1,26 @@
 // hooks/useAgentSwapExecution.js
 //
-// Shared GenLayer-validated swap execution logic for the `/ai` page and the
-// `/a2a` swarm UI. Extracted from pages/ai.jsx so both surfaces settle through
-// the exact same path (ERC20 approve → AgentExecutor one-time approval gate
-// via /api/agent-execute) instead of drifting apart - before this extraction,
-// the /a2a "Execute" button was a 1-second fake timeout that never called the
-// real settlement API at all.
+// Settlement for the agent surfaces, `/ai` and the `/a2a` swarm. Both use this
+// one hook, so both settle the same way.
+//
+// EVERY SWAP HERE SETTLES THROUGH AgentExecutor
+// ---------------------------------------------
+// There is exactly one way an agent trade moves funds: the settlement agent
+// relays it to AgentExecutor, and AgentExecutor refuses unless the
+// AgentValidator Intelligent Contract has authorised it. The authority is one
+// of two rails, chosen by /api/genlayer-validate before any consensus round is
+// opened (see lib/actions.js and lib/mandateCoverage.js):
+//
+//   consensus  the order's own verdict, single use, consumed by `executeSwap`.
+//   mandate    an earlier consensus round's bounded authority for this user,
+//              pair and direction, checked and priced on chain per trade by
+//              `executeSwapUnderMandate`. Seconds rather than the appeal window.
+//
+// This hook used to default to a third, `fastMode`, where the user signed an
+// AGGFlowEntrypoint swap directly and no verdict was involved at all. That was
+// the default on both pages, and it is removed rather than switched off. The
+// wallet prompt for a swap here is the one-time token approval; the /swap page
+// is where a person signs a trade themselves.
 //
 // UI-agnostic by design: `approve()`/`execute()` return plain result objects
 // (or throw) instead of pushing formatted messages themselves - each caller
@@ -17,40 +32,25 @@ import { parseUnits, zeroAddress } from 'viem';
 import { CONTRACT_ADDRESSES } from '../constants/addresses';
 import { TOKEN_LIST, findTokenByAddress } from '../constants/tokens';
 import { ERC20_ABI } from '../constants/abis';
-import { buildProgram, buildMultiHopProgram } from '../utils/programBuilder';
-import { normaliseAction, assertSettlementRoute, DIRECT_SETTLEMENT } from '../lib/actions';
-import AGGFLOW_ENTRYPOINT_ABI from '../abi/AGGFlowEntrypoint.json';
-import { withNodeRetry, paced, describeTxError, WALLET_ONE_RETRY } from '../lib/nodeRetry';
-import { findUsableMandate, requestMandate, forgetMandate } from '../lib/mandate';
+import { normaliseAction, assertSettlementRoute, settlementRailOf } from '../lib/actions';
+import { withNodeRetry, paced, WALLET_ONE_RETRY } from '../lib/nodeRetry';
 
 /**
- * @param proposal          the trade the agent decided on
- * @param options.fastMode  settle directly in one block (default), rather than
- *                          waiting for a GenLayer verdict.
- *
- * fastMode defaults to TRUE because the alternative is not a slightly slower
- * trade - it is a fifteen to twenty-five minute wait. A verdict reaches the
- * executor only when its consensus round finalizes, and no part of this app can
- * shorten that: GenVM's EthSend emission carries no delivery-timing field, while
- * PostMessage and DeployContract both take one. Per-trade consensus gating and
- * per-trade speed cannot both be had here.
- *
- * Pass { fastMode: false } for the enforced flow, where AgentExecutor refuses to
- * settle anything consensus has not approved.
+ * @param proposal  the trade the agent decided on
  */
-export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
+export function useAgentSwapExecution(proposal) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
 
-  const entrypointAddress = CONTRACT_ADDRESSES[4221]?.aggregatorEntrypoint || '0x95feE6Cb918Ed9C621E36082EE8D998873031EaA';
   const wgenAddress = CONTRACT_ADDRESSES[4221]?.wgen || '0x315374AA9b5536037Cc1Efeea2439CCC0913A77e';
 
-  // AgentExecutor routes settlement through the one-time approval hash system.
-  // There is no direct-AGGFlowEntrypoint fallback: bypassing the approval gate is
-  // the exact gap GenLayer's review flagged, so settlement fails closed instead.
+  // The only contract an agent trade is ever approved against. With no
+  // executor configured there is nothing to approve and nothing can settle:
+  // approving the entrypoint instead would only prepare the direct path that
+  // this hook no longer has.
   const agentExecutorAddress = CONTRACT_ADDRESSES[4221]?.agentExecutor;
   const isAgentExecutorDeployed = agentExecutorAddress && agentExecutorAddress !== '0x0000000000000000000000000000000000000000';
-  const approvalSpender = isAgentExecutorDeployed ? agentExecutorAddress : entrypointAddress;
+  const approvalSpender = isAgentExecutorDeployed ? agentExecutorAddress : null;
 
   const fromTokenObj = useMemo(() => {
     if (!proposal) return null;
@@ -236,84 +236,7 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
     return params;
   }, [publicClient]);
 
-  // Resolve V2 Pair or V3 Pool for execution
-  const resolvePoolRoute = useCallback(async (tokenInFormatted, tokenOutFormatted, dexPref = 'best') => {
-    const factoryV2 = CONTRACT_ADDRESSES[4221]?.factory || '0x4680BCe1632824d30D2F53656dD610736c3e312e';
-    const factoryV3 = CONTRACT_ADDRESSES[4221]?.v3Factory || '0xBd959038300aF0C8dd1873E497d6D0a565b4E246';
-
-    const tokenInAddr = tokenInFormatted.isNative ? wgenAddress : tokenInFormatted.address;
-    const tokenOutAddr = tokenOutFormatted.isNative ? wgenAddress : tokenOutFormatted.address;
-
-    // 1. Try V3 if requested or best
-    if ((dexPref === 'v3' || dexPref === 'best') && publicClient) {
-      const feeTiers = [500, 3000, 10000];
-      const getPoolAbi = [{
-        inputs: [
-          { name: 'tokenA', type: 'address' },
-          { name: 'tokenB', type: 'address' },
-          { name: 'fee', type: 'uint24' },
-        ],
-        name: 'getPool',
-        outputs: [{ name: 'pool', type: 'address' }],
-        stateMutability: 'view',
-        type: 'function',
-      }];
-
-      // Probe the fee tiers concurrently - awaiting them one at a time cost ~1.4s
-      // on Bradbury against ~0.5s in parallel, all of it before the user sees any
-      // progress. Results are still consumed in tier order, so the cheapest tier
-      // with a real pool still wins.
-      const pools = await Promise.all(
-        feeTiers.map((fee) =>
-          publicClient
-            .readContract({
-              address: factoryV3,
-              abi: getPoolAbi,
-              functionName: 'getPool',
-              args: [tokenInAddr, tokenOutAddr, fee],
-            })
-            .catch(() => null)
-        )
-      );
-
-      for (let i = 0; i < feeTiers.length; i += 1) {
-        const pool = pools[i];
-        if (pool && pool !== zeroAddress && pool !== '0x0000000000000000000000000000000000000000') {
-          return { poolAddress: pool, poolType: 'v3', fee: feeTiers[i], dexName: 'UniswapV3' };
-        }
-      }
-    }
-
-    // 2. Fallback to V2 Pair
-    if (publicClient) {
-      try {
-        const pair = await publicClient.readContract({
-          address: factoryV2,
-          abi: [{
-            inputs: [
-              { name: 'tokenA', type: 'address' },
-              { name: 'tokenB', type: 'address' },
-            ],
-            name: 'getPair',
-            outputs: [{ name: 'pair', type: 'address' }],
-            stateMutability: 'view',
-            type: 'function',
-          }],
-          functionName: 'getPair',
-          args: [tokenInAddr, tokenOutAddr],
-        });
-        if (pair && pair !== zeroAddress && pair !== '0x0000000000000000000000000000000000000000') {
-          return { poolAddress: pair, poolType: 'v2', fee: 3000, dexName: 'OurV2' };
-        }
-      } catch (e) {
-        // continue
-      }
-    }
-
-    return null;
-  }, [publicClient, wgenAddress]);
-
-  // Approve token - approves the correct settlement spender (AgentExecutor or AGGFlowEntrypoint)
+  // Approve every token this action pulls, for AgentExecutor and nothing else.
   const approve = useCallback(async () => {
     if (!fromTokenObj?.address || !approvalSpender || !proposal) return null;
     setExecutionError(null);
@@ -325,10 +248,11 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
     // agent. Approve max once; every later trade then settles with no prompt.
     //
     // This does not weaken the security model. Per-trade authority comes from
-    // the consensus commitment: AgentExecutor will only move funds against an
-    // identifier the AgentValidator Intelligent Contract has approved, and that
-    // identifier covers the route, the fee, the fee collector, the recipient and
-    // the validated quote. It is consumed on use and cannot be replayed. The
+    // the AgentValidator Intelligent Contract, never from this allowance:
+    // AgentExecutor moves funds only against a verdict for the order's own
+    // commitment (route, fee, fee collector, recipient and validated quote,
+    // consumed on use) or inside a mandate a consensus round issued for this
+    // user, pair and direction, which it checks and prices per trade. The
     // allowance on its own grants nobody the ability to move anything.
     const MAX_UINT256 = (1n << 256n) - 1n;
 
@@ -386,24 +310,26 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
       allowanceB, amountInRequired, amountBRequired, tokenAApproveAddr, tokenBApproveAddr]);
 
 
-  // Execute swap on-chain via the one-time approval gate (/api/agent-execute)
+  // Settle through AgentExecutor, on the rail the validation chose.
   //
-  // IMPORTANT: AgentExecutor.executeSwap() (approveTradeWithParams no longer exists;
-  // approvals come from the validator IC, not from any key this server holds)
-  // are both protected by `onlyAgent` - they will REVERT if called from the user wallet.
-  // The server-side /api/agent-execute route holds the agent private key and calls them.
-  // The user wallet only handles ERC20 approve (spender=AgentExecutor) before calling the API.
+  // `executeSwap` and `executeSwapUnderMandate` are both `onlyAgent`, so the
+  // user's wallet cannot call them: /api/agent-execute relays them with the
+  // agent key. The user's wallet only ever signs the ERC-20 approval for
+  // AgentExecutor, and the executor refuses anything the AgentValidator IC has
+  // not authorised - so the agent key relays trades, it cannot make them.
   /**
-   * @param validationResult  the GenLayer validation this execution follows
+   * @param validationResult  the GenLayer validation this execution follows.
+   *                          Its `rail` decides how the trade settles, and a
+   *                          result with no recognised rail cannot settle.
    * @param resumeState       `{ pendingOrder, pendingProgram, validationSubmitted }`
-   *                          - the order /api/genlayer-validate opened its
-   *                          consensus round against, or the one a previous
-   *                          `pending` attempt handed back. Passing it back
-   *                          settles THAT commitment. Omitting it makes the
-   *                          settlement route quote afresh and open its own
-   *                          round, which both costs a second multi-minute wait
-   *                          and waits on a different commitment from the one
-   *                          consensus is already finalising.
+   *                          - the order /api/genlayer-validate built, and for
+   *                          the consensus rail opened its round against, or
+   *                          the one a previous `pending` attempt handed back.
+   *                          Passing it back settles THAT order. Omitting it
+   *                          makes the settlement route quote afresh and open
+   *                          its own round, which both costs a second
+   *                          multi-minute wait and waits on a different
+   *                          commitment from the one consensus is finalising.
    */
   const execute = useCallback(async (validationResult, resumeState = null) => {
     if (!proposal || !userAddress) return null;
@@ -534,8 +460,6 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
             amountADesired: String(amountARaw),
             amountBDesired: String(amountBRaw),
             slippageBps: proposal.slippageBps || 30,
-            // `deadlineNum` is declared further down in this function, so it is
-            // in the temporal dead zone here - compute the fallback inline.
             deadline: proposal.deadline || (Math.floor(Date.now() / 1000) + 7200),
             validationApproved: Boolean(validationResult?.approved),
           }),
@@ -589,213 +513,117 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
         return { kind: 'unwrap', hash, amountIn: proposal.amountIn };
       }
 
-      const resolvedRoute = await resolvePoolRoute(tokenInFormatted, tokenOutFormatted, proposal.dex || 'best');
-      if (!resolvedRoute) {
-        throw new Error(`No active liquidity pool found on Soyara DEX for ${fromTokenObj.symbol}/${toTokenObj.symbol}`);
+      // ── No executor, no settlement. FAIL CLOSED. ────────────────────────────
+      // There is no path from here to AGGFlowEntrypoint. A settlement that the
+      // executor does not gate is exactly what the GenLayer review rejected,
+      // twice, and a convenience route that skips the gate is worse than an
+      // outage.
+      if (!isAgentExecutorDeployed) {
+        throw new Error(
+          'Settlement unavailable: AgentExecutor is not configured, and agent trades settle only through it. '
+          + 'Nothing has moved.'
+        );
       }
 
-      // Use the aggregator's chosen path when it found one. Rebuilding the route
-      // here instead would discard a multi-hop win and could pick a different
-      // pool from the one that was quoted and validated.
-      const program = Array.isArray(proposal.hops) && proposal.hops.length > 0
-        ? buildMultiHopProgram(tokenInFormatted, tokenOutFormatted, proposal.hops, wgenAddress)
-        : buildProgram(tokenInFormatted, tokenOutFormatted, resolvedRoute, wgenAddress);
-      const feeCollector = CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E';
-      const deadlineNum = Math.floor(Date.now() / 1000) + 7200;
-      const slippageNum = proposal.slippageBps || 30;
+      // A liquidity request must never reach the swap settlement route.
+      //
+      // The branches above should have handled it, and this exists because
+      // they did not: a deposit reached here and settled as a swap, moving
+      // funds the user never agreed to move. A guard immediately before the
+      // call that spends money is cheap, and the failure it prevents is not.
+      assertSettlementRoute(action, '/api/agent-execute');
 
-      // ── Route through /api/agent-execute (server-side agent wallet) ──────────
-      if (isAgentExecutorDeployed) {
-        const programHex = typeof program === 'string' ? program : `0x${Buffer.from(program).toString('hex')}`;
-
-        // A liquidity request must never reach the swap settlement route.
-        //
-        // The branches above should have handled it, and this exists because
-        // they did not: a deposit reached here and settled as a swap, moving
-        // funds the user never agreed to move. A guard immediately before the
-        // call that spends money is cheap, and the failure it prevents is not.
-        try {
-          assertSettlementRoute(action, '/api/agent-execute');
-        } catch (err) {
-          setExecutionError(err.message);
-          throw err;
-        }
-
-        // ── FAST PATH: settle directly, in one block ──────────────────────
-        //
-        // The agent has already quoted the route and computed the protection
-        // floor; this signs and sends it. One transaction, one block - the same
-        // thing /swap does, and the same trust model: the user's signature is
-        // what authorises the trade, and the entrypoint's own minAmountOut check
-        // is what protects them.
-        //
-        // It is fast because it does not wait on a GenLayer verdict. A verdict
-        // is delivered to the executor only when its round finalizes, and
-        // nothing in this app can shorten that - EthSend carries no
-        // delivery-timing field. Consensus gating and per-trade speed are
-        // mutually exclusive on this platform, so this is the explicit choice
-        // of speed, not an accident.
-        //
-        // Custody is unaffected: funds move from the user's wallet to the pool
-        // in a transaction they signed, and the output is bound to their own
-        // address. No operator ever holds anything.
-        if (fastMode) {
-          assertSettlementRoute(action, DIRECT_SETTLEMENT);
-
-          const isNativeIn  = tokenInFormatted.isNative;
-          const isNativeOut = tokenOutFormatted.isNative;
-          const swapIntent = [
-            isNativeOut ? zeroAddress : tokenOutFormatted.address,
-            minAmountOutWei,
-            isNativeIn ? zeroAddress : tokenInFormatted.address,
-            amountInWei,
-          ];
-          const feeCollection = [
-            CONTRACT_ADDRESSES[4221]?.dexFeeVault || '0x48234eD645676b794a4CbC7483513e58cB04e22E',
-            5n,          // 0.05% platform fee
-            zeroAddress, // no referrer
-            0n,
-            false,
-          ];
-
-          const gasParams = await getTxGasParams(700000n);
-          const hash = await withNodeRetry(() => paced(() => executeSwapAsync({
-            address: entrypointAddress,
-            abi: AGGFLOW_ENTRYPOINT_ABI,
-            functionName: 'executeSwapWithReceiver',
-            args: [swapIntent, feeCollection, programHex, userAddress],
-            value: isNativeIn ? amountInWei : 0n,
-            ...gasParams,
-          })), { label: 'direct swap', ...WALLET_ONE_RETRY });
-
-          setActiveTxHash(hash);
-          return {
-            kind: 'swap',
-            rail: 'direct',
-            hash,
-            amountIn: proposal.amountIn,
-            explorerUrl: `https://explorer-bradbury.genlayer.com/tx/${hash}`,
-          };
-        }
-
-        // ── Is a mandate ready? Then this trade takes seconds ─────────────
-        //
-        // A live mandate means consensus has already authorised trades of this
-        // shape, so settlement is one transaction instead of a fresh round and
-        // its appeal window. If there is no usable mandate we start one in the
-        // background - it will not help THIS trade, but it makes every later
-        // one instant - and fall through to per-order consensus meanwhile.
-        const tokenInAddr  = tokenInFormatted.isNative ? zeroAddress : tokenInFormatted.address;
-        const tokenOutAddr = tokenOutFormatted.isNative ? zeroAddress : tokenOutFormatted.address;
-
-        let mandateId = null;
-        try {
-          const m = await findUsableMandate({
-            user: userAddress,
-            tokenIn: tokenInAddr,
-            tokenOut: tokenOutAddr,
-            amountIn: amountInWei.toString(),
-          });
-          if (m.usable) {
-            mandateId = m.mandateId;
-          } else {
-            // A mandate that exists but cannot serve this trade is worse than
-            // none: it will keep being offered. Drop it and ask for a new one.
-            if (m.mandateId) forgetMandate(userAddress, tokenInAddr, tokenOutAddr);
-            requestMandate({
-              user: userAddress,
-              tokenIn: tokenInAddr,
-              tokenOut: tokenOutAddr,
-              // Room for this trade and a number more like it, without handing
-              // over an unbounded authority.
-              maxAmountIn: (amountInWei * 2n).toString(),
-              totalBudgetIn: (amountInWei * 20n).toString(),
-              slippageBps: slippageNum,
-            }).catch(() => { /* background; never blocks a trade */ });
-          }
-        } catch { /* the slow path always works */ }
-
-        const agentExecRes = await fetch('/api/agent-execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user: userAddress,
-            tokenIn:      tokenInFormatted.isNative ? zeroAddress : tokenInFormatted.address,
-            tokenOut:     tokenOutFormatted.isNative ? zeroAddress : tokenOutFormatted.address,
-            amountIn:     amountInWei.toString(),
-            minAmountOut: minAmountOutWei.toString(),
-            slippageBps:  slippageNum,
-            deadline:     proposal.deadline || deadlineNum,
-            aggProgram:   programHex,
-            // The order /api/genlayer-validate already opened its consensus
-            // round against, or the one a previous `pending` attempt handed
-            // back. Either way settlement waits on THAT commitment instead of
-            // quoting again and starting a second round.
-            // When present the server settles through executeSwapUnderMandate,
-            // which is one transaction and needs no round.
-            mandateId,
-            pendingOrder:        resumeState?.pendingOrder,
-            pendingProgram:      resumeState?.pendingProgram,
-            validationSubmitted: resumeState?.validationSubmitted,
-          }),
-        });
-
-        const agentResult = await agentExecRes.json();
-        if (!agentExecRes.ok || !agentResult.success) {
-          const err = new Error(agentResult.error || 'Agent execution failed - settlement aborted (fail-closed)');
-          // `stale` means the quote aged out rather than anything being broken;
-          // the caller should offer a re-quote instead of showing a hard failure.
-          err.stale = Boolean(agentResult.stale);
-          err.needsApproval = Boolean(agentResult.needsApproval);
-          // `pending` is not a failure at all. The validator IC delivers its
-          // verdict to AgentExecutor as an external message, and those are
-          // delivered on FINALIZATION - so there is a real window in which
-          // consensus has approved the trade but the executor cannot honour it
-          // yet. The commitment is stable across retries, so the same request
-          // will pick the verdict up; surfacing this as a hard error would tell
-          // the user their trade failed when it is simply still settling.
-          err.pending = Boolean(agentResult.pending);
-          // An expired verdict must never be reported as pending: waiting on it
-          // is an infinite wait for an approval that already lapsed.
-          err.verdictExpired = Boolean(agentResult.verdictExpired);
-          if (err.verdictExpired) err.pending = false;
-          err.commitment = agentResult.commitment;
-          // Everything needed to resume THIS settlement. Retrying without them
-          // would re-quote, rebuild the route, and end up waiting on a
-          // different commitment from the one consensus is finalising.
-          err.pendingOrder = agentResult.pendingOrder;
-          err.pendingProgram = agentResult.pendingProgram;
-          err.validationSubmitted = agentResult.validationSubmitted;
-          throw err;
-        }
-
-        const hash = agentResult.execTxHash;
-        setActiveTxHash(hash);
-        return {
-          kind: 'swap',
-          hash,
-          // The consensus-approved identifier this settlement consumed. It
-          // replaces `tradeHash`, which covered only seven of the parameters
-          // that decide where the money goes.
-          commitment: agentResult.commitment,
-          validationTxHash: agentResult.validationTxHash,
-          explorerUrl: agentResult.explorerUrl,
-        };
+      // Which authority settles this trade was decided when it was validated,
+      // and it is not re-decided here. A trade reaching both rails could settle
+      // twice, so a result that does not name exactly one is refused.
+      const rail = settlementRailOf(validationResult);
+      if (!rail) {
+        throw new Error(
+          'Settlement blocked: this approval does not say which consensus authority settles it. '
+          + 'Validate the trade again. Nothing has moved.'
+        );
+      }
+      if (rail === 'mandate' && !(resumeState?.pendingOrder && resumeState?.pendingProgram)) {
+        throw new Error(
+          'Settlement blocked: the order this mandate was checked against is missing. Validate the trade again. '
+          + 'Nothing has moved.'
+        );
       }
 
-      // ── No fallback. FAIL CLOSED. ───────────────────────────────────────────
-      // There used to be a path here that called AGGFlowEntrypoint.executeSwap
-      // directly when AgentExecutor was not configured. That path settled a trade
-      // WITHOUT binding or consuming the one-time approval hash, which is exactly
-      // the gap GenLayer's review identified ("settles directly through
-      // AGGFlowEntrypoint without consuming the new one-time approval"). A
-      // convenience fallback that silently drops the enforcement is worse than an
-      // outage, so settlement now refuses instead.
-      throw new Error(
-        'Settlement unavailable: AgentExecutor is not configured, and settling directly '
-        + 'through AGGFlowEntrypoint would bypass the GenLayer-enforced one-time approval. '
-        + 'Configure the AgentExecutor address to enable trading - fail-closed.'
-      );
+      const agentExecRes = await fetch('/api/agent-execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rail,
+          mandateId: rail === 'mandate' ? (validationResult.mandate_id || validationResult.mandateId) : undefined,
+          user: userAddress,
+          tokenIn:      tokenInFormatted.isNative ? zeroAddress : tokenInFormatted.address,
+          tokenOut:     tokenOutFormatted.isNative ? zeroAddress : tokenOutFormatted.address,
+          amountIn:     amountInWei.toString(),
+          minAmountOut: minAmountOutWei.toString(),
+          slippageBps:  proposal.slippageBps || 30,
+          deadline:     proposal.deadline || (Math.floor(Date.now() / 1000) + 7200),
+          // The order /api/genlayer-validate built - and, on the consensus
+          // rail, opened its round against - or the one a previous `pending`
+          // attempt handed back. Settlement uses THAT order instead of quoting
+          // again, so a consensus trade waits on the commitment consensus is
+          // actually finalising.
+          pendingOrder:        resumeState?.pendingOrder,
+          pendingProgram:      resumeState?.pendingProgram,
+          validationSubmitted: resumeState?.validationSubmitted,
+          // Lets the route drive finalization while it waits.
+          validationTxHash:    validationResult?.tx_hash || validationResult?.txHash || null,
+        }),
+      });
+
+      const agentResult = await agentExecRes.json();
+      if (!agentExecRes.ok || !agentResult.success) {
+        const err = new Error(agentResult.error || 'Agent execution failed - settlement aborted (fail-closed)');
+        err.rail = rail;
+        // `stale` means the quote aged out rather than anything being broken;
+        // the caller should offer a re-quote instead of showing a hard failure.
+        err.stale = Boolean(agentResult.stale);
+        err.needsApproval = Boolean(agentResult.needsApproval);
+        // The mandate could no longer carry this trade (spent, expired, or the
+        // best route moved off its pool). Nothing was sent. The remedy is a
+        // fresh validation, which falls back to a per-order round.
+        err.mandateUnavailable = Boolean(agentResult.mandateUnavailable);
+        // `pending` is not a failure at all. The validator IC delivers its
+        // verdict to AgentExecutor as an external message, and those are
+        // delivered on FINALIZATION - so there is a real window in which
+        // consensus has approved the trade but the executor cannot honour it
+        // yet. The commitment is stable across retries, so the same request
+        // will pick the verdict up; surfacing this as a hard error would tell
+        // the user their trade failed when it is simply still settling.
+        err.pending = Boolean(agentResult.pending);
+        // An expired verdict must never be reported as pending: waiting on it
+        // is an infinite wait for an approval that already lapsed.
+        err.verdictExpired = Boolean(agentResult.verdictExpired);
+        if (err.verdictExpired) err.pending = false;
+        err.commitment = agentResult.commitment;
+        // Everything needed to resume THIS settlement. Retrying without them
+        // would re-quote, rebuild the route, and end up waiting on a
+        // different commitment from the one consensus is finalising.
+        err.pendingOrder = agentResult.pendingOrder;
+        err.pendingProgram = agentResult.pendingProgram;
+        err.validationSubmitted = agentResult.validationSubmitted;
+        err.validationTxHash = agentResult.validationTxHash;
+        throw err;
+      }
+
+      const hash = agentResult.execTxHash;
+      setActiveTxHash(hash);
+      return {
+        kind: 'swap',
+        rail: agentResult.rail || rail,
+        hash,
+        // What authorised it: the single-use commitment this settlement
+        // consumed, or the mandate it drew down.
+        commitment: agentResult.commitment || null,
+        mandateId: agentResult.mandateId || null,
+        validationTxHash: agentResult.validationTxHash || null,
+        explorerUrl: agentResult.explorerUrl,
+      };
     } catch (err) {
       const message = err?.shortMessage || err?.message || 'Execution rejected by user or network';
       setExecutionError(message);
@@ -809,8 +637,8 @@ export function useAgentSwapExecution(proposal, { fastMode = true } = {}) {
     }
   }, [
     proposal, userAddress, isFromNative, fromTokenObj, toTokenObj,
-    getTxGasParams, executeSwapAsync, wgenAddress, resolvePoolRoute,
-    isAgentExecutorDeployed, entrypointAddress,
+    getTxGasParams, executeSwapAsync, wgenAddress,
+    isAgentExecutorDeployed,
     isNotExecutable, hasInsufficientBalance,
   ]);
 

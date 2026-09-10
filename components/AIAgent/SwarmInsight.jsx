@@ -75,16 +75,23 @@ export default function SwarmInsight({ proposal, validationResult, userAddress }
     return () => { live = false; };
   }, [proposal]);
 
-  // Rail and bindings need a commitment, which only exists once consensus has
+  // Rail and bindings need an authority - a commitment consensus approved, or
+  // a mandate an earlier round issued - which only exists once consensus has
   // approved something.
   useEffect(() => {
     let live = true;
     setStrategy(null);
     setAudit(null);
+    const rail = validationResult?.rail === 'mandate' ? 'mandate' : 'consensus';
     const commitment = validationResult?.commitment;
-    if (!commitment || !validationResult?.approved) return undefined;
+    const mandateId = validationResult?.mandate_id;
+    if (!validationResult?.approved) return undefined;
+    if (rail === 'consensus' && !commitment) return undefined;
+    if (rail === 'mandate' && !mandateId) return undefined;
 
     SettlementStrategistAgent.plan({
+      rail,
+      mandateId,
       commitment,
       order: validationResult.pendingOrder,
       deadline: proposal?.deadline,
@@ -96,6 +103,8 @@ export default function SwarmInsight({ proposal, validationResult, userAddress }
         program: validationResult.pendingProgram,
         commitment,
         user: userAddress,
+        rail,
+        mandateId,
       }).then((a) => { if (live) setAudit(a); }).catch(() => {});
     }
     return () => { live = false; };

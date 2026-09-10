@@ -103,8 +103,13 @@ const ProposalPanel = ({
   // for it to finalize - which is the appeal window, not validation. Rendering
   // it as `validating` is what made a normal 15-25 minute wait look like a
   // stuck spinner, because the label never changed and no ETA was ever shown.
+  //
+  // A mandate-covered trade has no appeal window of its own: its authority is
+  // already on the executor, so it is enforceable the moment it is quoted.
   const settlementStage = txHash
     ? 'settled'
+    : validationResult?.rail === 'mandate' && validationResult?.approved
+    ? 'enforceable'
     : isExecuting || validationResult?.pending
     ? 'finalising'
     : validationResult?.approved
@@ -405,11 +410,22 @@ const ProposalPanel = ({
                 fontSize: '0.85rem',
               }}>
                 {validationResult.approved ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                {validationResult.approved ? 'Approved by GenLayer Consensus' : 'Rejected by Validator'}
+                {!validationResult.approved
+                  ? 'Rejected by Validator'
+                  : validationResult.rail === 'mandate'
+                    ? 'Covered by a GenLayer consensus mandate'
+                    : 'Approved by GenLayer Consensus'}
               </div>
               <div style={{ fontSize: '0.82rem', color: textSub }}>
                 {validationResult.reason}
               </div>
+              {validationResult.approved && (
+                <div style={{ fontSize: '0.72rem', color: textMuted, lineHeight: 1.45 }}>
+                  {validationResult.rail === 'mandate'
+                    ? 'Settles in one transaction: AgentExecutor checks it against the mandate and prices it from the pool.'
+                    : 'Settles when this verdict reaches AgentExecutor, once the round can no longer be appealed.'}
+                </div>
+              )}
               {validationResult.proposal_id && !validationResult.commitment && (
                 <div style={{ fontSize: '0.72rem', color: textMuted, fontFamily: 'monospace', marginTop: '2px' }}>
                   ID: {validationResult.proposal_id}
@@ -426,6 +442,8 @@ const ProposalPanel = ({
           <SettlementBinding
             commitment={validationResult.commitment}
             order={validationResult.pendingOrder}
+            rail={validationResult.rail}
+            mandate={validationResult.mandate}
             stage={settlementStage}
             validatorAddress={icAddress}
             executorAddress={CONTRACT_ADDRESSES[4221]?.agentExecutor}

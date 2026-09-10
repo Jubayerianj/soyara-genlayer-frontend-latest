@@ -148,6 +148,9 @@ export function useSettlementQueue({ enabled = true } = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Only trades with their own verdict are ever queued: a
+          // mandate-covered trade settles at once and has nothing to wait for.
+          rail: 'consensus',
           pendingOrder: entry.order,
           pendingProgram: entry.program,
           validationSubmitted: true,

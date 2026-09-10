@@ -55,12 +55,20 @@ const STAGES = [
   { key: 'settled',    label: 'Settled',    hint: 'Verdict consumed, single use' },
 ];
 
-const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddress, executorAddress, txHash }) => {
+const SettlementBinding = ({
+  order, commitment, rail = 'consensus', mandate = null, stage = 'quoted', validatorAddress, executorAddress, txHash,
+}) => {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const [copied, setCopied] = useState(false);
 
   if (!commitment && !order) return null;
+
+  // Under a mandate the identifier is the mandate, and what it binds is a
+  // bounded authority rather than one exact order. Say which, rather than
+  // showing a per-order commitment this trade does not have.
+  const underMandate = rail === 'mandate' && mandate;
+  const identifier = underMandate ? mandate.id : commitment;
 
   const textMain = isDark ? '#f8fafc' : '#0f172a';
   const textSub = isDark ? '#cbd5e1' : '#334155';
@@ -73,7 +81,7 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(commitment);
+      await navigator.clipboard.writeText(identifier);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -83,7 +91,18 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
 
   // Exactly the parameters the review named, plus the two that make a verdict
   // valid on one chain and one contract only.
-  const bound = order ? [
+  const bound = underMandate ? [
+    { icon: User,       label: 'Recipient',   value: short(mandate.user, 8, 6),
+      note: 'Only this address is paid, and only its tokens move' },
+    { icon: Route,      label: 'Route',       value: short(mandate.routeHash, 8, 6),
+      note: 'The one program the mandate permits, built by the validators' },
+    { icon: Coins,      label: 'Fee',         value: `max ${Number(mandate.maxFeeBps) / 100}% to ${short(mandate.feeCollector, 6, 4)}`,
+      note: 'Ceiling and recipient fixed by consensus' },
+    { icon: TrendingUp, label: 'Price',       value: `pool ${short(mandate.pool, 6, 4)}`,
+      note: `Priced by the executor from live reserves, within ${Number(mandate.maxSlippageBps) / 100}%` },
+    { icon: Lock,       label: 'Limits',      value: `${humanise(mandate.maxAmountIn)} / trade`,
+      note: `${humanise(mandate.remainingBudget)} of the budget left, until ${new Date(Number(mandate.expiry) * 1000).toLocaleString()}` },
+  ] : order ? [
     { icon: User,       label: 'Recipient',   value: short(order.user, 8, 6),
       note: 'Output can only reach this address' },
     { icon: Route,      label: 'Route',       value: short(order.routeHash, 8, 6),
@@ -117,7 +136,7 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
       }}>
         <ShieldCheck size={16} color={accent} />
         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: textMain, letterSpacing: '0.01em' }}>
-          Consensus binding
+          {underMandate ? 'Consensus mandate' : 'Consensus binding'}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: textMuted }}>
           enforced on chain
@@ -151,11 +170,13 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
       </div>
 
       <div style={{ padding: '4px 14px 12px', fontSize: '0.7rem', color: textMuted, lineHeight: 1.5 }}>
-        {STAGES[stageIndex]?.hint}
+        {underMandate && STAGES[stageIndex]?.key === 'enforceable'
+          ? 'The executor already holds the mandate that covers this trade'
+          : STAGES[stageIndex]?.hint}
       </div>
 
       {/* The identifier */}
-      {commitment && (
+      {identifier && (
         <div style={{ padding: '0 14px 12px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
@@ -168,11 +189,11 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
               fontSize: '0.72rem', color: textSub, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
             }}>
-              {short(commitment, 14, 10)}
+              {short(identifier, 14, 10)}
             </code>
             <button
               onClick={copy}
-              aria-label="Copy commitment"
+              aria-label={underMandate ? 'Copy mandate id' : 'Copy commitment'}
               style={{
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 color: copied ? '#10b981' : textMuted, padding: '2px', display: 'flex', flexShrink: 0,
@@ -212,10 +233,13 @@ const SettlementBinding = ({ order, commitment, stage = 'quoted', validatorAddre
         borderTop: `1px solid ${boxBorder}`,
         fontSize: '0.68rem', color: textMuted, lineHeight: 1.55,
       }}>
-        Only the validator contract can approve this identifier, and it reaches the
-        executor directly. The settlement agent relays the trade and cannot alter
-        any value above: a change of even one produces a different identifier that
-        nothing has approved.
+        {underMandate
+          ? 'Only the validator contract can write a mandate, and the executor checks every trade '
+            + 'against it: pair, direction, size, budget, fee, route and pool. The settlement agent '
+            + 'chooses only the size of a trade, inside those limits, and cannot change anything above.'
+          : 'Only the validator contract can approve this identifier, and it reaches the executor '
+            + 'directly. The settlement agent relays the trade and cannot alter any value above: a '
+            + 'change of even one produces a different identifier that nothing has approved.'}
         {validatorAddress && (
           <div style={{ marginTop: '6px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.64rem' }}>
             validator {short(validatorAddress, 8, 6)}

@@ -74,9 +74,15 @@ console.log('\n=== 4. full seven-agent swap run (live consensus) ===');
     const strategy = done.payload?.strategy;
     const audit = done.payload?.audit;
     const analysis = done.payload?.analysis;
-    ok('rail is a real one', ['reuse', 'attestor', 'consensus', 'blocked'].includes(strategy?.rail), `rail=${strategy?.rail} eta=${strategy?.eta}`);
+    ok('rail is a real one', ['mandate', 'reuse', 'consensus', 'blocked'].includes(strategy?.rail), `rail=${strategy?.rail} eta=${strategy?.eta}`);
+    ok('the rail matches the authority consensus chose',
+       done.payload?.risk?.rail === 'mandate' ? strategy?.rail === 'mandate' || strategy?.rail === 'blocked' : strategy?.rail !== 'mandate');
     ok('market read has live reserves', Number(analysis?.entryReserveHuman) > 0, `${Number(analysis?.entryReserveHuman).toFixed(2)} USDC`);
-    if (done.payload?.risk?.isApproved) {
+    if (done.payload?.risk?.isApproved && done.payload?.risk?.rail === 'mandate') {
+      ok('the mandate is recorded by the validator', audit?.checks?.some((c) => c.name.startsWith('Mandate recorded') && c.passed));
+      ok('route program matches the mandate', audit?.checks?.some((c) => c.name.startsWith('Route program') && c.passed));
+      ok('recipient is bound', audit?.checks?.some((c) => c.name.startsWith('Recipient') && c.passed));
+    } else if (done.payload?.risk?.isApproved) {
       ok('executor re-derives the same commitment', audit?.checks?.some((c) => c.name.startsWith('Commitment binds') && c.passed));
       ok('route program hashes to the committed routeHash', audit?.checks?.some((c) => c.name.startsWith('Route program') && c.passed));
       ok('recipient is bound', audit?.checks?.some((c) => c.name.startsWith('Recipient') && c.passed));

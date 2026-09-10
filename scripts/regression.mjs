@@ -22,7 +22,11 @@ const { quoteBestRouteMultiHop } = await import(base + 'lib/dexQuote.js');
 const { buildLiquidityV2AddOrder } = await import(base + 'lib/liquidityOrder.js');
 
 const ABI = JSON.parse(fs.readFileSync(base + 'abi/AgentExecutor.json', 'utf8'));
-const EXECUTOR = '0x0F1E98571BADd0fF59a34140Fe1e820DaDF907E1';
+// The LIVE executor. This used to be pinned to a retired one (0x0F1E9857...),
+// so the liquidity commitment was checked against a contract the app no longer
+// settles through - a passing test about the wrong chain state.
+const { CONTRACT_ADDRESSES } = await import(base + 'constants/addresses.js');
+const EXECUTOR = CONTRACT_ADDRESSES[4221].agentExecutor;
 const T = {
   USDC: '0x58B6CD7891cd0A682226E25607b958a6479195A6',
   USDT: '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc',
@@ -502,6 +506,143 @@ try {
   eq('nothing wrong means ready', executionButtonLabel({}).key, 'ready');
   eq('and ready is clickable', isExecutionBlocked({}), false);
 } catch (e) { bad('execution button label precedence', e.message); }
+
+// ---------------------------------------------------------------------------
+// Shipped bug: the agent pages settled trades nobody had authorised on chain.
+//
+// useAgentSwapExecution defaulted to `fastMode`, which had the user sign an
+// AGGFlowEntrypoint swap directly. /ai and /a2a both used the default, so the
+// main agent flows never went through AgentExecutor at all - and /a2a also
+// queued the same trade for consensus settlement, so one intent could settle
+// twice. There is now one rule for how a trade settles, and it has no default.
+// ---------------------------------------------------------------------------
+try {
+  const actions = await import(base + 'lib/actions.js');
+  const { settlementRailOf } = actions;
+  eq('the direct settlement route no longer exists', 'DIRECT_SETTLEMENT' in actions, false);
+  eq('an approval with no rail settles nowhere', settlementRailOf({ approved: true }), null);
+  eq('an unknown rail settles nowhere', settlementRailOf({ approved: true, rail: 'direct' }), null);
+  eq('a mandate rail with no mandate settles nowhere', settlementRailOf({ approved: true, rail: 'mandate' }), null);
+  eq('an unapproved result settles nowhere', settlementRailOf({ approved: false, rail: 'consensus' }), null);
+  eq('a consensus approval settles on its own verdict', settlementRailOf({ approved: true, rail: 'consensus' }), 'consensus');
+  eq('a covered trade settles under its mandate',
+     settlementRailOf({ approved: true, rail: 'mandate', mandate_id: '0x' + 'ab'.repeat(32) }), 'mandate');
+  eq('rail names are not case-sensitive', settlementRailOf({ approved: true, rail: ' Consensus ' }), 'consensus');
+
+  const hook = fs.readFileSync(base + 'hooks/useAgentSwapExecution.js', 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  eq('the agent hook has no path to AGGFlowEntrypoint', /executeSwapWithReceiver|AGGFLOW_ENTRYPOINT_ABI/.test(hook), false);
+  eq('the agent hook has no fast mode to default to', /fastMode/.test(hook), false);
+} catch (e) { bad('settlement rail', e.message); }
+
+// ---------------------------------------------------------------------------
+// One trade, one authority: when does a mandate cover an order?
+//
+// The same function decides the rail before a round is opened and re-checks it
+// at settlement, so it is pinned case by case here.
+// ---------------------------------------------------------------------------
+console.log('\nmandate coverage');
+try {
+  const {
+    mandateCoversOrder, mandateMinAmountOut, expectedOutUnderMandate, decodeMandate,
+    isMandateEligibleRoute, MANDATE_FIELDS, MANDATE_EXPIRY_MARGIN_SEC,
+  } = await import(base + 'lib/mandateCoverage.js');
+  const { keccak256 } = await import('viem');
+
+  const now = 1_800_000_000;
+  const route = keccak256('0x0201');
+  const U = '0x3333333333333333333333333333333333333333';
+  const mandate = {
+    user: U, tokenIn: T.USDC, tokenOut: T.USDT,
+    maxAmountIn: 10n ** 20n, totalBudgetIn: 10n ** 21n, spentIn: 0n,
+    maxSlippageBps: 100n, maxFeeBps: 5n,
+    feeCollector: '0x48234eD645676b794a4CbC7483513e58cB04e22E',
+    router: '0x95feE6Cb918Ed9C621E36082EE8D998873031EaA',
+    routeHash: route, pool: '0x55A5ff46cFb55DcF05D236A0Fdde5a0c866B64Be',
+    expiry: now + 86_400, revoked: false,
+  };
+  const order = {
+    user: U, tokenIn: T.USDC, tokenOut: T.USDT, amountIn: 10n ** 19n, minAmountOut: 9n * 10n ** 18n,
+    slippageBps: 30n, feeBps: 5n, feeCollector: mandate.feeCollector, router: mandate.router,
+  };
+  const covers = (m, o = order, r = route) => mandateCoversOrder({ mandate: m, order: o, routeHash: r, nowSec: now });
+
+  eq('a live mandate covers a trade inside it', covers(mandate).covered, true);
+  eq('route hashes compare case-insensitively', covers(mandate, order, route.toUpperCase().replace('0X', '0x')).covered, true);
+  for (const [name, m, o, r] of [
+    ['a revoked mandate', { ...mandate, revoked: true }],
+    ['an expired mandate', { ...mandate, expiry: now - 1 }],
+    ['a mandate about to expire', { ...mandate, expiry: now + MANDATE_EXPIRY_MARGIN_SEC - 1 }],
+    ['someone else\'s mandate', { ...mandate, user: '0x9999999999999999999999999999999999999999' }],
+    ['the reverse direction', mandate, { ...order, tokenIn: T.USDT, tokenOut: T.USDC }],
+    ['a trade above the per-trade ceiling', mandate, { ...order, amountIn: mandate.maxAmountIn + 1n }],
+    ['a trade that overruns the budget', { ...mandate, spentIn: mandate.totalBudgetIn - order.amountIn + 1n }],
+    ['a fee above the ceiling', mandate, { ...order, feeBps: 6n }],
+    ['a different fee collector', mandate, { ...order, feeCollector: '0x9999999999999999999999999999999999999999' }],
+    ['a best route off the pinned pool', mandate, order, keccak256('0x02ff')],
+    ['an unrecorded mandate', { ...mandate, user: '0x0000000000000000000000000000000000000000' }],
+  ]) {
+    eq(`${name} does not cover it`, covers(m, o, r).covered, false);
+  }
+
+  // The executor's own arithmetic: fee off the input, then the 0.30% curve.
+  const out = expectedOutUnderMandate({ amountIn: 10n ** 18n, feeBps: 5n, reserveIn: 10n ** 21n, reserveOut: 10n ** 21n });
+  const routeIn = (10n ** 18n * 9_995n) / 10_000n;
+  eq('the expected output follows the executor\'s formula', out, (routeIn * 997n * 10n ** 21n) / (10n ** 21n * 1000n + routeIn * 997n));
+  eq('an empty pool expects nothing', expectedOutUnderMandate({ amountIn: 1n, feeBps: 5n, reserveIn: 0n, reserveOut: 1n }), 0n);
+
+  // The floor: never below what the user accepted, never below the band the
+  // executor enforces, and the tighter slippage of the two applies.
+  const rose = mandateMinAmountOut({ order, mandate, expectedOut: 12n * 10n ** 18n });
+  eq('price moved up: the floor follows the live price', rose, (12n * 10n ** 18n * 9_970n) / 10_000n);
+  const fell = mandateMinAmountOut({ order, mandate, expectedOut: 8n * 10n ** 18n });
+  eq('price moved down: the user\'s quoted floor is kept, so the trade fails rather than fills worse', fell, order.minAmountOut);
+  const tighter = mandateMinAmountOut({ order: { ...order, slippageBps: 300n }, mandate, expectedOut: 12n * 10n ** 18n });
+  eq('the tighter of the two slippage settings applies', tighter, (12n * 10n ** 18n * 9_900n) / 10_000n);
+
+  // Shipped bug: /api/agent-mandate read the tuple by index and reported the
+  // route hash (index 10) as the expiry (index 12).
+  const tuple = MANDATE_FIELDS.map((f) => mandate[f]);
+  eq('decoding a mandate reads the expiry, not the route hash', decodeMandate(tuple).expiry, mandate.expiry);
+  eq('and keeps the route hash where it belongs', decodeMandate(tuple).routeHash, route);
+
+  const eligible = { ...order, tokenIn: T.USDC, tokenOut: T.USDT };
+  eq('a single V2 hop between ERC-20s can be mandated', isMandateEligibleRoute({ order: eligible, hops: [{ poolType: 'v2' }] }), true);
+  eq('a V3 best route cannot', isMandateEligibleRoute({ order: eligible, hops: [{ poolType: 'v3' }] }), false);
+  eq('a multi-hop best route cannot', isMandateEligibleRoute({ order: eligible, hops: [{ poolType: 'v2' }, { poolType: 'v2' }] }), false);
+  eq('native GEN cannot', isMandateEligibleRoute({ order: { ...eligible, tokenIn: '0x0000000000000000000000000000000000000000' }, hops: [{ poolType: 'v2' }] }), false);
+} catch (e) { bad('mandate coverage', e.message); }
+
+// ---------------------------------------------------------------------------
+// A status poll must not erase which authority the trade was given.
+// ---------------------------------------------------------------------------
+try {
+  const { mergeVerdictResponse } = await import(base + 'lib/settlement.js');
+  const merged = mergeVerdictResponse(
+    { rail: 'consensus', mandate_eligible: true, pendingOrder: { a: 1 }, commitment: '0xc' },
+    { approved: true, pending: false },
+  );
+  eq('the rail survives a poll', merged.rail, 'consensus');
+  eq('the mandate hint survives a poll', merged.mandate_eligible, true);
+  eq('the verdict comes from the poll', merged.approved, true);
+} catch (e) { bad('rail across a poll', e.message); }
+
+// ---------------------------------------------------------------------------
+// Shipped drift: the app kept calling V3 liquidity validators the deployed
+// Intelligent Contract no longer has, and answered V3 requests with a read
+// simulation against a contract that authorises nothing.
+// ---------------------------------------------------------------------------
+console.log('\nV3 liquidity');
+try {
+  const g = await import(base + 'lib/genlayer.js');
+  eq('no V3 liquidity round remains', 'validateLiquidityV3Add' in g || 'validateLiquidityV3Remove' in g, false);
+  eq('no call to a removed method remains', 'computeProposalId' in g || 'validateSwapProposal' in g, false);
+  const v3 = await g.validateLiquidityProposal({ action: 'ADD_LIQUIDITY', model: 'v3', tokenA: 'USDC', tokenB: 'USDT' });
+  eq('a V3 request is refused, not simulated', v3.approved === false && v3.unsupported === 'v3_liquidity', true);
+  eq('and names the contract that actually gates settlement', v3.contractName, 'AgentValidator (GenLayer IC)');
+  const src = fs.readFileSync(base + 'lib/genlayer.js', 'utf8');
+  eq('lib/genlayer.js never calls LiquidityValidator', /GENLAYER_CONFIG\.liquidityValidator/.test(src), false);
+} catch (e) { bad('V3 liquidity', e.message); }
 
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

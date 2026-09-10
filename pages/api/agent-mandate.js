@@ -32,10 +32,13 @@
 // the one wait is behind them before they ask to trade.
 
 import { createPublicClient, http, keccak256, encodeAbiParameters, toHex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 import AGENT_EXECUTOR_ABI from '../../abi/AgentExecutor.json';
 import { CONTRACT_ADDRESSES } from '../../constants/addresses.js';
 import { issueTradingMandate, finalizeRound } from '../../lib/genlayer.js';
+import { leaseAgent, getKeeperAccount } from '../../lib/agentPool.js';
+import { decodeMandate, isMandateId } from '../../lib/mandateCoverage.js';
+
+const ZERO = '0x0000000000000000000000000000000000000000';
 
 const RPC = 'https://rpc-bradbury.genlayer.com';
 const CHAIN = {
@@ -72,6 +75,9 @@ export default async function handler(req, res) {
 
   // ── A live mandate is the whole point: check before spending a round ──────
   if (lookupMandateId) {
+    if (!isMandateId(lookupMandateId)) {
+      return res.status(400).json({ mandateId: lookupMandateId, live: false, error: 'Not a mandate id.' });
+    }
     // Every poll also DRIVES finalization, and that is not incidental.
     //
     // A GenLayer round sits in Accepted until somebody calls finalize, and the
@@ -86,28 +92,27 @@ export default async function handler(req, res) {
     // closed, at most once a minute per round), so calling it on every poll is
     // cheap and is what eventually lands the mandate.
     if (req.body?.roundTxHash) {
-      const k = process.env.AGENT_PRIVATE_KEY;
-      if (k) {
-        const acct = privateKeyToAccount(k.startsWith('0x') ? k : `0x${k}`);
-        finalizeRound(req.body.roundTxHash, acct, req.body.roundSubmittedAt).catch(() => {});
-      }
+      const keeper = getKeeperAccount();
+      if (keeper) finalizeRound(req.body.roundTxHash, keeper, req.body.roundSubmittedAt).catch(() => {});
     }
 
     try {
-      const [live, m] = await Promise.all([
+      const [live, raw] = await Promise.all([
         publicClient.readContract({ address: executor, abi: AGENT_EXECUTOR_ABI, functionName: 'isMandateLive', args: [lookupMandateId] }),
         publicClient.readContract({ address: executor, abi: AGENT_EXECUTOR_ABI, functionName: 'mandates', args: [lookupMandateId] }),
       ]);
-      // mandates() returns the struct in declaration order; spentIn is 6th and
-      // totalBudgetIn 5th, so remaining budget is what decides usability.
-      const totalBudget = BigInt(m[4] ?? 0);
-      const spent       = BigInt(m[5] ?? 0);
+      // Decoded by field name. Reading the tuple by index is how this route
+      // came to report the route hash (index 10) as the expiry (index 12).
+      const m = decodeMandate(raw);
       return res.status(200).json({
         mandateId: lookupMandateId,
         live: Boolean(live),
-        remainingBudget: (totalBudget - spent).toString(),
-        maxAmountIn: String(m[3] ?? '0'),
-        expiry: Number(m[10] ?? 0),
+        recorded: m.user !== ZERO,
+        remainingBudget: (m.totalBudgetIn - m.spentIn).toString(),
+        maxAmountIn: m.maxAmountIn.toString(),
+        expiry: m.expiry,
+        tokenIn: m.tokenIn,
+        tokenOut: m.tokenOut,
       });
     } catch (err) {
       return res.status(200).json({ mandateId: lookupMandateId, live: false, note: err?.shortMessage || err?.message });
@@ -120,9 +125,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'user, tokenIn, tokenOut, maxAmountIn and totalBudgetIn are required.' });
   }
 
-  const key = process.env.AGENT_PRIVATE_KEY;
-  if (!key) return res.status(500).json({ error: 'No agent key configured.' });
-  const account = privateKeyToAccount(key.startsWith('0x') ? key : `0x${key}`);
+  // A mandate pins one single-hop V2 route that pulls an ERC-20 from the user,
+  // so native GEN on either side can never be covered. The IC refuses such a
+  // request anyway; refusing here saves a consensus round that cannot pass.
+  if (String(tokenIn).toLowerCase() === ZERO || String(tokenOut).toLowerCase() === ZERO) {
+    return res.status(400).json({ error: 'Mandates cover ERC-20 pairs only. Trades with native GEN settle against their own consensus verdict.' });
+  }
+
+  // A sender lane, like every other consensus write. GenLayer queues rounds
+  // per sender, and signing with a key that is also a validation lane made a
+  // mandate round collide with a swap's (TransactionNotAtPendingQueueHead).
+  const lease = leaseAgent();
+  if (!lease) return res.status(503).json({ error: 'Every validation lane is mid-round. Try again shortly.' });
+  const account = lease.account;
 
   // Compute the id the IC will derive, BEFORE running the round.
   //
@@ -167,6 +182,25 @@ export default async function handler(req, res) {
       nonce,
     }, { account, commitment: mandateId });
 
+    // Hold the lane only while its round is in flight.
+    if (result?.pending && result?.txHash) lease.markSubmitted(result.txHash);
+    else lease.release();
+
+    // No round, no mandate. A submission that never reached ConsensusMain
+    // (a throttle, a queue collision) used to come back as a 200 carrying a
+    // mandate id, and the browser then waited most of an hour for a mandate
+    // nobody had asked consensus for. Say it failed, and why.
+    if (!result?.txHash && !result?.approved) {
+      return res.status(result?.rateLimited ? 429 : 502).json({
+        error: result?.reason || 'The mandate round could not be submitted.',
+        retryable: Boolean(result?.retryable || result?.rateLimited),
+        mandateId: null,
+      });
+    }
+    if (result?.approved === false && !result?.pending && !result?.retryable) {
+      return res.status(422).json({ error: `Consensus refused the mandate: ${result.reason}`, mandateId: null, roundTxHash: result.txHash || null });
+    }
+
     // The round decides in ~20s but its message reaches the executor on
     // finalization, so nudge it. This is a keeper the settlement queue also
     // drives; finalizeRound gates itself, so calling here is cheap.
@@ -182,9 +216,18 @@ export default async function handler(req, res) {
       // finalization; without that nothing ever delivers the mandate.
       roundTxHash: result?.txHash || null,
       roundSubmittedAt: Date.now(),
+      // What was asked for, so the UI can say it plainly. Consensus enforces
+      // its own ceilings on top of these.
+      requested: {
+        maxAmountIn: String(maxAmountIn),
+        totalBudgetIn: String(totalBudgetIn),
+        maxSlippageBps: Number(maxSlippageBps),
+        ttlSeconds: Number(ttlSeconds),
+      },
       note: 'A mandate becomes usable once its round finalizes. Poll this route with mandateId and roundTxHash.',
     });
   } catch (err) {
+    lease.release();
     console.error('[agent-mandate] failed:', err?.shortMessage || err?.message);
     return res.status(500).json({ error: err?.shortMessage || err?.message || 'Mandate round failed.' });
   }

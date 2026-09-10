@@ -5,7 +5,7 @@
 // Nothing here is mocked. Every control changes what the agents really do, and
 // every message on the wire carries the actual payload one agent handed the
 // next - live pool addresses and quotes, the real GenVM consensus transaction,
-// and the one-time trade hash bound on AgentExecutor.
+// and the commitment or mandate AgentExecutor will enforce at settlement.
 //
 // Design intent: one decision on screen at a time. A dev picks a strategy and
 // launches; the individual knobs exist but stay folded away until wanted.
@@ -352,7 +352,7 @@ export default function AgentPlayground() {
             <div style={{ ...muted, fontSize: '0.8rem', lineHeight: 1.65, padding: '1rem 0' }}>
               Launch to watch the agents negotiate. Each message can be expanded to reveal the exact
               payload handed to the next agent - live pool addresses, quoted amounts in wei, the GenVM
-              consensus transaction hash, and the one-time trade hash bound on AgentExecutor.
+              consensus transaction hash, and the commitment (or mandate) AgentExecutor will enforce.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 560, overflowY: 'auto' }}>

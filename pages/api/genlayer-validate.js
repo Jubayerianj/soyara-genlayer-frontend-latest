@@ -15,10 +15,23 @@
 //
 // validate_swap is @gl.public.write, so it MUST go through writeContract +
 // waitForTransactionReceipt to trigger Optimistic Democracy across validators.
+// A sender lane from the agent pool signs it; with no lanes configured nothing
+// can be validated, and the route says so rather than simulating.
 //
-// When AGENT_PRIVATE_KEY is set in .env.local, the server-side agent wallet
-// signs the write transaction. If not set, falls back to read simulation
-// (marked isSimulation=true - callers must NOT use simulations to gate settlement).
+// THE RAIL IS DECIDED HERE, BEFORE ANY ROUND IS OPENED
+// ----------------------------------------------------
+// A swap settles under exactly one consensus authority (lib/actions.js):
+//
+//   mandate    when the caller remembers a mandate that an earlier consensus
+//              round issued, and it covers this exact order on its best route,
+//              no new round is opened. The response says `rail: 'mandate'`,
+//              and settlement is one `executeSwapUnderMandate` call.
+//   consensus  otherwise, this order's own `validate_swap` round is opened, and
+//              settlement consumes that verdict with `executeSwap`.
+//
+// Deciding once, up front, is what keeps one intent from settling twice. The
+// response also carries `mandate_eligible`, telling the client whether asking
+// for a mandate would make the NEXT trade like this one settle in seconds.
 
 import { validateSwapOrder, validateLiquidityV2Add, validateLiquidityProposal, checkSwapValidationStatus, finalizeStuckValidation, GENLAYER_CONFIG } from '../../lib/genlayer.js';
 import { leaseAgent, getKeeperAccount, poolStatus } from '../../lib/agentPool.js';
@@ -27,6 +40,28 @@ import AGENT_EXECUTOR_ABI from '../../abi/AgentExecutor.json';
 import { CONTRACT_ADDRESSES } from '../../constants/addresses.js';
 import { buildSwapOrder, serialiseOrder, normaliseSwapIntent } from '../../lib/swapOrder.js';
 import { buildLiquidityV2AddOrder, serialiseLiquidityOrder } from '../../lib/liquidityOrder.js';
+import { findCoveringMandate, isMandateEligibleRoute } from '../../lib/mandateCoverage.js';
+import { POOLS_URL } from '../../lib/pools.js';
+
+/** A mandate as the UI shows it: decimal strings, nothing the wire cannot carry. */
+function describeMandate(id, m) {
+  return {
+    id,
+    user: m.user,
+    tokenIn: m.tokenIn,
+    tokenOut: m.tokenOut,
+    maxAmountIn: m.maxAmountIn.toString(),
+    remainingBudget: (m.totalBudgetIn - m.spentIn).toString(),
+    totalBudgetIn: m.totalBudgetIn.toString(),
+    maxSlippageBps: m.maxSlippageBps.toString(),
+    maxFeeBps: m.maxFeeBps.toString(),
+    feeCollector: m.feeCollector,
+    router: m.router,
+    routeHash: m.routeHash,
+    pool: m.pool,
+    expiry: m.expiry,
+  };
+}
 
 const genLayerBradbury = {
   id: 4221,
@@ -98,6 +133,9 @@ export default async function handler(req, res) {
         // Real GenVM lifecycle phase, so the UI can show what the round is
         // actually doing instead of an unexplained spinner.
         statusName:       statusResult.statusName || null,
+        // Only a per-order round is ever polled: a mandate-covered trade has
+        // no round to poll.
+        rail:             'consensus',
         consensus_mode:   'Optimistic Democracy (GenVM write tx)',
         is_write_flow:    true,
         live_execution:   Boolean(statusResult.success),
@@ -118,16 +156,43 @@ export default async function handler(req, res) {
     });
   }
 
+  // V3 positions are not validated here, and cannot be settled through the
+  // agent path at all. The AgentValidator IC has no V3 liquidity validator (it
+  // was removed to fit GenVM's deploy size limit), so no verdict can exist for
+  // a V3 mint or burn and AgentExecutor would refuse one. This used to fall
+  // through to a read simulation against the separate LiquidityValidator
+  // contract, which authorises nothing - an answer that looked like consensus
+  // and could never settle. V3 positions are managed on the pools app.
+  if ((action === 'ADD_LIQUIDITY' || action === 'REMOVE_LIQUIDITY') && (proposal.model === 'v3' || proposal.isV3)) {
+    return res.status(400).json({
+      approved: false,
+      retryable: false,
+      unsupported: 'v3_liquidity',
+      redirect: POOLS_URL,
+      reason: 'V3 liquidity is not validated or settled through the agent path: the AgentValidator contract has no V3 '
+        + `liquidity validator, so the settlement contract could never honour one. Manage V3 positions at ${POOLS_URL}.`,
+      proposal_id: '',
+    });
+  }
+
   // ── Reserve a sender lane ───────────────────────────────────────────────
   // GenLayer serialises consensus rounds per sender, so two rounds signed by
   // the same key collide and the second reverts. Each in-flight round gets its
   // own account from the pool.
-  let lease = leaseAgent();
+  // A dry run opens nothing, so it needs no lane.
+  let lease = proposal.dryRun ? null : leaseAgent();
 
-  if (!lease) {
+  if (!lease && !proposal.dryRun) {
     const status = poolStatus();
     if (status.total === 0) {
-      console.warn('[genlayer-validate] no agent keys configured - falling back to read simulation');
+      // No lane means no consensus write. There is no read-only stand-in: an
+      // answer that did not go through a round is not a verdict.
+      return res.status(503).json({
+        approved: false,
+        reason: 'No validation lanes are configured on this server, so no consensus round can be opened. Nothing was validated.',
+        proposal_id: '',
+        genlayer_contract: GENLAYER_CONFIG.agentValidator,
+      });
     } else {
       // Every lane is mid-round. This is congestion, not a rejection.
       return res.status(200).json({
@@ -147,9 +212,8 @@ export default async function handler(req, res) {
     }
   }
 
-  // Pass the leased account so genlayer.js uses the consensus WRITE flow
-  // (writeContract + waitForTransactionReceipt). Without it, it falls back to
-  // readContract (simulation only, which does not satisfy the consensus gate).
+  // The leased account signs the consensus WRITE (writeContract +
+  // waitForTransactionReceipt).
   const options = lease ? { account: lease.account } : {};
 
   try {
@@ -166,6 +230,10 @@ export default async function handler(req, res) {
     let swapOrder = null;
     let swapProgram = null;
     let swapCommitment = null;
+    // Whether a mandate could ever carry a trade like this (ERC-20 both sides,
+    // best route a single V2 pool), and why a remembered one did not.
+    let mandateEligible = false;
+    let mandateNote = null;
 
     if (action === 'SWAP') {
       const executorAddress = CONTRACT_ADDRESSES[4221]?.agentExecutor;
@@ -219,6 +287,98 @@ export default async function handler(req, res) {
       swapOrder = built.order;
       swapProgram = built.aggProgram;
       swapCommitment = built.commitment;
+      mandateEligible = isMandateEligibleRoute({ order: built.order, hops: built.quote?.hops });
+
+      // ── Does a mandate an earlier round issued already cover this trade? ──
+      //
+      // Checked BEFORE a round is opened, and only for the route the
+      // aggregator chose as best. When one covers it, this trade's authority
+      // is that mandate and no round of its own is opened - so there is never
+      // a second verdict for the same intent waiting to be settled later.
+      const mandateIds = Array.isArray(proposal.mandateIds)
+        ? proposal.mandateIds
+        : (proposal.mandateId ? [proposal.mandateId] : []);
+      if (mandateEligible && mandateIds.length) {
+        const coverage = await findCoveringMandate({
+          publicClient,
+          executor: executorAddress,
+          abi: AGENT_EXECUTOR_ABI,
+          mandateIds,
+          order: swapOrder,
+          aggProgram: swapProgram,
+        }).catch((e) => ({ covered: false, reasons: [e?.shortMessage || e?.message || 'mandate could not be read'] }));
+
+        if (coverage.covered) {
+          if (lease) lease.release();
+          const mandate = describeMandate(coverage.mandateId, coverage.mandate);
+          return res.status(200).json({
+            approved: true,
+            pending: false,
+            retryable: false,
+            rail: 'mandate',
+            mandate_id: coverage.mandateId,
+            mandate,
+            reason:
+              'Covered by a mandate GenLayer consensus issued for this pair and direction. AgentExecutor checks this '
+              + 'trade against it and prices it from the pool at settlement, so it settles in one transaction '
+              + 'with no new round.',
+            proposal_id: coverage.mandateId,
+            genlayer_contract: GENLAYER_CONFIG.agentValidator,
+            contract_name: 'AgentValidator (GenLayer IC)',
+            network: GENLAYER_CONFIG.chainName,
+            chainId: GENLAYER_CONFIG.chainId,
+            timestamp: new Date().toISOString(),
+            tx_hash: null,
+            statusName: null,
+            consensus_mode: 'Mandate issued by an earlier GenVM consensus round, enforced per trade by AgentExecutor',
+            is_write_flow: true,
+            live_execution: true,
+            // The per-order commitment belongs to the consensus rail; this
+            // trade never gets a verdict of its own.
+            commitment: null,
+            pendingOrder: serialiseOrder(swapOrder),
+            orderKind: 'swap',
+            pendingProgram: swapProgram,
+            validationSubmitted: false,
+            quoted_amount_out: swapOrder.quotedAmountOut.toString(),
+            min_amount_out: swapOrder.minAmountOut.toString(),
+            mandate_eligible: true,
+            // A dry run that finds a covering mandate reports it truthfully:
+            // this trade WOULD settle under it, with no round.
+            dryRun: Boolean(proposal.dryRun),
+          });
+        }
+        mandateNote = coverage.reasons?.[0]?.replace(/^0x[0-9a-fA-F]{8}: /, '') || null;
+      }
+
+      // ── Dry run: show what consensus WOULD be asked, open nothing ─────────
+      //
+      // The developer console uses this. It returns the exact order, program
+      // and commitment a round would be opened against, and the rail the trade
+      // would take - without spending a round, a lane or a transaction. It is
+      // labelled for what it is: nothing is approved by a dry run.
+      if (proposal.dryRun) {
+        if (lease) lease.release();
+        return res.status(200).json({
+          approved: false,
+          dryRun: true,
+          rail: 'consensus',
+          would_submit: 'validate_swap',
+          reason: 'Dry run: no round was opened. This is the exact order validate_swap would be asked to approve, '
+            + 'and the commitment AgentExecutor would then require a verdict for.',
+          commitment: swapCommitment,
+          pendingOrder: serialiseOrder(swapOrder),
+          pendingProgram: swapProgram,
+          quoted_amount_out: swapOrder.quotedAmountOut.toString(),
+          min_amount_out: swapOrder.minAmountOut.toString(),
+          mandate_eligible: mandateEligible,
+          mandate_note: mandateNote,
+          genlayer_contract: GENLAYER_CONFIG.agentValidator,
+        });
+      }
+    } else if (proposal.dryRun) {
+      if (lease) lease.release();
+      return res.status(400).json({ approved: false, dryRun: true, reason: 'Dry runs cover swaps, the only action the agent surfaces settle.' });
     }
 
     // A V2 deposit is built here for the same reason a swap is: the amounts that
@@ -326,13 +486,13 @@ export default async function handler(req, res) {
       // its receipt, so `approved` is false here only because nothing has
       // resolved it, never because the validators refused the trade.
       needs_verdict_lookup: Boolean(validationResult.needsVerdictLookup),
-      via_mandate:      Boolean(validationResult.viaMandate),
-      consensus_mode:   validationResult.viaMandate
-        ? 'Mandate (pre-approved by GenVM consensus - instant view check)'
-        : validationResult.isSimulation
-        ? 'Read simulation (no consensus - not write flow)'
-        : 'Optimistic Democracy (GenVM write tx)',
-      is_write_flow:    !validationResult.isSimulation,
+      // This trade's authority is its own verdict: the round above, consumed
+      // once by executeSwap. (The mandate rail returned earlier.)
+      rail:             'consensus',
+      mandate_eligible: mandateEligible,
+      mandate_note:     mandateNote,
+      consensus_mode:   'Optimistic Democracy (GenVM write tx)',
+      is_write_flow:    true,
       live_execution:   Boolean(validationResult.success),
       details:          validationResult.details || null,
 
@@ -359,8 +519,8 @@ export default async function handler(req, res) {
       approved:         false,
       reason:           'Consensus unavailable - failed closed',
       proposal_id:      '',
-      genlayer_contract: action === 'SWAP' ? GENLAYER_CONFIG.agentValidator : GENLAYER_CONFIG.liquidityValidator,
-      contract_name:    action === 'SWAP' ? 'AgentValidator (GenLayer IC)' : 'LiquidityValidator (GenLayer IC)',
+      genlayer_contract: GENLAYER_CONFIG.agentValidator,
+      contract_name:    'AgentValidator (GenLayer IC)',
       network:          GENLAYER_CONFIG.chainName,
       chainId:          GENLAYER_CONFIG.chainId,
       timestamp:        new Date().toISOString(),

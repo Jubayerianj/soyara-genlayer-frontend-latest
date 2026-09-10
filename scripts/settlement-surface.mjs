@@ -1,0 +1,185 @@
+#!/usr/bin/env node
+//
+// The app's settlement surface, checked against the DEPLOYED contracts.
+//
+//   npm run test:settlement
+//
+// Three questions, each answered by the chain or by the source itself rather
+// than by a document:
+//
+//   1. Does every Intelligent Contract method this app calls exist on the
+//      deployed AgentValidator? A call to a method the contract does not have is
+//      a consensus round that runs and raises - which is how the V3 liquidity
+//      wrappers were left calling validators removed to fit the deploy limit.
+//   2. Do the agent surfaces settle only through AgentExecutor? The hook they
+//      share must contain no path to AGGFlowEntrypoint, and no rail may resolve
+//      by default.
+//   3. Does the deployed executor refuse what it should? Every probe is an
+//      eth_call from the address that would really send it: no gas, no round.
+//
+// Read-only. Needs no keys.
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { keccak256 } from 'viem';
+
+const base = fileURLToPath(new URL('../', import.meta.url));
+const { CONTRACT_ADDRESSES, INTELLIGENT_CONTRACTS } = await import(base + 'constants/addresses.js');
+const { probe, deriveCommitment, readRoles, sampleOrder, probeClient, SAMPLE_PROGRAM } = await import(base + 'lib/settlementProbe.js');
+const { settlementRailOf } = await import(base + 'lib/actions.js');
+const { createClient, chains } = await import('genlayer-js');
+
+const ABI = JSON.parse(fs.readFileSync(base + 'abi/AgentExecutor.json', 'utf8'));
+const A = CONTRACT_ADDRESSES[4221];
+const EXECUTOR = A.agentExecutor;
+const IC = INTELLIGENT_CONTRACTS.agentValidator;
+
+let failed = 0;
+const ok = (name, cond, detail = '') => {
+  if (cond) console.log(`  ok    ${name}${detail ? ` - ${detail}` : ''}`);
+  else { failed += 1; console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ''}`); }
+};
+const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+
+// ── source files the app ships ───────────────────────────────────────────────
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (['node_modules', '.next', 'subgraph', 'subgraph-v2', 'goldsky-doppler', 'server-indexer', 'points-deployment', 'mocks'].includes(e.name)) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out);
+    else if (/\.(js|jsx|mjs)$/.test(e.name)) out.push(p);
+  }
+  return out;
+}
+const APP_DIRS = ['lib', 'pages', 'services', 'hooks', 'components', 'utils'].map((d) => path.join(base, d));
+const files = APP_DIRS.filter((d) => fs.existsSync(d)).flatMap((d) => walk(d));
+const read = (p) => fs.readFileSync(p, 'utf8');
+const rel = (p) => path.relative(base, p);
+// Comments explain history ("this used to call X"); only code is checked.
+const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1');
+
+// ── 1. IC surface ────────────────────────────────────────────────────────────
+console.log('\nIntelligent Contract surface (deployed AgentValidator)');
+const gl = createClient({ chain: chains.testnetBradbury });
+const schema = await gl.getContractSchema(IC);
+const deployed = new Set(Object.keys(schema.methods || {}));
+ok('the deployed AgentValidator answers with its schema', deployed.size > 0, `${deployed.size} methods at ${IC}`);
+
+// Calls aimed at the Intelligent Contract: the two round helpers, and any
+// read/write whose address is the IC. (Matching every snake_case functionName
+// would sweep in Curve pools, which are EVM contracts with Vyper-style names.)
+const icCalls = new Map();
+const note = (method, file) => {
+  if (!icCalls.has(method)) icCalls.set(method, new Set());
+  icCalls.get(method).add(rel(file));
+};
+const ROUND_HELPER = /_(?:consensus|liquidity)Round\(\s*['"]([a-z][a-z0-9_]*)['"]/g;
+const IC_ADDRESSED = /address:\s*(?:GENLAYER_CONFIG\.agentValidator|INTELLIGENT_CONTRACTS\.agentValidator|validatorAddress)\s*,[\s\S]{0,160}?functionName:\s*['"]([a-z][a-z0-9_]*)['"]/g;
+for (const f of files) {
+  const src = code(read(f));
+  for (const m of src.matchAll(ROUND_HELPER)) note(m[1], f);
+  for (const m of src.matchAll(IC_ADDRESSED)) note(m[1], f);
+}
+
+// The documentation pages show code a reader will copy. A method named there
+// that the deployed contract does not have is the same drift in prose.
+const DOC_PAGES = ['pages/docs.jsx', 'pages/dev.jsx', 'pages/sdk.jsx'].map((p) => path.join(base, p));
+const DOC_METHOD = /\b(validate_[a-z0-9_]+|issue_trading_mandate|compute_proposal_id|check_mandate|get_validation)\b/g;
+for (const f of DOC_PAGES) {
+  if (!fs.existsSync(f)) continue;
+  for (const m of read(f).matchAll(DOC_METHOD)) note(m[1], f);
+}
+ok('the app calls at least the binding validators', ['validate_swap', 'issue_trading_mandate'].every((m) => icCalls.has(m)),
+   [...icCalls.keys()].join(', '));
+for (const [method, where] of icCalls) {
+  ok(`${method} exists on the deployed contract`, deployed.has(method), `called from ${[...where].join(', ')}`);
+}
+const v3OnChain = [...deployed].filter((m) => /liquidity.*v3|v3.*liquidity/.test(m));
+ok('the deployed contract has no V3 liquidity validator', v3OnChain.length === 0, v3OnChain.join(', '));
+const v3Calls = [...icCalls.keys()].filter((m) => /v3/.test(m));
+ok('the app makes no V3 liquidity call', v3Calls.length === 0, v3Calls.join(', '));
+ok('the app never calls the LiquidityValidator contract',
+   !files.some((f) => /GENLAYER_CONFIG\.liquidityValidator|address:\s*INTELLIGENT_CONTRACTS\.liquidityValidator/.test(read(f))),
+   files.filter((f) => /GENLAYER_CONFIG\.liquidityValidator/.test(read(f))).map(rel).join(', '));
+
+// ── 2. The agent path settles only through AgentExecutor ─────────────────────
+console.log('\nAgent surfaces: no direct settlement');
+const hook = code(read(path.join(base, 'hooks/useAgentSwapExecution.js')));
+ok('the shared agent hook never calls AGGFlowEntrypoint', !/executeSwapWithReceiver|AGGFlowEntrypoint\.json|AGGFLOW_ENTRYPOINT_ABI/.test(hook));
+ok('the shared agent hook has no fast/direct mode', !/fastMode|DIRECT_SETTLEMENT|rail:\s*'direct'/.test(hook));
+const actions = await import(base + 'lib/actions.js');
+ok('there is no direct settlement route to select', !('DIRECT_SETTLEMENT' in actions));
+for (const [name, v] of [
+  ['no rail', { approved: true }],
+  ['an unknown rail', { approved: true, rail: 'direct' }],
+  ['a mandate rail with no id', { approved: true, rail: 'mandate' }],
+  ['an unapproved result', { approved: false, rail: 'consensus' }],
+]) {
+  ok(`${name} settles nowhere`, settlementRailOf(v) === null, `got ${settlementRailOf(v)}`);
+}
+ok('an approved consensus result settles on its own verdict', settlementRailOf({ approved: true, rail: 'consensus' }) === 'consensus');
+ok('a covered result settles under its mandate', settlementRailOf({ approved: true, rail: 'mandate', mandate_id: '0x' + '1'.repeat(64) }) === 'mandate');
+for (const page of ['pages/ai.jsx', 'components/A2A/SwarmWarRoom.jsx']) {
+  const src = read(path.join(base, page));
+  ok(`${page} uses the shared hook and passes no settlement override`,
+     /useAgentSwapExecution\((currentProposal|proposalForExecution)\)/.test(src) && !/fastMode/.test(src));
+}
+
+// ── 3. The deployed executor refuses what it should ──────────────────────────
+console.log('\nDeployed executor (eth_call, no gas)');
+const roles = await readRoles({ abi: ABI, executor: EXECUTOR });
+ok('executor is bound to the configured AgentValidator', same(roles.validator, IC), `${roles.validator}`);
+const icConfig = await gl.readContract({ address: IC, functionName: 'get_config', args: [] });
+const icExec = icConfig?.agent_executor ?? icConfig?.get?.('agent_executor');
+ok('the AgentValidator is bound back to this executor', same(icExec, EXECUTOR), `${icExec}`);
+ok('executor is not paused', roles.paused === false);
+
+const call = (from, functionName, args) => probe({ abi: ABI, executor: EXECUTOR, from, functionName, args });
+const order = sampleOrder({ addresses: A });
+const commitment = await deriveCommitment({ abi: ABI, executor: EXECUTOR, order });
+
+let r = await call(roles.agent, 'executeSwap', [order, SAMPLE_PROGRAM]);
+ok('an unapproved order cannot settle', !r.wouldSucceed && r.error === 'NoConsensusVerdict' && same(r.args[0], commitment),
+   `${r.error}(${r.args[0] ?? ''})`);
+
+const evil = { ...order, user: '0x9999999999999999999999999999999999999999' };
+const evilC = await deriveCommitment({ abi: ABI, executor: EXECUTOR, order: evil });
+r = await call(roles.agent, 'executeSwap', [evil, SAMPLE_PROGRAM]);
+ok('a redirected recipient lands on a commitment no verdict backs', !same(evilC, commitment) && r.error === 'NoConsensusVerdict' && same(r.args[0], evilC));
+
+for (const [field, overrides] of [
+  ['fee', { feeBps: 50n }], ['fee collector', { feeCollector: evil.user }], ['route', { routeHash: keccak256('0x02') }],
+  ['quote', { quotedAmountOut: order.quotedAmountOut + 1n }], ['nonce', { nonce: 2n }],
+]) {
+  const c = await deriveCommitment({ abi: ABI, executor: EXECUTOR, order: { ...order, ...overrides } });
+  ok(`the ${field} is inside the commitment`, !same(c, commitment));
+}
+
+r = await call(roles.agent, 'executeSwap', [order, '0x02']);
+ok('route bytes that do not match the order are refused', r.error === 'RouteMismatch', r.error);
+r = await call(roles.agent, 'executeSwap', [{ ...order, minAmountOut: 0n }, SAMPLE_PROGRAM]);
+ok('a zero floor is refused', r.error === 'QuoteInconsistent', r.error);
+r = await call(evil.user, 'executeSwap', [order, SAMPLE_PROGRAM]);
+ok('an unregistered relayer is refused', r.error === 'Unauthorized', r.error);
+
+const future = BigInt(Math.floor(Date.now() / 1000) + 3600);
+r = await call(roles.agent, 'recordVerdict', [BigInt(commitment), future]);
+ok('the settlement agent cannot write a verdict', r.error === 'NotValidator', r.error);
+const owner = await probeClient().readContract({ address: EXECUTOR, abi: ABI, functionName: 'owner' });
+r = await call(owner, 'recordVerdict', [BigInt(commitment), future]);
+ok('the owner cannot write a verdict', r.error === 'NotValidator', r.error);
+
+const fakeMandate = keccak256('0x736f79617261');
+r = await call(roles.agent, 'executeSwapUnderMandate', [fakeMandate, 10n ** 18n, 1n, 5n, SAMPLE_PROGRAM]);
+ok('an unwritten mandate cannot be spent', r.error === 'NoMandate', r.error);
+
+r = await call(roles.agent, 'executeAddLiquidityV3', ['0x3333333333333333333333333333333333333333', {
+  token0: '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc', token1: '0x58B6CD7891cd0A682226E25607b958a6479195A6',
+  fee: 3000, tickLower: -60, tickUpper: 60, amount0Desired: 10n ** 18n, amount1Desired: 10n ** 18n,
+  amount0Min: 0n, amount1Min: 0n, recipient: '0x3333333333333333333333333333333333333333', deadline: future,
+}]);
+ok('the executor\'s V3 entry point fails closed (no validator can approve it)', r.error === 'NoConsensusVerdict', r.error);
+
+console.log(failed === 0 ? '\nSettlement surface matches the deployed contracts.' : `\n${failed} FAILURE(S)`);
+process.exit(failed === 0 ? 0 : 1);

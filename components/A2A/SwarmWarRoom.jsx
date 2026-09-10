@@ -13,8 +13,21 @@ import ConsensusProgress from '../ConsensusProgress';
 import ActivityPanel from '../ActivityPanel';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
+import { ensureMandateRequested } from '../../lib/mandate';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
+
+/** Raw units to a short readable figure for timeline copy. */
+function humanAmount(raw, decimals = 18) {
+  try {
+    const v = BigInt(raw);
+    const base = 10n ** BigInt(decimals);
+    const frac = (v % base).toString().padStart(decimals, '0').slice(0, 4).replace(/0+$/, '');
+    return frac ? `${v / base}.${frac}` : `${v / base}`;
+  } catch {
+    return String(raw ?? '');
+  }
+}
 
 const PRESET_CHIPS = [
   { label: '100 USDC to WGEN', query: 'Swap 100 USDC to WGEN with 0.3% slippage' },
@@ -61,6 +74,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   const scrollRef = useRef(null);
+  // The last request, so a trade whose mandate the executor refused can be
+  // re-run on its own consensus round without the user retyping it.
+  const lastPromptRef = useRef('');
+  // Mandates the executor refused at settlement this session - never offered
+  // again, so a refusal the pre-check cannot foresee cannot loop.
+  const failedMandatesRef = useRef(new Set());
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -159,8 +178,9 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   }, [executionError]);
 
   const handleStartSwarm = async (q) => {
-    const textToRun = q || prompt;
+    const textToRun = (typeof q === 'string' && q) || prompt;
     if (!textToRun.trim() || isRunning) return;
+    lastPromptRef.current = textToRun;
 
     setPrompt('');
     setPayload(null);
@@ -199,7 +219,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       const generator = orchestrateSwarm(
         textToRun,
         userAddress || '0x3333333333333333333333333333333333333333',
-        { onProgress }
+        { onProgress, excludeMandateIds: [...failedMandatesRef.current] }
       );
       for await (const step of generator) {
         if (step.type === 'REDIRECTED') {
@@ -210,9 +230,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           setPayload(step.payload);
           const r = step.payload?.risk;
           const rt = step.payload?.route;
-          // Queue the approved trade and get the one signature it needs out of
-          // the way now, while the user is still watching.
-          if (r?.isApproved && r?.pendingOrder && r?.pendingProgram) {
+          // Queue a trade that has its OWN verdict coming, and get the one
+          // signature it needs out of the way now, while the user is still
+          // watching. A mandate-covered trade is never queued: it has no
+          // verdict of its own to wait for, and queueing it would give one
+          // intent two ways to settle.
+          if (r?.isApproved && r?.rail === 'consensus' && r?.pendingOrder && r?.pendingProgram) {
             settlementQueue.enqueue({
               commitment: r.commitment,
               order: r.pendingOrder,
@@ -225,6 +248,29 @@ export default function SwarmWarRoom({ mode = 'user' }) {
             if (needsApproval) {
               approve().catch(() => { /* surfaced on the queue entry */ });
             }
+          }
+
+          // This trade took its own round. When a mandate could carry trades
+          // like it, ask for one in the background and say so: it does not
+          // speed up this trade, but the next one in this direction settles in
+          // seconds.
+          if (r?.rail === 'consensus' && r?.mandateEligible && r?.pendingOrder) {
+            const o = r.pendingOrder;
+            const tin = rt?.tokenIn?.symbol;
+            ensureMandateRequested({
+              user: o.user, tokenIn: o.tokenIn, tokenOut: o.tokenOut,
+              amountIn: o.amountIn, slippageBps: Number(o.slippageBps) || 100,
+            }).then((m) => {
+              if (m.status !== 'requested') return;
+              setTimeline((prev) => [...prev, {
+                agent: AGENT_REGISTRY.settlement,
+                text: `⚡ **Fast lane requested.** Asked GenLayer for a trading mandate for ${tin} to ${rt?.tokenOut?.symbol}: `
+                  + `up to ${humanAmount(m.requested?.maxAmountIn)} ${tin} per trade, ${humanAmount(m.requested?.totalBudgetIn)} ${tin} `
+                  + `in total, for 24 hours. Consensus sets its own limits on top. Once it finalizes, trades like this settle `
+                  + `in seconds, each still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
+                time: 'Mandate',
+              }]);
+            }).catch(() => { /* background; never blocks a trade */ });
           }
 
           if (r) {
@@ -261,10 +307,10 @@ export default function SwarmWarRoom({ mode = 'user' }) {
     }
   };
 
-  // Real settlement through the GenLayer approval gate - see
-  // hooks/useAgentSwapExecution.js (ERC20 approve → AgentExecutor one-time
-  // approval → /api/agent-execute). Previously this was a fake 1s timeout
-  // that never called any real API or submitted any on-chain transaction.
+  // Real settlement through AgentExecutor, on the rail consensus chose - see
+  // hooks/useAgentSwapExecution.js. A mandate-covered trade settles in one
+  // transaction; a trade with its own verdict settles when that verdict lands.
+  // (This was once a fake 1s timeout that never submitted anything.)
   const handleExecute = async () => {
     if (!isConnected || !userAddress) {
       alert('Please connect wallet on GenLayer Testnet.');
@@ -296,6 +342,11 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         approved: payload.risk.isApproved,
         proposal_id: payload.risk.proposalId,
         commitment: payload.risk.commitment,
+        // The authority consensus chose for this trade. Without it the hook
+        // refuses to settle rather than guess.
+        rail: payload.risk.rail,
+        mandate_id: payload.risk.mandateId,
+        tx_hash: payload.risk.txHash,
       };
       const resumeState = {
         pendingOrder: payload.risk.pendingOrder,
@@ -341,13 +392,35 @@ export default function SwarmWarRoom({ mode = 'user' }) {
             time: 'Audit',
           }]);
         }).catch(() => { /* the receipt panel simply stays empty */ });
-        text = `🚀 **Trade Executed via AgentExecutor!** One-time approval bound and consumed.\n\nTrade Hash: \`${result.tradeHash?.slice(0, 14)}...\`\n\nExecution Tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`;
+        text = result.rail === 'mandate'
+          ? `🚀 **Settled under your consensus mandate** \`${String(result.mandateId).slice(0, 14)}...\`. AgentExecutor `
+            + `checked this trade against the mandate and priced it from the pool in one transaction.\n\n`
+            + `Settlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`
+          : `🚀 **Settled against this trade's own consensus verdict.** The commitment \`${String(result.commitment).slice(0, 14)}...\` `
+            + `was single use and is now spent.\n\n`
+            + `Settlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`;
       } else {
         text = `🚀 **Trade Submitted!** Tx: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`;
       }
       setTimeline(prev => [...prev, { agent: AGENT_REGISTRY.dev, text, time: 'Settlement' }]);
     } catch (err) {
       console.error('A2A execution failed:', err);
+
+      // The mandate could not carry this trade after all. Nothing was sent.
+      // Re-run the swarm without it, which gives the trade its own round.
+      if (err?.mandateUnavailable) {
+        if (payload?.risk?.mandateId) failedMandatesRef.current.add(String(payload.risk.mandateId).toLowerCase());
+        setTimeline(prev => [...prev, {
+          agent: AGENT_REGISTRY.settlement,
+          text: `ℹ️ **Your mandate no longer covers this trade.** ${err.message} Re-running the swarm so the trade gets `
+            + `its own consensus round.`,
+          time: 'Mandate',
+        }]);
+        setExecState(null);
+        if (lastPromptRef.current) setTimeout(() => handleStartSwarm(lastPromptRef.current), 0);
+        return;
+      }
+
       if (err?.verdictExpired) {
         setTimeline(prev => [...prev, {
           agent: AGENT_REGISTRY.risk,
@@ -582,12 +655,25 @@ Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct p
                 className={styles.statVal}
                 style={{ color: payload.risk.isApproved ? '#10b981' : payload.risk.isPending ? '#f59e0b' : '#f43f5e' }}
               >
-                {payload.risk.isApproved ? 'Verified Quorum' : payload.risk.isPending ? 'Consensus Pending' : 'Rejected'}
+                {payload.risk.isApproved
+                  ? (payload.risk.rail === 'mandate' ? 'Covered by mandate' : 'Verified Quorum')
+                  : payload.risk.isPending ? 'Consensus Pending' : 'Rejected'}
+              </span>
+            </div>
+
+            <div className={styles.statRow}>
+              <span>Settles via:</span>
+              <span className={styles.statVal}>
+                {payload.risk.rail === 'mandate'
+                  ? 'AgentExecutor, under mandate (seconds)'
+                  : 'AgentExecutor, own verdict (after appeal window)'}
               </span>
             </div>
 
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '3px' }}>CONSENSUS COMMITMENT (single use):</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '3px' }}>
+                {payload.risk.rail === 'mandate' ? 'CONSENSUS MANDATE (bounded, reusable):' : 'CONSENSUS COMMITMENT (single use):'}
+              </div>
               <div className={styles.hashBoxMini}>{payload.risk.tradeHash}</div>
             </div>
 

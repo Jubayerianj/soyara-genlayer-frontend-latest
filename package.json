@@ -10,7 +10,9 @@
     "test-mongodb": "node scripts/test-mongodb.js",
     "init-db": "node scripts/init-database.js",
     "create-indexes": "node scripts/create-indexes.js",
-    "test:settlement": "node scripts/test-agent-settlement-e2e.mjs"
+    "test:settlement": "node scripts/settlement-surface.mjs",
+    "test:regression": "node scripts/regression.mjs",
+    "test:swarm": "node scripts/swarm-agents-test.mjs"
   },
   "dependencies": {
     "@base-org/account": "^2.5.1",

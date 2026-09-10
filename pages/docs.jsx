@@ -70,14 +70,14 @@ const DOC_TOPICS = [
     items: [
       { id: 'agent-protocols', title: '6. Agent-to-Agent (A2A) Protocols', icon: <Network size={16} /> },
       { id: 'agent-execution-guide', title: '7. Autonomous Agent Execution Tutorial', icon: <Bot size={16} /> },
-      { id: 'agent-session-keys', title: '8. Delegated Execution & Session Keys', icon: <Key size={16} /> },
+      { id: 'agent-session-keys', title: '8. Delegated Execution: Mandates', icon: <Key size={16} /> },
     ]
   },
   {
     category: 'OUR INTELLIGENT CONTRACTS',
     items: [
       { id: 'agent-validator', title: '9. AgentValidator.py (Specification)', icon: <ShieldCheck size={16} /> },
-      { id: 'liquidity-validator', title: '10. LiquidityValidator.py (Specification)', icon: <ShieldCheck size={16} /> },
+      { id: 'liquidity-validator', title: '10. Liquidity: V2 Validation, V3 on Pools', icon: <ShieldCheck size={16} /> },
       { id: 'agent-executor', title: '11. AgentExecutor.sol & Settlement', icon: <Lock size={16} /> },
     ]
   },
@@ -336,14 +336,14 @@ export default function DocsPage() {
                       <div className={styles.cardBadge}>Tier 2: GenVM Consensus</div>
                       <h3 className={styles.cardTitle}>Intelligent Contracts (ICs)</h3>
                       <p className={styles.cardDesc}>
-                        <code className={styles.inlineCode}>AgentValidator.py</code> & <code className={styles.inlineCode}>LiquidityValidator.py</code> validate proposals on GenLayer validator nodes via deterministic rules and LLM consensus (<code className={styles.inlineCode}>gl.eq_principle_strict_eq</code>).
+                        <code className={styles.inlineCode}>AgentValidator.py</code> checks every order on GenLayer validator nodes against live pool state, with deterministic rules and LLM consensus (<code className={styles.inlineCode}>gl.eq_principle.strict_eq</code>), and delivers its verdict to the settlement contract itself.
                       </p>
                     </div>
                     <div className={styles.card}>
                       <div className={styles.cardBadge}>Tier 3: EVM Settlement</div>
-                      <h3 className={styles.cardTitle}>AGGFlow Bytecode Router</h3>
+                      <h3 className={styles.cardTitle}>AgentExecutor → AGGFlow Router</h3>
                       <p className={styles.cardDesc}>
-                        High-efficiency EVM contracts execute compiled swap bytecode across SoyaraDex V2 pools, SoyaraDex V3 concentrated liquidity, and 1:1 WGEN wrapper contracts with atomic rollback safety.
+                        <code className={styles.inlineCode}>AgentExecutor</code> refuses any agent trade the validator did not authorise, then runs the route through the AGGFlow bytecode router across SoyaraDex V2 and V3 pools, atomically.
                       </p>
                     </div>
                   </div>
@@ -355,27 +355,32 @@ export default function DocsPage() {
                     language="text"
                     code={`[ Autonomous AI Agent / User ]
                 │
-                ▼ (1. Generate Intent / Proposal)
-   Structured Execution Proposal (JSON)
+                ▼ (1. Intent → best-route quote → the exact order)
+   SwapOrder: route program, fee, collector, recipient, quote, deadline
                 │
-                ▼ (2. Read / Validate on GenLayer)
-   ┌───────────────────────────────────────────────────────────┐
-   │ GenLayer GenVM: AgentValidator.py / LiquidityValidator.py │
-   │  ├─ Phase 1: Deterministic Token & Router Whitelist Check │
-   │  ├─ Phase 1: Hard Slippage Cap Enforcement (Max 300 bps)  │
-   │  └─ Phase 2: gl.exec_prompt (LLM Consensus on GenVM)      │
-   └───────────────────────────────────────────────────────────┘
+                ▼ (2. Choose the authority, before any round is opened)
+   ┌────────────────────────────────────────────────────────────┐
+   │ Covered by a mandate an earlier round issued?              │
+   │   yes → rail "mandate"   (no new round)                    │
+   │   no  → rail "consensus": validate_swap on AgentValidator  │
+   │         · decodes the route, verifies every pool on chain  │
+   │         · re-derives the quote from live reserves          │
+   │         · LLM coherence review under strict_eq             │
+   │         · emits recordVerdict to AgentExecutor on finality │
+   └────────────────────────────────────────────────────────────┘
                 │
-                ▼ (3. Consensus Approved Proof & Proposal ID)
-   ┌───────────────────────────────────────────────────────────┐
-   │ EVM Settlement: AgentExecutor.sol → AGGFlowEntrypoint.sol │
-   │  ├─ Multi-Hop Path Decomposition                          │
-   │  ├─ SoyaraDex V2 Classic Pools (0.30% fee)                  │
-   │  ├─ SoyaraDex V3 Concentrated Liquidity (0.05% - 1.00%)     │
-   │  └─ Native GEN ↔ WGEN 1:1 Zero-Fee Atomic Wrap            │
-   └───────────────────────────────────────────────────────────┘
+                ▼ (3. Settlement: AgentExecutor, and nothing else)
+   ┌────────────────────────────────────────────────────────────┐
+   │ consensus → executeSwap(order, program)                    │
+   │             re-derives the commitment, consumes the        │
+   │             single-use verdict, reverts if none            │
+   │ mandate   → executeSwapUnderMandate(id, amount, ...)       │
+   │             checks size, budget, fee, route against the    │
+   │             mandate and prices the trade from the pool     │
+   │ → AGGFlowEntrypoint → SoyaraDex V2 / V3 pools              │
+   └────────────────────────────────────────────────────────────┘
                 │
-                ▼ (4. Verified On-Chain State Change)`}
+                ▼ (4. Output lands at the recipient in the order)`}
                   />
                 </div>
               </article>
@@ -421,9 +426,9 @@ export default function DocsPage() {
                 <div className={styles.stepCard}>
                   <div className={styles.stepNum}>3</div>
                   <div>
-                    <h3 className={styles.stepTitle}>Calling the GenLayer Intelligent Contract</h3>
+                    <h3 className={styles.stepTitle}>Consensus Authorises the Exact Order</h3>
                     <p className={styles.stepDesc}>
-                      The proposal is submitted to <code className={styles.inlineCode}>AgentValidator.py</code> (<code className={styles.code}>{INTELLIGENT_CONTRACTS.agentValidator}</code>). GenLayer validator nodes independently verify the proposal parameters through GenVM sandbox consensus.
+                      The app builds the exact order that will settle and submits it to <code className={styles.inlineCode}>validate_swap</code> on <code className={styles.inlineCode}>AgentValidator.py</code> (<code className={styles.code}>{INTELLIGENT_CONTRACTS.agentValidator}</code>). Validators re-check the route and the quote against live pools. If a mandate an earlier round issued already covers the trade, no new round is opened.
                     </p>
                   </div>
                 </div>
@@ -431,9 +436,9 @@ export default function DocsPage() {
                 <div className={styles.stepCard}>
                   <div className={styles.stepNum}>4</div>
                   <div>
-                    <h3 className={styles.stepTitle}>Token Approval & On-Chain Settlement</h3>
+                    <h3 className={styles.stepTitle}>One-Time Token Approval & Settlement Through AgentExecutor</h3>
                     <p className={styles.stepDesc}>
-                      Once approved by the Intelligent Contract, execute the transaction via <code className={styles.inlineCode}>AGGFlowEntrypoint</code> (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}</code>). The transaction executes atomically across liquidity pools.
+                      Approve <code className={styles.inlineCode}>AgentExecutor</code> (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].agentExecutor}</code>) once per token. The settlement agent then relays the trade to it, and it refuses anything the validator did not authorise: a trade with its own verdict settles when that verdict reaches the executor (after the appeal window), and a mandate-covered trade settles in one transaction. Agent trades never go to <code className={styles.inlineCode}>AGGFlowEntrypoint</code> directly; the <code className={styles.inlineCode}>/swap</code> page is where you sign a swap yourself.
                     </p>
                   </div>
                 </div>
@@ -496,7 +501,7 @@ export default function DocsPage() {
                   <ol className={styles.ul} style={{ listStyleType: 'decimal' }}>
                     <li className={styles.li}><strong>Leader Node:</strong> A randomly selected validator executes the contract and proposes a result.</li>
                     <li className={styles.li}><strong>Validator Committee:</strong> A decentralized committee of independent nodes re-runs the logic inside their local GenVM.</li>
-                    <li className={styles.li}><strong>Equivalence Principle (<code className={styles.inlineCode}>gl.eq_principle_strict_eq</code>):</strong> The committee evaluates whether the leader's output satisfies strict equivalence rules.</li>
+                    <li className={styles.li}><strong>Equivalence Principle (<code className={styles.inlineCode}>gl.eq_principle.strict_eq</code>):</strong> The committee evaluates whether the leader's output satisfies strict equivalence rules.</li>
                     <li className={styles.li}><strong>Finality:</strong> Majority agreement commits the transaction state irreversibly to the ledger.</li>
                   </ol>
                 </div>
@@ -505,32 +510,36 @@ export default function DocsPage() {
                   <h2 className={styles.h2}>Equivalence Principle Implementation Example</h2>
                   <CodeSnippet
                     language="python"
-                    code={`# GenLayer Python Intelligent Contract Execution
-import genlayer.gl as gl
+                    code={`# From AgentValidator.py - the pattern validate_swap uses.
+from genlayer import *
 import json
 
-def validate_proposal(self, action: str, token_in: str, token_out: str, amount_in: str, min_out: str, slippage_bps: int) -> dict:
-    # Phase 1: Deterministic Math & Whitelist Guardrails
-    if slippage_bps > 300:
-        return {"approved": False, "reason": "Slippage exceeds 3.00% ceiling"}
-    
-    # Phase 2: LLM Numeric Coherence on GenVM
-    def run_ai_review():
-        prompt = f"""
-        Analyze trade proposal:
-        Action: {action}
-        TokenIn: {token_in} -> TokenOut: {token_out}
-        AmountIn: {amount_in} -> MinOut: {min_out}
-        SlippageBps: {slippage_bps}
-        
-        Is the numeric output coherent with current market liquidity?
-        Output strictly JSON: {{"coherent": true}} or {{"coherent": false, "reason": "..."}}
-        """
-        return gl.nondet.exec_prompt(prompt)
+def _consensus_review(self, action: str, slippage_bps: u256,
+                      amount_in: str, min_amount_out: str, extra_data: str) -> bool:
+    # A nested def passed BY NAME, not an inline lambda: genvm-lint treats the
+    # scope around an inline nondet lambda as non-deterministic.
+    def review() -> bool:
+        return self._llm_review(action, slippage_bps, amount_in, min_amount_out, extra_data)
 
-    # Multi-validator strict equivalence consensus
-    result_str = gl.eq_principle.strict_eq(run_ai_review)
-    return json.loads(result_str)`}
+    # strict_eq compares the returned value across validators for EXACT
+    # equality, so only a bare boolean may cross it. LLM prose differs per
+    # node, and a round returning it can never reach agreement.
+    return gl.eq_principle.strict_eq(review)
+
+def _llm_review(self, action, slippage_bps, amount_in, min_amount_out, extra_data) -> bool:
+    prompt = f"""Evaluate this proposal for numeric coherence only.
+Action: {action}  Amount In: {amount_in}  Min Amount Out: {min_amount_out}
+Slippage: {int(slippage_bps)} bps
+Reply with ONLY: {{"approved": true|false, "reason": "..."}}"""
+    try:
+        parsed = json.loads(gl.nondet.exec_prompt(prompt).strip())
+        return bool(parsed.get("approved", False))
+    except Exception:
+        return False   # an LLM or parsing failure fails CLOSED
+
+# The deterministic checks (tokens, router, slippage cap, fee cap, the route
+# decoded pool by pool against the factories, the quote re-derived from live
+# reserves) all run BEFORE this, outside any non-deterministic block.`}
                   />
                 </div>
               </article>
@@ -628,8 +637,7 @@ def validate_proposal(self, action: str, token_in: str, token_out: str, amount_i
   "deadline": 1787685000,
   "agent_id": "0x23D542DCEFb00b1f4268E67a0EC1EF4de0A58fe2",
   "extra_data": {
-    "strategy": "ARBITRAGE_REBALANCE_V3",
-    "target_pool_fee": 3000
+    "strategy": "REBALANCE"
   }
 }`}
                   />
@@ -641,8 +649,8 @@ def validate_proposal(self, action: str, token_in: str, token_out: str, amount_i
                     Multiple autonomous agents can coordinate across pools:
                   </p>
                   <ul className={styles.ul}>
-                    <li className={styles.li}><strong>Market Making Agents:</strong> Monitor V3 concentrated liquidity tick ranges and invoke <code className={styles.inlineCode}>LiquidityValidator.py</code> to rebalance out-of-range capital.</li>
-                    <li className={styles.li}><strong>Cross-Pool Arbitrage Agents:</strong> Identify price discrepancies between V2 classic pools and V3 concentrated pools, executing multi-hop atomic swaps.</li>
+                    <li className={styles.li}><strong>Liquidity is not an agent action here:</strong> the aggregator's agents route and settle swaps only. Positions, including V3 ranges, are managed on the pools app, and no Intelligent Contract on the settlement path validates V3 liquidity.</li>
+                    <li className={styles.li}><strong>Cross-Pool Arbitrage Agents:</strong> Identify price discrepancies between V2 classic pools and V3 concentrated pools, executing multi-hop atomic swaps, each one authorised by consensus before AgentExecutor settles it.</li>
                     <li className={styles.li}><strong>Treasury Rebalancing Agents:</strong> Periodically audit portfolio asset ratios and execute risk-controlled DCA orders.</li>
                   </ul>
                 </div>
@@ -663,73 +671,53 @@ def validate_proposal(self, action: str, token_in: str, token_out: str, amount_i
                   <h2 className={styles.h2}>1. Autonomous Node.js / TypeScript Agent</h2>
                   <CodeSnippet
                     language="javascript"
-                    code={`import { createClient } from 'genlayer-js';
-import { createWalletClient, http, parseEther, formatEther } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+                    code={`// An agent that trades through Soyara's settlement path.
+//
+// Validation is a GenLayer consensus WRITE and settlement is an onlyAgent call
+// on AgentExecutor, so both run on the server that holds those keys - the
+// app's own API routes, or your deployment of them.
+const BASE = 'https://app.soyara.com';
+const USER = '0xYourWallet'; // receives the output; has approved AgentExecutor once
+const post = (path, body) => fetch(BASE + path, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+}).then((r) => r.json());
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// 1. Initialize GenLayer Client
-const genClient = createClient({
-  endpoint: 'https://rpc-bradbury.genlayer.com',
-});
-
-// 2. Initialize EVM Execution Client
-const account = privateKeyToAccount(process.env.AGENT_PRIVATE_KEY);
-const evmClient = createWalletClient({
-  account,
-  transport: http('https://rpc-bradbury.genlayer.com'),
-});
-
-const AGENT_VALIDATOR = '${INTELLIGENT_CONTRACTS.agentValidator}';
-const AGG_ENTRYPOINT = '${CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}';
-
-async function runAutonomousAgent() {
-  console.log('🤖 Agent running on address:', account.address);
-
-  // Define proposal
-  const proposal = {
-    action: 'SWAP',
-    tokenIn: '0x58B6CD7891cd0A682226E25607b958a6479195A6', // USDC
-    tokenOut: '0x315374AA9b5536037Cc1Efeea2439CCC0913A77e', // WGEN
-    amountIn: '10.0',
-    amountInRaw: '10000000000000000000',
-    minAmountOutRaw: '19800000000000000000',
-    slippageBps: 30,
-    router: AGG_ENTRYPOINT,
-    deadline: Math.floor(Date.now() / 1000) + 1800,
-    extraData: JSON.stringify({ strategy: 'AUTO_DCA' })
-  };
-
-  // Step 1: Validate proposal via GenLayer Intelligent Contract
-  console.log('⏳ Requesting GenLayer GenVM consensus validation...');
-  const validationResult = await genClient.readContract({
-    address: AGENT_VALIDATOR,
-    functionName: 'validate_proposal',
-    args: [
-      proposal.action,
-      proposal.tokenIn,
-      proposal.tokenOut,
-      proposal.amountInRaw,
-      proposal.minAmountOutRaw,
-      proposal.slippageBps,
-      proposal.router,
-      proposal.deadline,
-      proposal.extraData
-    ]
+async function trade() {
+  // 1. Consensus authorises the EXACT order that will settle - route program,
+  //    fee, collector, recipient and quote - or finds a mandate an earlier
+  //    round issued that already covers it. Either way the response names the
+  //    rail, and nothing settles without one.
+  let v = await post('/api/genlayer-validate', {
+    action: 'SWAP', user: USER, tokenIn: 'USDC', tokenOut: 'WGEN', amountIn: '10', slippageBps: 30,
   });
-
-  console.log('✅ GenLayer Consensus Result:', validationResult);
-  if (!validationResult.approved) {
-    console.error('❌ Validation rejected by GenVM validators:', validationResult.reason);
-    return;
+  while (v.pending) {                       // the round runs for ~20-30s
+    await sleep(4000);
+    v = { ...v, ...(await post('/api/genlayer-validate', { checkTxHash: v.tx_hash, proposalId: v.proposal_id })) };
   }
+  if (!v.approved) throw new Error(v.reason);
 
-  // Step 2: Execute trade on EVM Settlement Contract
-  console.log('🚀 Executing trade on-chain...');
-  // (Broadcast EVM transaction via AGGFlowEntrypoint)
-  console.log('🎉 Trade executed successfully with proposal ID:', validationResult.proposal_id);
+  // 2. Settle through AgentExecutor, on that rail. The executor refuses
+  //    anything the AgentValidator IC did not authorise.
+  const body = {
+    rail: v.rail,                           // 'mandate' | 'consensus'
+    mandateId: v.mandate_id,                // mandate rail only
+    pendingOrder: v.pendingOrder,           // the order consensus saw
+    pendingProgram: v.pendingProgram,
+    validationSubmitted: v.validationSubmitted,
+    validationTxHash: v.tx_hash,
+  };
+  for (;;) {
+    const s = await post('/api/agent-execute', body);
+    if (s.success) return s;                // s.rail, s.execTxHash
+    // consensus rail: the verdict reaches the executor when the round
+    // finalizes (the appeal window). Same body, same commitment - retry.
+    if (!s.pending) throw new Error(s.error);
+    await sleep(60_000);
+  }
 }
 
-runAutonomousAgent().catch(console.error);`}
+trade().then((s) => console.log('settled via', s.rail, s.execTxHash)).catch(console.error);`}
                   />
                 </div>
 
@@ -737,46 +725,47 @@ runAutonomousAgent().catch(console.error);`}
                   <h2 className={styles.h2}>2. Autonomous Python Trading Agent</h2>
                   <CodeSnippet
                     language="python"
-                    code={`import requests
-import json
-import time
+                    code={`import time
+import requests
 
-RPC_URL = "https://rpc-bradbury.genlayer.com"
-AGENT_VALIDATOR = "${INTELLIGENT_CONTRACTS.agentValidator}"
+BASE = "https://app.soyara.com"   # or your deployment of the app's API routes
+USER = "0xYourWallet"             # receives the output; has approved AgentExecutor once
 
-def call_genlayer_contract(method, args):
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "gen_call",
-        "params": {
-            "to": AGENT_VALIDATOR,
-            "function": method,
-            "args": args
-        }
+def post(path, body):
+    return requests.post(BASE + path, json=body, timeout=60).json()
+
+def trade():
+    # 1. Consensus authorises the exact order (or a mandate already covers it).
+    v = post("/api/genlayer-validate", {
+        "action": "SWAP", "user": USER, "tokenIn": "USDC", "tokenOut": "WGEN",
+        "amountIn": "10", "slippageBps": 30,
+    })
+    while v.get("pending"):
+        time.sleep(4)
+        v = {**v, **post("/api/genlayer-validate", {"checkTxHash": v["tx_hash"], "proposalId": v.get("proposal_id")})}
+    if not v.get("approved"):
+        raise RuntimeError(v.get("reason"))
+
+    # 2. Settle through AgentExecutor on the rail consensus chose.
+    body = {
+        "rail": v["rail"],                 # "mandate" or "consensus"
+        "mandateId": v.get("mandate_id"),
+        "pendingOrder": v["pendingOrder"],
+        "pendingProgram": v["pendingProgram"],
+        "validationSubmitted": v.get("validationSubmitted"),
+        "validationTxHash": v.get("tx_hash"),
     }
-    res = requests.post(RPC_URL, json=payload).json()
-    return res.get("result")
-
-def run_agent_loop():
-    print("🤖 Python Agent starting...")
-    proposal_args = [
-        "SWAP",
-        "0x58B6CD7891cd0A682226E25607b958a6479195A6", # USDC
-        "0x315374AA9b5536037Cc1Efeea2439CCC0913A77e", # WGEN
-        "10000000000000000000",
-        "19800000000000000000",
-        30, # 0.30% slippage
-        "${CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}",
-        int(time.time()) + 1200,
-        json.dumps({"agent": "python_bot_v1"})
-    ]
-
-    result = call_genlayer_contract("validate_proposal", proposal_args)
-    print("GenLayer Validation Response:", result)
+    while True:
+        s = post("/api/agent-execute", body)
+        if s.get("success"):
+            return s
+        if not s.get("pending"):           # pending = the verdict is still finalizing
+            raise RuntimeError(s.get("error"))
+        time.sleep(60)
 
 if __name__ == "__main__":
-    run_agent_loop()`}
+    s = trade()
+    print("settled via", s["rail"], s["execTxHash"])`}
                   />
                 </div>
               </article>
@@ -787,22 +776,33 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'agent-session-keys' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>8. Delegated Execution & Session Keys</h1>
+                <h1 className={styles.h1}>8. Delegated Execution: Consensus Mandates</h1>
                 <p className={styles.lead}>
-                  How users and DAOs grant granular, scoped trading permissions to autonomous agents without risking master private keys.
+                  How an agent gets bounded authority to trade for a user without a consensus round per trade, and what it still cannot do.
                 </p>
 
                 <div className={styles.subSection}>
-                  <h2 className={styles.h2}>Session Key Architecture</h2>
+                  <h2 className={styles.h2}>Why mandates exist</h2>
                   <p className={styles.p}>
-                    Soyara DEX supports delegated session keys enforced at both the EVM account abstraction layer and the GenLayer Intelligent Contract level:
+                    A per-order verdict reaches AgentExecutor as an EVM-bound external message, and GenLayer delivers those when the round finalizes. <code className={styles.inlineCode}>EthSend</code> carries no delivery-timing field, so every per-order trade waits out the appeal window (15 to 25 minutes on Bradbury). A mandate pays that wait once: one consensus round approves a bounded authority, and each trade inside it settles in one transaction.
+                  </p>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>What a mandate binds</h2>
+                  <p className={styles.p}>
+                    <code className={styles.inlineCode}>issue_trading_mandate</code> verifies the pool against the V2 factory, checks its live reserves, builds the route program itself, and emits <code className={styles.inlineCode}>recordMandate</code>, which only the IC can call. The executor then checks every trade against it:
                   </p>
                   <ul className={styles.ul}>
-                    <li className={styles.li}><strong>Spending Limit Ceiling:</strong> Maximum daily or per-transaction spending limit per agent.</li>
-                    <li className={styles.li}><strong>Allowed Asset Pairs:</strong> Agents are restricted to pre-approved token lists (e.g., only WGEN, USDC, USDT).</li>
-                    <li className={styles.li}><strong>Expiration Timelock:</strong> Session keys automatically expire after a predefined duration (e.g., 24 hours).</li>
-                    <li className={styles.li}><strong>Consensus Validation:</strong> <code className={styles.inlineCode}>AgentValidator.py</code> verifies that the executing agent ID matches authorized delegates.</li>
+                    <li className={styles.li}><strong>User, pair and direction:</strong> only this user&apos;s tokens move, only this way round.</li>
+                    <li className={styles.li}><strong>Per-trade ceiling and lifetime budget:</strong> consensus refuses a cap above 10% of the pool&apos;s reserve, and a spent budget cannot be refilled.</li>
+                    <li className={styles.li}><strong>Route:</strong> <code className={styles.inlineCode}>keccak256(aggProgram)</code> must equal the route hash the validators built.</li>
+                    <li className={styles.li}><strong>Fee and collector, router, expiry:</strong> fixed in the mandate.</li>
+                    <li className={styles.li}><strong>Price:</strong> the executor reads the pinned pool&apos;s reserves at settlement and refuses a floor more than the mandate&apos;s slippage below its own figure.</li>
                   </ul>
+                  <p className={styles.p}>
+                    The agent chooses only the size of a trade, inside those limits. The owner or the validator can revoke a mandate at any time. A mandate is a broader authority than one exact order, which is why the app asks for one only for a pair and direction you are already trading, and tells you when it does.
+                  </p>
                 </div>
               </article>
             )}
@@ -822,56 +822,62 @@ if __name__ == "__main__":
                   <div><strong>Contract Address:</strong> <code className={styles.code}>{INTELLIGENT_CONTRACTS.agentValidator}</code></div>
                   <div><strong>Network:</strong> GenLayer Bradbury Testnet (Chain ID 4221)</div>
                   <div><strong>Language:</strong> Python 3.11 (GenVM Sandboxed Runtime)</div>
-                  <div><strong>Consensus Principle:</strong> <code className={styles.inlineCode}>gl.eq_principle_strict_eq</code></div>
-                  <div><strong>Transaction Hash:</strong> <code className={styles.code}>0x80788d9ee015f11468f4e372ead51f0dd522fb70e62343e241bd23c7b3384dbf</code></div>
+                  <div><strong>Consensus Principle:</strong> <code className={styles.inlineCode}>gl.eq_principle.strict_eq</code> (a bare boolean crosses it)</div>
+                  <div><strong>Deployed Code:</strong> byte-identical to <code className={styles.inlineCode}>build/AgentValidator.min.py</code> in the contracts repository (checked by its <code className={styles.inlineCode}>verify-deployment.sh</code>)</div>
+                  <div><strong>Paired Executor:</strong> <code className={styles.code}>{CONTRACT_ADDRESSES[4221].agentExecutor}</code> (the only contract it delivers verdicts to)</div>
                 </div>
 
                 <div className={styles.subSection}>
-                  <h2 className={styles.h2}>Public Interface & Method Signatures</h2>
+                  <h2 className={styles.h2}>Public Interface (as deployed)</h2>
+                  <p className={styles.p}>
+                    These are the methods the deployed contract actually exposes; <code className={styles.inlineCode}>npm run test:settlement</code> reads its schema from the chain and fails if the app calls anything else.
+                  </p>
                   <div className={styles.tableWrapper}>
                     <table className={styles.table}>
                       <thead>
                         <tr>
                           <th>Function</th>
-                          <th>Parameters</th>
-                          <th>Return Type</th>
+                          <th>What it does</th>
                           <th>Access</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td><code className={styles.inlineCode}>validate_proposal</code></td>
-                          <td><code className={styles.inlineCode}>action, token_in, token_out, amount_in, min_out, slippage_bps, router, deadline, extra_data</code></td>
-                          <td><code className={styles.inlineCode}>dict {"{ approved, reason, proposal_id }"}</code></td>
-                          <td>Public</td>
+                          <td><code className={styles.inlineCode}>validate_swap</code></td>
+                          <td>Takes the full order (user, tokens, amount, floor, quote, slippage, deadline, router, fee, fee collector, route program, nonce). Decodes the route, confirms every pool against the V2/V3 factories, re-derives the output from live reserves, runs the LLM review, and on approval emits <code className={styles.inlineCode}>recordVerdict(commitment, expiry)</code> to AgentExecutor.</td>
+                          <td>Write (consensus)</td>
                         </tr>
                         <tr>
-                          <td><code className={styles.inlineCode}>get_stats</code></td>
-                          <td><code className={styles.inlineCode}>None</code></td>
-                          <td><code className={styles.inlineCode}>dict {"{ total_validations, total_approved, total_rejected }"}</code></td>
-                          <td>Public Read</td>
+                          <td><code className={styles.inlineCode}>issue_trading_mandate</code></td>
+                          <td>Resolves the pool from the V2 factory, checks its live reserves, refuses a per-trade cap above 10% of the reserve, builds the route program itself, and emits <code className={styles.inlineCode}>recordMandate</code>: a bounded authority for one user, pair and direction.</td>
+                          <td>Write (consensus)</td>
                         </tr>
                         <tr>
-                          <td><code className={styles.inlineCode}>get_config</code></td>
-                          <td><code className={styles.inlineCode}>None</code></td>
-                          <td><code className={styles.inlineCode}>dict {"{ max_slippage_bps, is_paused, approved_tokens }"}</code></td>
-                          <td>Public Read</td>
+                          <td><code className={styles.inlineCode}>validate_liquidity_v2_add</code> / <code className={styles.inlineCode}>_remove</code></td>
+                          <td>V2 deposits and withdrawals for the pools app. Confirms the pair (and LP token) is the canonical factory pair, then emits a verdict for that exact operation.</td>
+                          <td>Write (consensus)</td>
                         </tr>
                         <tr>
-                          <td><code className={styles.inlineCode}>set_max_slippage</code></td>
-                          <td><code className={styles.inlineCode}>new_max_bps: int</code></td>
-                          <td><code className={styles.inlineCode}>void</code></td>
-                          <td>Owner Only</td>
+                          <td><code className={styles.inlineCode}>get_validation</code></td>
+                          <td>Reads back the verdict a round recorded (a write's return value is not recoverable from its receipt).</td>
+                          <td>Read</td>
                         </tr>
                         <tr>
-                          <td><code className={styles.inlineCode}>set_paused</code></td>
-                          <td><code className={styles.inlineCode}>paused: bool</code></td>
-                          <td><code className={styles.inlineCode}>void</code></td>
-                          <td>Owner Only</td>
+                          <td><code className={styles.inlineCode}>get_config</code> / <code className={styles.inlineCode}>get_stats</code> / <code className={styles.inlineCode}>is_token_approved</code> / <code className={styles.inlineCode}>is_router_approved</code></td>
+                          <td>Owner, paired executor, slippage cap and pause state; counters; whitelist lookups.</td>
+                          <td>Read</td>
+                        </tr>
+                        <tr>
+                          <td><code className={styles.inlineCode}>set_max_slippage</code> / <code className={styles.inlineCode}>set_paused</code> / <code className={styles.inlineCode}>set_agent_executor</code></td>
+                          <td>Administration.</td>
+                          <td>Owner only</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
+                  <p className={styles.p}>
+                    There is no V3 liquidity method. It was removed when the deployable build hit GenVM&apos;s per-block pubdata limit; see section 10.
+                  </p>
                 </div>
               </article>
             )}
@@ -881,34 +887,41 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'liquidity-validator' && (
               <article className={styles.article}>
-                <div className={styles.contractBadge}>Intelligent Contract 2</div>
-                <h1 className={styles.h1}>10. LiquidityValidator.py (Specification)</h1>
+                <div className={styles.contractBadge}>Liquidity</div>
+                <h1 className={styles.h1}>10. Liquidity: V2 Validation, V3 on the Pools App</h1>
                 <p className={styles.lead}>
-                  Complete technical specification of <code className={styles.inlineCode}>LiquidityValidator.py</code> deployed on GenLayer Bradbury Testnet at <code className={styles.code}>{INTELLIGENT_CONTRACTS.liquidityValidator}</code>.
+                  What the settlement path does and does not do with liquidity, stated against the contracts as deployed.
                 </p>
 
-                <div className={styles.metaBox}>
-                  <div><strong>Contract Address:</strong> <code className={styles.code}>{INTELLIGENT_CONTRACTS.liquidityValidator}</code></div>
-                  <div><strong>Network:</strong> GenLayer Bradbury Testnet (Chain ID 4221)</div>
-                  <div><strong>Transaction Hash:</strong> <code className={styles.code}>0x6029755fe523a1fcb2c87f20a3c9cc3fcc12f04f57b6db203a40b8c718fcdf23</code></div>
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>The agent surfaces do not handle liquidity</h2>
+                  <p className={styles.p}>
+                    <code className={styles.inlineCode}>/ai</code> and <code className={styles.inlineCode}>/a2a</code> route and settle swaps only. A request to add or remove liquidity is handed to the pools app before anything is quoted, and no consensus round is opened for it.
+                  </p>
                 </div>
 
                 <div className={styles.subSection}>
-                  <h2 className={styles.h2}>V2 & V3 Liquidity Operations</h2>
+                  <h2 className={styles.h2}>V2: validated on AgentValidator</h2>
+                  <p className={styles.p}>
+                    V2 deposits and withdrawals are validated by <code className={styles.inlineCode}>validate_liquidity_v2_add</code> and <code className={styles.inlineCode}>validate_liquidity_v2_remove</code> on AgentValidator (<code className={styles.code}>{INTELLIGENT_CONTRACTS.agentValidator}</code>), which confirm the canonical factory pair and emit a verdict for the exact operation. AgentExecutor&apos;s <code className={styles.inlineCode}>executeAddLiquidityV2</code> / <code className={styles.inlineCode}>executeRemoveLiquidityV2</code> consume that verdict, single use.
+                  </p>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>V3: not on the settlement path</h2>
                   <ul className={styles.ul}>
-                    <li className={styles.li}>
-                      <strong><code className={styles.inlineCode}>validate_add_liquidity_v2</code>:</strong> Checks paired token reserves, deposit ratio bounds, and min LP mint thresholds.
-                    </li>
-                    <li className={styles.li}>
-                      <strong><code className={styles.inlineCode}>validate_remove_liquidity_v2</code>:</strong> Ensures safe LP burn and verifies minimum token A/B returns.
-                    </li>
-                    <li className={styles.li}>
-                      <strong><code className={styles.inlineCode}>validate_add_liquidity_v3</code>:</strong> Validates tick ranges (<code className={styles.inlineCode}>tickLower, tickUpper</code>), concentrated price range width, and verified fee tiers (<code className={styles.inlineCode}>500, 3000, 10000</code>).
-                    </li>
-                    <li className={styles.li}>
-                      <strong><code className={styles.inlineCode}>validate_remove_liquidity_v3</code>:</strong> Validates position NFT ID ownership and minimum withdrawal bounds.
-                    </li>
+                    <li className={styles.li}>AgentValidator has <strong>no V3 liquidity validator</strong>. The V3 methods were removed when the deployable build exceeded GenVM&apos;s per-block pubdata limit.</li>
+                    <li className={styles.li}>AgentExecutor still has <code className={styles.inlineCode}>executeAddLiquidityV3</code> / <code className={styles.inlineCode}>executeRemoveLiquidityV3</code> in its deployed bytecode, but they need a verdict only AgentValidator could record, so every call reverts with <code className={styles.inlineCode}>NoConsensusVerdict</code>. They fail closed, and removing them requires redeploying the pair.</li>
+                    <li className={styles.li}>The app makes no V3 liquidity call, and <code className={styles.inlineCode}>/api/genlayer-validate</code> refuses a V3 liquidity request before any round, pointing to the pools app.</li>
+                    <li className={styles.li}>V3 positions are managed on the pools app, which works with the SoyaraDex V3 position manager (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].v3PositionManager}</code>) directly from your wallet.</li>
                   </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Retired: LiquidityValidator</h2>
+                  <p className={styles.p}>
+                    A separate <code className={styles.inlineCode}>LiquidityValidator</code> contract (<code className={styles.code}>{INTELLIGENT_CONTRACTS.liquidityValidator}</code>) was deployed earlier with V2 and V3 checks. AgentExecutor never accepted its answers, so it authorised nothing; the app answered V3 requests with a read simulation against it, which looked like consensus and could never settle. That call is removed and the contract is retired.
+                  </p>
                 </div>
               </article>
             )}
@@ -921,13 +934,49 @@ if __name__ == "__main__":
                 <div className={styles.contractBadge}>EVM Settlement</div>
                 <h1 className={styles.h1}>11. AgentExecutor.sol & Settlement Pipeline</h1>
                 <p className={styles.lead}>
-                  How validated execution proposals transition from GenLayer GenVM Intelligent Contracts into atomic EVM settlement via the AGGFlow Entrypoint.
+                  <code className={styles.inlineCode}>AgentExecutor</code> (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].agentExecutor}</code>) is the only way an agent trade moves funds, and it refuses anything the AgentValidator Intelligent Contract did not authorise.
                 </p>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Who can authorise, who can relay</h2>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}><code className={styles.inlineCode}>recordVerdict</code> and <code className={styles.inlineCode}>recordMandate</code> are <code className={styles.inlineCode}>onlyValidator</code>: callable only by the AgentValidator IC, over its ghost contract. The settlement agent and the owner are both refused with <code className={styles.inlineCode}>NotValidator</code>.</li>
+                    <li className={styles.li}>The <code className={styles.inlineCode}>execute*</code> functions are <code className={styles.inlineCode}>onlyAgent</code>. The agent relays a trade; it cannot approve one.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Two rails, one authority per trade</h2>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr><th>Rail</th><th>Settlement call</th><th>What the executor enforces</th><th>Latency</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>consensus</strong></td>
+                          <td><code className={styles.inlineCode}>executeSwap(order, aggProgram)</code></td>
+                          <td>Re-derives the commitment from the whole order (route hash, fee, fee collector, recipient, quote, deadline, nonce, chain, executor) and consumes the matching verdict. Single use; no verdict means <code className={styles.inlineCode}>NoConsensusVerdict</code>.</td>
+                          <td>After the appeal window (15 to 25 min on Bradbury)</td>
+                        </tr>
+                        <tr>
+                          <td><strong>mandate</strong></td>
+                          <td><code className={styles.inlineCode}>executeSwapUnderMandate(id, amountIn, minAmountOut, feeBps, aggProgram)</code></td>
+                          <td>Checks the trade against a mandate an earlier round issued: user, pair, direction, per-trade ceiling, lifetime budget, fee, collector, router, and the route by hash. Prices it itself from the pinned pool&apos;s live reserves.</td>
+                          <td>One transaction, seconds</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className={styles.p}>
+                    The rail is chosen before any round is opened. A trade covered by a live mandate on its best route never gets a verdict of its own, and a trade with its own verdict never falls onto a mandate, so one intent cannot settle twice. The agent surfaces have no third rail: nothing on <code className={styles.inlineCode}>/ai</code> or <code className={styles.inlineCode}>/a2a</code> sends a trade to <code className={styles.inlineCode}>AGGFlowEntrypoint</code> directly.
+                  </p>
+                </div>
 
                 <div className={styles.subSection}>
                   <h2 className={styles.h2}>Atomic Execution & Rollback Protection</h2>
                   <p className={styles.p}>
-                    When an execution proposal passes consensus on <code className={styles.inlineCode}>AgentValidator.py</code>, the user or agent executes against <code className={styles.inlineCode}>AGGFlowEntrypoint</code> (<code className={styles.inlineCode}>{CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}</code>). The transaction executes the compiled bytecode program across SoyaraDex V2, V3, and WGEN contracts in a single atomic transaction. If realized slippage or final output falls below the guaranteed minimum, the transaction reverts completely, protecting user funds.
+                    Once the executor is satisfied, it pulls the input from the user and calls <code className={styles.inlineCode}>AGGFlowEntrypoint.executeSwapWithReceiver</code> (<code className={styles.inlineCode}>{CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}</code>), which runs the route across SoyaraDex V2 and V3 pools in one transaction and pays the output straight to the user. If the output falls below the committed minimum, the whole transaction reverts.
                   </p>
                 </div>
               </article>
@@ -1334,39 +1383,53 @@ SDK matches the deployed architecture.  (72 passed)`}
                 </div>
 
                 <div className={styles.subSection}>
-                  <h2 className={styles.h2}>Validating Trade Proposals via genlayer-js</h2>
+                  <h2 className={styles.h2}>Opening a Binding Round with genlayer-js</h2>
+                  <p className={styles.p}>
+                    <code className={styles.inlineCode}>validate_swap</code> is a consensus <strong>write</strong>: a <code className={styles.inlineCode}>readContract</code> of it is a single-node simulation that authorises nothing. The round needs the full order, and the executor will only settle an order that hashes to the approved commitment - so build the order once and settle exactly that order.
+                  </p>
                   <CodeSnippet
                     language="javascript"
-                    code={`import { createClient } from 'genlayer-js';
+                    code={`import { createClient, createAccount, chains } from 'genlayer-js';
+import { createPublicClient, http } from 'viem';
+import EXECUTOR_ABI from './AgentExecutor.abi.json';
 
-const client = createClient({
-  endpoint: 'https://rpc-bradbury.genlayer.com',
-});
-
+const client = createClient({ chain: chains.testnetBradbury, account: createAccount(process.env.LANE_KEY) });
 const AGENT_VALIDATOR = '${INTELLIGENT_CONTRACTS.agentValidator}';
+const AGENT_EXECUTOR  = '${CONTRACT_ADDRESSES[4221].agentExecutor}';
 
-async function validateTrade() {
-  const result = await client.readContract({
+// \`order\` and \`aggProgram\` come from the aggregator quote (see section 15:
+// quoteBestRouteMultiHop + buildMultiHopProgram), with routeHash = keccak256(aggProgram).
+async function openRound(order, aggProgram) {
+  const txHash = await client.writeContract({
     address: AGENT_VALIDATOR,
-    functionName: 'validate_proposal',
+    functionName: 'validate_swap',
     args: [
-      'SWAP',
-      '0x58B6CD7891cd0A682226E25607b958a6479195A6', // USDC
-      '0x315374AA9b5536037Cc1Efeea2439CCC0913A77e', // WGEN
-      '100000000000000000000', // 100 USDC
-      '198000000000000000000', // Min received
-      30, // 0.30% slippage
-      '${CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}',
-      Math.floor(Date.now() / 1000) + 1200,
-      JSON.stringify({ model: 'v3' })
-    ]
+      order.user, order.tokenIn, order.tokenOut,
+      String(order.amountIn), String(order.minAmountOut), String(order.quotedAmountOut),
+      Number(order.slippageBps), Number(order.deadline),
+      order.router, Number(order.feeBps), order.feeCollector,
+      aggProgram, Number(order.nonce),
+    ],
+    value: 0n,
   });
 
-  console.log('Validation Approved:', result.approved);
-  console.log('Proposal ID:', result.proposal_id);
-}
+  // The executor, not your code, derives the identifier it will enforce.
+  const evm = createPublicClient({ chain: chains.testnetBradbury, transport: http() });
+  const commitment = await evm.readContract({
+    address: AGENT_EXECUTOR, abi: EXECUTOR_ABI, functionName: 'getSwapCommitment', args: [order],
+  });
 
-validateTrade();`}
+  // A write's return value is not in its receipt: read the verdict back.
+  await client.waitForTransactionReceipt({ hash: txHash, status: 'ACCEPTED', fullTransaction: true });
+  const verdict = await client.readContract({
+    address: AGENT_VALIDATOR, functionName: 'get_validation', args: [commitment],
+  });
+  console.log('approved by consensus:', verdict.approved);
+
+  // The executor honours it only once the round FINALIZES and the verdict
+  // arrives: poll isVerdictLive(commitment), then relay executeSwap(order, aggProgram).
+  return { txHash, commitment };
+}`}
                   />
                 </div>
 
@@ -1395,53 +1458,41 @@ validateTrade();`}
                 </p>
 
                 <div className={styles.subSection}>
-                  <h2 className={styles.h2}>Python RPC Client Example</h2>
+                  <h2 className={styles.h2}>Python Agent Against the App's API</h2>
+                  <p className={styles.p}>
+                    The Python path goes through the same two routes the app uses: one opens the binding round (or finds a mandate that covers the trade), the other settles through AgentExecutor on the rail consensus chose. Section 7 has the full loop, including waiting out the appeal window.
+                  </p>
                   <CodeSnippet
                     language="python"
                     code={`import requests
-import json
-import time
 
 class SoyaraAgent:
-    def __init__(self, rpc_url="https://rpc-bradbury.genlayer.com"):
-        self.rpc_url = rpc_url
-        self.validator_address = "${INTELLIGENT_CONTRACTS.agentValidator}"
-        self.entrypoint_address = "${CONTRACT_ADDRESSES[4221].aggregatorEntrypoint}"
+    def __init__(self, base="https://app.soyara.com", user="0xYourWallet"):
+        self.base, self.user = base, user
 
-    def validate_swap(self, token_in, token_out, amount_in_raw, min_out_raw, slippage_bps=30):
-        deadline = int(time.time()) + 1800
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "gen_call",
-            "params": {
-                "to": self.validator_address,
-                "function": "validate_proposal",
-                "args": [
-                    "SWAP",
-                    token_in,
-                    token_out,
-                    str(amount_in_raw),
-                    str(min_out_raw),
-                    slippage_bps,
-                    self.entrypoint_address,
-                    deadline,
-                    json.dumps({"agent": "python_agent_v1"})
-                ]
-            }
-        }
-        response = requests.post(self.rpc_url, json=payload).json()
-        return response.get("result")
+    def _post(self, path, body):
+        return requests.post(self.base + path, json=body, timeout=60).json()
 
-# Usage:
+    def validate(self, token_in, token_out, amount_in, slippage_bps=30):
+        # Opens validate_swap on AgentValidator ${INTELLIGENT_CONTRACTS.agentValidator}
+        # for the exact order, unless a mandate you already hold covers it.
+        return self._post("/api/genlayer-validate", {
+            "action": "SWAP", "user": self.user, "tokenIn": token_in,
+            "tokenOut": token_out, "amountIn": str(amount_in), "slippageBps": slippage_bps,
+        })
+
+    def settle(self, v):
+        # Relayed to AgentExecutor ${CONTRACT_ADDRESSES[4221].agentExecutor}; it refuses
+        # anything consensus did not authorise. Never sent to the entrypoint directly.
+        return self._post("/api/agent-execute", {
+            "rail": v["rail"], "mandateId": v.get("mandate_id"),
+            "pendingOrder": v["pendingOrder"], "pendingProgram": v["pendingProgram"],
+            "validationSubmitted": v.get("validationSubmitted"), "validationTxHash": v.get("tx_hash"),
+        })
+
 agent = SoyaraAgent()
-res = agent.validate_swap(
-    token_in="0x58B6CD7891cd0A682226E25607b958a6479195A6",
-    token_out="0x315374AA9b5536037Cc1Efeea2439CCC0913A77e",
-    amount_in_raw=10000000000000000000,
-    min_out_raw=19800000000000000000
-)
-print("Validation Result:", res)`}
+v = agent.validate("USDC", "WGEN", 10)
+print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
                   />
                 </div>
               </article>
@@ -1482,10 +1533,10 @@ print("Validation Result:", res)`}
                         <td><a href={`https://explorer-bradbury.genlayer.com/address/${INTELLIGENT_CONTRACTS.agentValidator}`} target="_blank" rel="noopener noreferrer" className={styles.link}>Explorer <ExternalLink size={12} /></a></td>
                       </tr>
                       <tr>
-                        <td><strong>LiquidityValidator (IC)</strong></td>
-                        <td><code className={styles.inlineCode}>{INTELLIGENT_CONTRACTS.liquidityValidator}</code></td>
-                        <td>GenLayer IC (Python)</td>
-                        <td><a href={`https://explorer-bradbury.genlayer.com/address/${INTELLIGENT_CONTRACTS.liquidityValidator}`} target="_blank" rel="noopener noreferrer" className={styles.link}>Explorer <ExternalLink size={12} /></a></td>
+                        <td><strong>AgentExecutor</strong></td>
+                        <td><code className={styles.inlineCode}>{CONTRACT_ADDRESSES[4221].agentExecutor}</code></td>
+                        <td>EVM Settlement Gate (verdicts and mandates from the IC only)</td>
+                        <td><a href={`https://explorer-bradbury.genlayer.com/address/${CONTRACT_ADDRESSES[4221].agentExecutor}`} target="_blank" rel="noopener noreferrer" className={styles.link}>Explorer <ExternalLink size={12} /></a></td>
                       </tr>
                       <tr>
                         <td><strong>AGGFlow Entrypoint</strong></td>
@@ -1555,7 +1606,14 @@ print("Validation Result:", res)`}
                   <div className={styles.card}>
                     <h3 className={styles.cardTitle}>Threat: Toxic MEV & Sandwich Attacks</h3>
                     <p className={styles.cardDesc}>
-                      <strong>Defense:</strong> Hard 3.00% (300 bps) slippage ceiling enforced in GenVM consensus by <code className={styles.inlineCode}>AgentValidator.py</code> before EVM broadcast.
+                      <strong>Defense:</strong> A 3.00% (300 bps) slippage ceiling enforced twice: by <code className={styles.inlineCode}>AgentValidator.py</code> in consensus, and again on chain by <code className={styles.inlineCode}>AgentExecutor</code> (<code className={styles.inlineCode}>SlippageExceeded</code>). The floor must sit within that band of the validated quote.
+                    </p>
+                  </div>
+
+                  <div className={styles.card}>
+                    <h3 className={styles.cardTitle}>Threat: A Relayer Settles an Unapproved or Altered Trade</h3>
+                    <p className={styles.cardDesc}>
+                      <strong>Defense:</strong> <code className={styles.inlineCode}>AgentExecutor</code> takes verdicts and mandates only from the AgentValidator IC (<code className={styles.inlineCode}>NotValidator</code> for anyone else, owner included) and re-derives the commitment from the order it settles, so any change lands on an identifier nothing approved (<code className={styles.inlineCode}>NoConsensusVerdict</code>). Verdicts are single use (<code className={styles.inlineCode}>CommitmentAlreadyUsed</code>).
                     </p>
                   </div>
 
@@ -1576,7 +1634,7 @@ print("Validation Result:", res)`}
                   <div className={styles.card}>
                     <h3 className={styles.cardTitle}>Threat: Node Sybil & Hallucination Collusion</h3>
                     <p className={styles.cardDesc}>
-                      <strong>Defense:</strong> GenLayer Optimistic Democracy achieves consensus across decentralized validator committees via the Equivalence Principle (<code className={styles.inlineCode}>gl.eq_principle_strict_eq</code>).
+                      <strong>Defense:</strong> GenLayer Optimistic Democracy achieves consensus across decentralized validator committees via the Equivalence Principle (<code className={styles.inlineCode}>gl.eq_principle.strict_eq</code>).
                     </p>
                   </div>
                 </div>

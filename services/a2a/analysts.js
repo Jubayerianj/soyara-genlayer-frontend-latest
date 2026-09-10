@@ -26,8 +26,17 @@ import { CONTRACT_ADDRESSES } from '../../constants/addresses.js';
 import { TOKEN_LIST } from '../../constants/tokens.js';
 import { getQuoteClient } from '../../lib/dexQuote.js';
 import { deserialiseOrder, PLATFORM_FEE_BPS } from '../../lib/swapOrder.js';
+import { decodeMandate, MANDATE_FIELDS } from '../../lib/mandateCoverage.js';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
+
+const MANDATE_COMPONENT_TYPES = {
+  user: 'address', tokenIn: 'address', tokenOut: 'address',
+  maxAmountIn: 'uint256', totalBudgetIn: 'uint256', spentIn: 'uint256',
+  maxSlippageBps: 'uint256', maxFeeBps: 'uint256',
+  feeCollector: 'address', router: 'address', routeHash: 'bytes32', pool: 'address',
+  expiry: 'uint64', revoked: 'bool',
+};
 
 // The executor reads these agents need, declared inline rather than imported
 // from abi/AgentExecutor.json.
@@ -67,6 +76,14 @@ export const EXECUTOR_READ_ABI = [
     inputs: [{ name: 'order', type: 'tuple', components: SWAP_ORDER_COMPONENTS }],
     name: 'getSwapCommitment',
     outputs: [{ type: 'bytes32' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  { inputs: [{ type: 'bytes32' }], name: 'isMandateLive', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
+  {
+    inputs: [{ type: 'bytes32' }],
+    name: 'mandates',
+    outputs: MANDATE_FIELDS.map((name) => ({ name, type: MANDATE_COMPONENT_TYPES[name] })),
     stateMutability: 'view',
     type: 'function',
   },
@@ -269,15 +286,17 @@ async function readV2Pool(client, factory, tokenA, tokenB) {
 
 export class SettlementStrategistAgent {
   /**
-   * Decide which rail can settle this verdict, from executor state.
+   * Report how this trade will settle, from executor state.
    *
-   * There are two:
+   * The authority was fixed when the trade was validated (lib/actions.js):
    *
+   *   mandate   - an earlier consensus round's mandate covers this trade. One
+   *               executeSwapUnderMandate call, seconds.
    *   reuse     - a live verdict already covers this exact commitment. Instant.
    *   consensus - wait for the GenLayer round to finalize and deliver the
    *               verdict over its ghost contract (appeal window, ~40 min).
    *
-   * There was a third, an EIP-712 attestor quorum that carried the verdict in
+   * There was a fourth, an EIP-712 attestor quorum that carried the verdict in
    * about thirty seconds. It has been removed from the executor: nothing on
    * chain tied a signature to a verdict the IC had actually recorded, so those
    * keys were a substitute for consensus rather than a shortcut to it.
@@ -285,7 +304,7 @@ export class SettlementStrategistAgent {
    * Every field below is read from the deployed executor. A rail this agent
    * cannot prove is available is never offered.
    */
-  static async plan({ commitment, order = null, deadline = null }) {
+  static async plan({ rail: decidedRail = null, mandateId = null, commitment, order = null, deadline = null }) {
     const executor = CONTRACT_ADDRESSES[4221]?.agentExecutor;
     const client = getQuoteClient();
     const now = Math.floor(Date.now() / 1000);
@@ -295,6 +314,37 @@ export class SettlementStrategistAgent {
         .catch(() => null);
 
     const paused = await read('paused');
+
+    // ── Mandate: the authority is already on the executor ──────────────────
+    if (decidedRail === 'mandate' && mandateId) {
+      const [live, raw] = await Promise.all([read('isMandateLive', [mandateId]), read('mandates', [mandateId])]);
+      const m = decodeMandate(raw);
+      const secondsToExpiry = m ? Math.max(0, m.expiry - now) : 0;
+      const blockers = [];
+      if (paused === true) blockers.push('The executor is paused - no rail can settle while it is.');
+      if (live !== true) blockers.push('The mandate is no longer live on the executor. Validate again for a per-trade round.');
+      const rail = blockers.length ? 'blocked' : 'mandate';
+      return {
+        rail,
+        eta: rail === 'mandate' ? '~5 seconds' : null,
+        rationale: rail === 'mandate'
+          ? `An earlier GenLayer consensus round issued mandate \`${String(mandateId).slice(0, 12)}...\` for you, this pair and `
+            + `direction. Settlement is one executeSwapUnderMandate call: the executor checks this trade's size, fee and `
+            + `route against the mandate and prices it itself from the pool's live reserves. No new round, no appeal window.`
+          : blockers[0],
+        blockers,
+        paused: paused === true,
+        commitmentUsed: false,
+        verdictLive: false,
+        mandateId,
+        remainingBudget: m ? (m.totalBudgetIn - m.spentIn).toString() : null,
+        verdictExpiry: m?.expiry || null,
+        secondsToExpiry,
+        deadline: deadline != null ? Number(deadline) : null,
+        secondsToDeadline: deadline != null ? Number(deadline) - now : null,
+        executor,
+      };
+    }
 
     let used = null;
     let expiry = null;
@@ -380,11 +430,17 @@ export class PostTradeAuditorAgent {
    * user, quote, deadline, nonce - the hashes diverge and this fails. There is
    * no path where a settlement agent substitutes a parameter and still matches.
    */
-  static async preflight({ order, program, commitment, user }) {
+  static async preflight({ order, program, commitment, user, rail = 'consensus', mandateId = null }) {
     const executor = CONTRACT_ADDRESSES[4221]?.agentExecutor;
     const entrypoint = CONTRACT_ADDRESSES[4221]?.aggregatorEntrypoint;
     const client = getQuoteClient();
     const checks = [];
+
+    // Under a mandate the authority is the mandate, so that is what is
+    // audited: every binding it carries, read back from the executor.
+    if (rail === 'mandate') {
+      return PostTradeAuditorAgent.preflightMandate({ order, program, mandateId, user, client, executor, entrypoint });
+    }
 
     if (!order || !commitment) {
       return {
@@ -505,6 +561,87 @@ export class PostTradeAuditorAgent {
   }
 
   /**
+   * The mandate rail's pre-flight: the same question - what can the settlement
+   * agent still change? - asked of a mandate. The answer is only the size of
+   * the trade, inside the ceilings consensus set, and each check below is the
+   * executor's own record rather than a claim.
+   */
+  static async preflightMandate({ order, program, mandateId, user, client, executor, entrypoint }) {
+    const checks = [];
+    const binding = (name, passed, detail) => checks.push({ name, passed, detail, binding: true });
+
+    if (!order || !mandateId) {
+      return {
+        checks: [{ name: 'Mandate binding', passed: false, detail: 'No mandate or bound order was returned, so there is nothing to audit.', binding: true }],
+        passed: false, allBound: false, onChainCommitment: null, mandateId,
+      };
+    }
+
+    const o = typeof order.amountIn === 'bigint' ? order : deserialiseOrder(order);
+    const read = (functionName, args) =>
+      client.readContract({ address: executor, abi: EXECUTOR_READ_ABI, functionName, args }).catch(() => null);
+    const [live, raw] = await Promise.all([read('isMandateLive', [mandateId]), read('mandates', [mandateId])]);
+    const m = decodeMandate(raw);
+
+    binding('Mandate recorded by the validator', Boolean(m && !sameAddr(m.user, ZERO)),
+      m && !sameAddr(m.user, ZERO)
+        ? 'Present on the executor. Only recordMandate writes one, and only the AgentValidator IC can call it.'
+        : 'No mandate is recorded under this id.');
+    binding('Mandate is live', live === true,
+      live === true ? `Valid for ${formatDuration(Math.max(0, (m?.expiry || 0) - Math.floor(Date.now() / 1000)))}.` : 'Expired, revoked, or never recorded.');
+    if (m) {
+      binding('Recipient bound to you', sameAddr(m.user, user),
+        sameAddr(m.user, user) ? 'Only your tokens move, and the output can only reach you.' : 'The mandate names a different user.');
+      binding('Pair and direction bound', sameAddr(m.tokenIn, o.tokenIn) && sameAddr(m.tokenOut, o.tokenOut),
+        `${String(m.tokenIn).slice(0, 8)}… to ${String(m.tokenOut).slice(0, 8)}…, never the reverse.`);
+      if (program) {
+        const routeOk = sameAddr(keccak256(program), m.routeHash);
+        binding('Route program matches the mandate', routeOk,
+          routeOk
+            ? 'keccak256(aggProgram) equals the route hash the validators derived, so the executed path is the one consensus built.'
+            : 'The program does not hash to the mandate\'s route; the executor would revert with RouteMismatch.');
+      }
+      binding('Size within the per-trade ceiling', o.amountIn <= m.maxAmountIn,
+        `${o.amountIn} of at most ${m.maxAmountIn} (raw units).`);
+      binding('Budget covers this trade', m.spentIn + o.amountIn <= m.totalBudgetIn,
+        `${m.totalBudgetIn - m.spentIn} of ${m.totalBudgetIn} left before this trade (raw units).`);
+      binding('Fee and collector bound', o.feeBps <= m.maxFeeBps && sameAddr(m.feeCollector, o.feeCollector),
+        `At most ${Number(m.maxFeeBps) / 100}% to ${String(m.feeCollector).slice(0, 10)}…, fixed by consensus.`);
+      binding('Router bound', sameAddr(m.router, entrypoint),
+        `Settlement is pinned to the AGGFlow entrypoint ${String(m.router).slice(0, 10)}….`);
+      checks.push({
+        name: 'Priced by the executor',
+        passed: true,
+        detail: `The executor reads pool ${String(m.pool).slice(0, 10)}… at settlement, proves it canonical through the factory, `
+          + `and refuses a floor more than ${Number(m.maxSlippageBps) / 100}% below its own price.`,
+      });
+    }
+
+    if (o.tokenIn && o.tokenIn !== ZERO && user) {
+      try {
+        const [bal, allow] = await Promise.all([
+          client.readContract({ address: o.tokenIn, abi: ERC20_ABI, functionName: 'balanceOf', args: [user] }),
+          client.readContract({ address: o.tokenIn, abi: ERC20_ABI, functionName: 'allowance', args: [user, executor] }),
+        ]);
+        checks.push({ name: 'Balance covers the order', passed: bal >= o.amountIn,
+          detail: bal >= o.amountIn ? 'Sufficient input balance.' : 'Input balance is below the order amount.' });
+        checks.push({ name: 'Executor allowance in place', passed: allow >= o.amountIn,
+          detail: allow >= o.amountIn ? 'The one-time approval is already granted.' : 'A one-time approval is still needed for this token.' });
+      } catch {
+        /* reported by the checks that remain */
+      }
+    }
+
+    return {
+      checks,
+      passed: checks.every((c) => c.passed),
+      allBound: checks.filter((c) => c.binding).every((c) => c.passed),
+      onChainCommitment: null,
+      mandateId,
+    };
+  }
+
+  /**
    * After settlement: read the receipt and report what actually arrived.
    *
    * The panel used to show the quoted figure next to a green tick, which is the
@@ -592,6 +729,14 @@ export function buildDebate({ analysis, route, intent, strategy, phase = 'market
         + `validator's ghost contract. That wait is the appeal window and it belongs to the network, so the trade `
         + `goes on the settlement queue rather than holding you on this page. The one signature it needs is taken `
         + `now, while you are here.`,
+    });
+  } else if (strategy?.rail === 'mandate') {
+    turns.push({
+      from: 'settlement', to: 'risk',
+      text: `No round for this one: a mandate an earlier consensus round issued for you already covers it. Settlement `
+        + `is a single executeSwapUnderMandate call, and the executor re-checks the size, fee and route against the `
+        + `mandate and prices the trade from the pool itself - so seconds, not the appeal window, and nothing the `
+        + `agent sends can move the price.`,
     });
   } else if (strategy?.rail === 'reuse') {
     turns.push({
