@@ -35,7 +35,19 @@
 //                    the queue keeps moving whichever page a user has open
 
 import { privateKeyToAccount } from 'viem/accounts';
-import { finalizeRound, drainFinalizationQueue } from '../../lib/genlayer.js';
+import { finalizeRound, drainFinalizationQueue, roundQueueStatus } from '../../lib/genlayer.js';
+
+// The tracker asks on every tick; the queue position only changes when a round
+// finalizes, so a short cache keeps that to a handful of chain reads.
+const STATUS_TTL_MS = 15 * 1000;
+const _status = new Map(); // txHash -> { at, value }
+async function cachedRoundStatus(txHash) {
+  const hit = _status.get(txHash);
+  if (hit && Date.now() - hit.at < STATUS_TTL_MS) return hit.value;
+  const value = await roundQueueStatus({ txHash }).catch(() => null);
+  _status.set(txHash, { at: Date.now(), value });
+  return value;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -61,7 +73,10 @@ export default async function handler(req, res) {
     // False while an older round or this one's own appeal window is still in
     // the way. Not an error: the next tick drains again.
     const finalized = await finalizeRound(txHash, account, submittedAt);
-    return res.status(200).json({ finalized, txHash });
+    // Where this round stands, so the tracker can say what it is waiting for
+    // instead of showing an overdue timer.
+    const round = finalized ? { inQueue: false, ahead: 0, status: 'FINALIZED', readyAt: null } : await cachedRoundStatus(txHash);
+    return res.status(200).json({ finalized, txHash, round });
   } catch (err) {
     // A finalize that fails is never fatal to the trade: the verdict simply has
     // not arrived yet, and the queue will try again on its next tick.

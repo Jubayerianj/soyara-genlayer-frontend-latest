@@ -13,7 +13,7 @@ import ConsensusProgress from '../ConsensusProgress';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
 import { ensureMandateRequested } from '../../lib/mandate';
-import { mergeVerdictResponse, applyLateVerdict } from '../../lib/settlement';
+import { mergeVerdictResponse, applyLateVerdict, describeWait } from '../../lib/settlement';
 import { notices } from '../../lib/notify';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
@@ -750,7 +750,14 @@ Pools disagree <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> on
             <div className={styles.statRow}>
               <span>Settles</span>
               <span className={styles.statVal}>
-                {payload.risk.rail === 'mandate' ? 'In ~5s' : 'By itself in ~30 min'}
+                {(() => {
+                  // The live answer for this trade once it is queued: what it is
+                  // waiting for and when, not a fixed "~30 min".
+                  const queued = settlementQueue.entries.find((e) => e.commitment && e.commitment === payload.risk.commitment);
+                  if (queued?.stage === 'settled') return '✓ Settled';
+                  if (queued && queued.stage === 'finalising') return describeWait(queued);
+                  return payload.risk.rail === 'mandate' ? 'In ~5s' : 'By itself in ~30 min';
+                })()}
               </span>
             </div>
 

@@ -42,6 +42,14 @@ function announce(entry, patch) {
     else if (patch.stage === 'expired') notices.verdictExpired(entry.id, label);
   }
   if (patch.needsApproval && !entry?.needsApproval) notices.needsApproval(entry.id, label);
+  // The reason for a longer wait, said once per change rather than every tick:
+  // how many older rounds are ahead of this one, and when that clears.
+  if (patch.round) {
+    const before = entry?.round?.ahead || 0;
+    const after = patch.round.ahead || 0;
+    if (after > 0 && after !== before) notices.waitingBehind(entry.id, label, after);
+    else if (after === 0 && before > 0) notices.nextInLine(entry.id, label);
+  }
 }
 
 const STORAGE_KEY = 'soyara.settlementQueue.v1';
@@ -250,7 +258,19 @@ function useQueueState({ enabled = true } = {}) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ txHash: entry.validationTxHash, submittedAt: entry.validatedAt || entry.createdAt }),
-            }).catch(() => { /* the next tick tries again */ });
+            })
+              .then((res) => res.json())
+              .then((d) => {
+                // Where the round stands in the chain's queue, so the tracker
+                // can say what it is waiting for. Stored only when it changed.
+                const r = d?.round;
+                if (!r) return;
+                const prev = entry.round || {};
+                if (prev.ahead !== r.ahead || prev.readyAt !== r.readyAt || prev.status !== r.status) {
+                  update(entry.id, { round: { ahead: r.ahead, readyAt: r.readyAt, status: r.status, headStatus: r.headStatus } });
+                }
+              })
+              .catch(() => { /* the next tick tries again */ });
           }
 
           //

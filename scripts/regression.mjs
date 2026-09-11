@@ -401,6 +401,43 @@ try {
   const rd = await drainFinalizationQueue({ account, recipient: '0x03', now: () => now + 5_000, _pc: d.pc, _client: d.client });
   eq('a second drain moments later is skipped, not repeated', rd.skipped === true && d.st.sent.length === 0, true);
 
+  // The tracker says what a trade is waiting for. A trade behind another round
+  // used to show an overdue "~30 min" timer, which reads as broken.
+  const { estimateQueueWait, FINALITY_WINDOW_MS } = await import(base + 'lib/genlayer.js');
+  const vote = (msAgo) => BigInt(Math.floor((now - msAgo) / 1000));
+  const ready = { status: S.READY_TO_FINALIZE, lastVoteTimestamp: vote(40 * 60_000) };
+  eq('a finished round at the head can land now', estimateQueueWait({ me: ready, head: ready, ahead: 0, now }).readyAt, now);
+  const young = { status: S.ACCEPTED, lastVoteTimestamp: vote(10 * 60_000) };
+  eq('an accepted round lands 30 minutes after its vote',
+     estimateQueueWait({ me: young, head: young, ahead: 0, now }).readyAt, now - 10 * 60_000 + FINALITY_WINDOW_MS);
+  const timedOut = { status: S.VALIDATORS_TIMEOUT, lastVoteTimestamp: vote(5 * 60_000) };
+  const behind = estimateQueueWait({ me: ready, head: timedOut, ahead: 1, now });
+  eq('behind a round in its own window, it waits for that one', behind.readyAt, now - 5 * 60_000 + FINALITY_WINDOW_MS);
+  eq('and says how many are ahead', behind.ahead, 1);
+  eq('a head still voting has no honest ETA', estimateQueueWait({ me: ready, head: { status: S.PROPOSING }, ahead: 3, now }).readyAt, null);
+
+  const { describeWait, waitProgress } = await import(base + 'lib/settlement.js');
+  const t0 = now - 20 * 60_000;
+  const lines = [
+    describeWait({ validatedAt: t0, round: { ahead: 1, readyAt: now + 15 * 60_000 } }, now),
+    describeWait({ validatedAt: t0, round: { ahead: 3, readyAt: null } }, now),
+    describeWait({ validatedAt: t0, round: { ahead: 0, readyAt: now + 5 * 60_000 } }, now),
+    describeWait({ validatedAt: t0, round: { ahead: 0, readyAt: now } }, now),
+    describeWait({ validatedAt: t0 }, now),
+    describeWait({ validatedAt: now - 90 * 60_000 }, now),
+  ];
+  eq('a queued trade says what it waits on, and when', /^Waiting on 1 earlier round · about /.test(lines[0]), true);
+  eq('plural when several are ahead', /^Waiting on 3 earlier rounds to finish$/.test(lines[1]), true);
+  eq('its own window shows when it lands', /^Approved · lands about /.test(lines[2]), true);
+  eq('ready means landing now', lines[3], 'Approved · landing now');
+  eq('no word of the wait ever reads as stuck or failed', lines.every((l) => !/stuck|fail|error|overdue/i.test(l)), true);
+  eq('each is one short line', lines.every((l) => l.length <= 48), true);
+  eq('progress follows the chain ETA and stays in bounds',
+     waitProgress({ validatedAt: t0, round: { readyAt: now + 20 * 60_000 } }, now) === 0.5
+     && waitProgress({ validatedAt: now - 90 * 60_000 }, now) === 0.99, true);
+  eq('the tracker shows that line', /describeWait\(e\)/.test(fs.readFileSync(base + 'components/SettlementQueue.jsx', 'utf8')), true);
+  eq('and the settlement route returns where the round stands', /round\s*}\);/.test(fs.readFileSync(base + 'pages/api/finalize-round.js', 'utf8')), true);
+
   const src = fs.readFileSync(base + 'lib/genlayer.js', 'utf8');
   const fr = src.slice(src.indexOf('export async function finalizeRound'));
   eq('finalizeRound drains the queue instead of nudging one round', /drainFinalizationQueue\(/.test(fr.slice(0, 900)) && !/finalizeIdlenessTxs\(\{ account, txIds: \[txHash\] \}\)/.test(fr.slice(0, 900)), true);

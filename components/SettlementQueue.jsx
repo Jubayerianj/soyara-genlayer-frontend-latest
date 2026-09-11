@@ -16,12 +16,12 @@ import {
   ChevronDown, ChevronUp, Loader2, Hourglass,
 } from 'lucide-react';
 import { useTheme } from './contexts/ThemeContext';
-import { STAGES, APPEAL_WINDOW_MS, formatDuration, isTerminal } from '../lib/settlement';
+import { STAGES, isTerminal, describeWait, waitProgress } from '../lib/settlement';
 
 const EXPLORER = 'https://explorer-bradbury.genlayer.com/tx/';
 const short = (v, a = 8, b = 6) => (!v ? '' : v.length <= a + b + 2 ? v : `${v.slice(0, a)}…${v.slice(-b)}`);
 
-function StageBadge({ stage, isDark }) {
+function StageBadge({ stage, queued = false, isDark }) {
   const map = {
     settled:    { c: '#10b981', Icon: CheckCircle2 },
     rejected:   { c: '#ef4444', Icon: AlertTriangle },
@@ -32,7 +32,8 @@ function StageBadge({ stage, isDark }) {
     finalising: { c: '#8b5cf6', Icon: Hourglass },
   };
   const { c, Icon } = map[stage] || { c: '#64748b', Icon: Clock };
-  const label = stage === 'ready' ? 'Ready' : (STAGES[stage]?.label || stage);
+  // Behind another round is "In queue", not a window that seems to never end.
+  const label = stage === 'ready' ? 'Ready' : stage === 'finalising' && queued ? 'In queue' : (STAGES[stage]?.label || stage);
   const spin = stage === 'settling' || stage === 'validating';
   return (
     <span style={{
@@ -52,7 +53,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
   const [open, setOpen] = useState(true);
   const [, forceTick] = useState(0);
 
-  // The panel shows elapsed time, so it has to re-render on its own even when
+  // The wait line and progress move with time, so re-render on its own even when
   // nothing about the queue changed.
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 1000);
@@ -111,12 +112,12 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
           >
             <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
               {entries.map((e) => {
-                const validatedAt = e.validatedAt || e.createdAt;
-                const elapsed = Date.now() - validatedAt;
+                // Progress and wording follow the chain's own answer - how many
+                // rounds are ahead and when this one can land - so a longer wait
+                // reads as queued, not stuck.
                 const pct = e.stage === 'finalising'
-                  ? Math.min(99, Math.round((elapsed / APPEAL_WINDOW_MS) * 100))
+                  ? Math.round(waitProgress(e) * 100)
                   : isTerminal(e.stage) || e.stage === 'ready' ? 100 : 8;
-                const remaining = APPEAL_WINDOW_MS - elapsed;
 
                 return (
                   <div key={e.id} style={{
@@ -127,7 +128,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
                       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: textMain }}>
                         {e.label || 'Swap'}
                       </span>
-                      <StageBadge stage={e.stage} isDark={isDark} />
+                      <StageBadge stage={e.stage} queued={(e.round?.ahead || 0) > 0} isDark={isDark} />
                       <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {e.validationTxHash && (
                           <a href={`${EXPLORER}${e.validationTxHash}`} target="_blank" rel="noreferrer"
@@ -156,10 +157,8 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
                     )}
 
                     <div style={{ fontSize: '0.68rem', color: textMuted, lineHeight: 1.5 }}>
-                      {e.stage === 'finalising' && remaining > 0
-                        // An estimate, never a promise: the window is a protocol
-                        // parameter the app is never told.
-                        ? `${STAGES.finalising.blurb} ~${formatDuration(remaining)} left.`
+                      {e.stage === 'finalising'
+                        ? describeWait(e)
                         : (STAGES[e.stage]?.blurb || '')}
                     </div>
 
@@ -190,11 +189,8 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
                       </a>
                     )}
 
-                    {!isTerminal(e.stage) && (
-                      <div style={{ marginTop: '5px', fontSize: '0.62rem', color: textMuted, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-                        waiting {formatDuration(elapsed)}
-                      </div>
-                    )}
+                    {/* The line above says what it waits for and when; a raw
+                        elapsed-time counter only alarmed without explaining. */}
                   </div>
                 );
               })}
