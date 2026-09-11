@@ -117,6 +117,15 @@ const RETIRED = {
   '0x0a7125fdFAf4092b10Be8f509ce76A2AE7f5735A': 'AgentValidator, 2026-09-08 pair',
   '0x0c4F0F784cC06fb6964e2C9Ab4704ebfB4d64cFb': 'AgentValidator, first mandate build',
   '0x7aBa03DD415A096845A9C0ce8893E86EF74f8a98': 'earlier AgentValidator',
+  // Every earlier AgentValidator, from the deployment record.
+  ...Object.fromEntries([
+    '0x8627CfDC1df6DcD813113FA2F400B35a99a781D4', '0x001E00a816fa93bC2cA07587d929Aa98C31051DD',
+    '0x7ABa94668afC24463Be323f9bB65BD4b4F480d89', '0xf06FC7dA4d0dd806971d0Dd01A29bfE514BAa92B',
+    '0x78FA2A758bdB65a66F4B9C08D8DC54066d0e0395', '0x69c33B036a982e7C7107b1634451A0C227cB2BBA',
+    '0x683cBF11F807aB184ed2B4a5dDDC9E49dbBa0f51', '0x440FB164C93cC5657a1b1F53e8B4E1113c43AB9D',
+    '0x7B6B4aFC5098fFe85124D4242577f06DCe497d0b', '0xDBFB9DDAc98084a792d2a8884B4FEbDD4F52F506',
+    '0x2CA6e67846a9B30E1E175Ee4D1bd8b90f4c12C6e', '0xFc77C6A20B1102979f5887A5efe9611a2Ef6Afd5',
+  ].map((a) => [a, `AgentValidator ${a.slice(0, 10)}`])),
 };
 const scriptFiles = walk(path.join(base, 'scripts'));
 for (const [addr, what] of Object.entries(RETIRED)) {
@@ -143,6 +152,19 @@ if (fs.existsSync(path.join(SDK_DIR, 'src/index.js'))) {
   ok('and settles the validated result, not an undefined trade', !/settleSwap\(\s*trade\s*\)/.test(page));
 } else {
   console.log('  note  SDK source not beside the app; /sdk page API check skipped');
+}
+// The files a newcomer reads first. .env.local.example told them the agent
+// route "calls approveTradeWithParams", and .env.example pointed
+// GENLAYER_AGENT_VALIDATOR at a validator retired long before.
+const SETUP_DOCS = ['README.md', '.env.example', '.env.local.example'].map((p) => path.join(base, p)).filter((p) => fs.existsSync(p));
+const RETIRED_FOR_DOCS = [...Object.keys(RETIRED), '0xEFb9473B5269A79d72Df4b6E73E310791a185eeC'];
+for (const f of SETUP_DOCS) {
+  const src = read(f);
+  const stale = [
+    ...RETIRED_FOR_DOCS.filter((a) => src.toLowerCase().includes(a.toLowerCase())),
+    ...(src.match(/approveTradeWithParams|validate_proposal|check_mandate|attestor|GENLAYER_MANDATE_ID/gi) || []),
+  ];
+  ok(`${rel(f)} names no retired contract or removed method`, stale.length === 0, stale.join(', '));
 }
 ok('the live address maps carry no LiquidityValidator',
    !('liquidityValidator' in INTELLIGENT_CONTRACTS) && !('liquidityValidator' in A));

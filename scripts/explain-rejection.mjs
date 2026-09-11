@@ -1,5 +1,9 @@
+// Replays a rejected order against the deployed AgentValidator as a read, to
+// see the validators' reasoning without opening a round.
+//   node scripts/explain-rejection.mjs   (reads the order from e2e-state.json)
 import { createClient, chains } from 'genlayer-js';
 import fs from 'node:fs';
+const { INTELLIGENT_CONTRACTS } = await import(new URL('../constants/addresses.js', import.meta.url));
 const st = JSON.parse(fs.readFileSync(new URL('../e2e-state.json', import.meta.url), 'utf8'));
 const o = st.order;
 const client = createClient({ chain: chains.testnetBradbury });
@@ -13,7 +17,7 @@ const args = [
 console.log('simulating validate_swap with the exact order that was rejected...');
 try {
   const r = await client.readContract({
-    address: '0x001E00a816fa93bC2cA07587d929Aa98C31051DD',
+    address: INTELLIGENT_CONTRACTS.agentValidator,
     functionName: 'validate_swap',
     args,
   });
