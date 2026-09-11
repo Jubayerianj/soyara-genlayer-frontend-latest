@@ -719,3 +719,8 @@ html[data-theme='light'] [class*="border-zinc-800"] {
   font-size: 0.75rem;
   margin: 0;
 }
+/* Notification bell: something is running in the background. */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}

@@ -20,31 +20,31 @@ const PHASES = [
     key: 'submitted',
     label: 'Proposal submitted',
     match: [],
-    detail: 'Your trade parameters were sent to the AgentValidator Intelligent Contract as a consensus transaction.',
+    detail: 'Sent to the AgentValidator contract.',
   },
   {
     key: 'activation',
     label: 'Waiting for validator selection',
     match: ['PENDING', 'ACTIVATED'],
-    detail: 'GenLayer picks the validator set with a VRF proof. Only the network can do this, so the wait here is the testnet, not your trade.',
+    detail: 'The network is picking validators.',
   },
   {
     key: 'voting',
     label: 'Validators voting',
     match: ['PROPOSING', 'COMMITTING'],
-    detail: 'The leader runs your proposal and each validator independently re-runs it, then commits a sealed vote.',
+    detail: 'Each validator re-runs your trade and votes.',
   },
   {
     key: 'revealing',
     label: 'Revealing votes',
     match: ['REVEALING'],
-    detail: 'Validators reveal their sealed votes. A majority must agree for the round to be accepted.',
+    detail: 'Votes are revealed. A majority decides.',
   },
   {
     key: 'recorded',
     label: 'Verdict recorded on-chain',
     match: ['ACCEPTED', 'FINALIZED'],
-    detail: 'The verdict is written into contract state, where settlement reads it back before binding the one-time approval.',
+    detail: 'Decided. The verdict reaches the executor when the round finalizes.',
   },
 ];
 
@@ -130,14 +130,13 @@ export default function ConsensusProgress({
           background: 'rgba(245,158,11,0.09)', border: '1px solid rgba(245,158,11,0.28)',
           fontSize: '0.72rem', lineHeight: 1.5,
         }}>
-          <strong style={{ color: '#f59e0b' }}>This is taking longer than usual.</strong>{' '}
+          <strong style={{ color: '#f59e0b' }}>Slower than usual.</strong>{' '}
           {stalledAtActivation
-            ? 'The round has not been picked up by a validator set yet. On Bradbury this is a known testnet condition - only the network can activate a transaction, so there is nothing to fix on your side.'
+            ? 'The network has not picked validators yet.'
             : statusName
-            ? `The round is at ${String(statusName).toLowerCase()} and has not returned a verdict yet.`
-            : 'Still waiting on a status for this round.'}{' '}
-          Your trade is unaffected and no funds have moved. You can close this page - the round is
-          saved and will be re-checked automatically when you come back.
+            ? `Still at ${String(statusName).toLowerCase()}.`
+            : 'Still waiting for a status.'}{' '}
+          Nothing moved, and you can leave: it keeps checking.
         </div>
       )}
 

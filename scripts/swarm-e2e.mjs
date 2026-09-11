@@ -65,6 +65,10 @@ console.log('\n=== 4. full seven-agent swap run (live consensus) ===');
   ok('agents debated', t.includes('DEBATE'));
   ok('consensus round ran', t.includes('CONSENSUS_REACHED'));
 
+  const longest = f.reduce((m, x) => Math.max(m, String(x.text || '').length), 0);
+  ok('every frame is one short line', longest <= 180 && !f.some((x) => String(x.text || '').includes('\n\n')), `${longest} chars max`);
+  ok('no frame per consensus poll', f.filter((x) => x.agent?.id === 'agent_risk').length <= 3);
+
   const done = f.find((x) => x.type === 'SWARM_COMPLETE');
   if (done) {
     ok('settlement rail chosen', t.includes('SETTLEMENT_PLAN'));
@@ -107,7 +111,7 @@ console.log('\n=== 5. the dislocated pair objects instead of calling itself opti
      `${done?.payload?.analysis?.concerns?.length ?? 0} concern(s), verdict=${done?.payload?.analysis?.verdict}`);
   if (done) {
     ok('the closing line does not call it an agreement',
-       !/Swarm agreement reached/.test(done.text), done.text.slice(0, 80));
+       !/All agents agree/.test(done.text), done.text.slice(0, 80));
     ok('the closing line names the objection', /objection/i.test(done.text));
   }
 }

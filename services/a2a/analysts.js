@@ -696,56 +696,37 @@ export class PostTradeAuditorAgent {
  */
 export function buildDebate({ analysis, route, intent, strategy, phase = 'market' }) {
   const turns = [];
+  // One sentence per turn. The full finding stays in the analysis the panels
+  // render; the debate only has to show who raised what and who answered.
+  const firstSentence = (t) => String(t || '').split('. ')[0].replace(/\.$/, '');
 
   for (const c of analysis.concerns) {
     if (c.topic === 'depth') {
-      turns.push({ from: 'market', to: 'router', text: c.text });
+      turns.push({ from: 'market', to: 'router', text: `${firstSentence(c.text)}.` });
       const impact = typeof route.priceImpact === 'number' ? route.priceImpact : parseFloat(route.priceImpact);
       turns.push({
         from: 'router', to: 'market',
         text: Number.isFinite(impact) && impact > 0
-          ? `Acknowledged. The routed quote already prices that in: **${impact.toFixed(3)}%** impact is what the curve `
-            + `charges for this size, and the minimum received is set **${(intent.slippageBps / 100).toFixed(2)}%** below the `
-            + `quote, so a worse fill reverts rather than settling.`
-          : `Acknowledged. The quote is taken from live reserves at this size, so the impact is inside the number, `
-            + `and the minimum received bounds how far it can move before settlement reverts.`,
+          ? `Priced in: **${impact.toFixed(2)}%** impact, and anything worse than ${(intent.slippageBps / 100).toFixed(2)}% below the quote reverts.`
+          : `Priced in: the quote uses live reserves, and the minimum received caps the move.`,
       });
     } else if (c.topic === 'venue-spread' || c.topic === 'dislocation') {
-      turns.push({ from: 'market', to: 'risk', text: c.text });
+      turns.push({ from: 'market', to: 'risk', text: `${firstSentence(c.text)}.` });
       turns.push({
         from: 'risk', to: 'market',
-        text: `Noted, and it does not change what consensus checks. Validators re-derive the quote from live reserves `
-          + `and approve a commitment bound to that figure - so a mispriced pool produces a mispriced *approved* trade, `
-          + `not an unauthorised one. The protection here is the minimum received, and the user should treat it as soft. `
-          + `Flagging this on the proposal rather than calling the route optimal.`,
+        text: `Noted. Consensus checks the quote, not whether the pool is fairly priced, so treat the minimum as soft.`,
       });
     }
   }
 
   if (strategy?.rail === 'consensus') {
-    turns.push({
-      from: 'settlement', to: 'intent',
-      text: `This verdict travels the only road there is: the GenLayer round finalizes and delivers it over the `
-        + `validator's ghost contract. That wait is the appeal window and it belongs to the network, so the trade `
-        + `goes on the settlement queue rather than holding you on this page. The one signature it needs is taken `
-        + `now, while you are here.`,
-    });
+    turns.push({ from: 'settlement', to: 'intent', text: `Own verdict: settles by itself in ~30 min. You can leave.` });
   } else if (strategy?.rail === 'mandate') {
-    turns.push({
-      from: 'settlement', to: 'risk',
-      text: `No round for this one: a mandate an earlier consensus round issued for you already covers it. Settlement `
-        + `is a single executeSwapUnderMandate call, and the executor re-checks the size, fee and route against the `
-        + `mandate and prices the trade from the pool itself - so seconds, not the appeal window, and nothing the `
-        + `agent sends can move the price.`,
-    });
+    turns.push({ from: 'settlement', to: 'risk', text: `Fast lane: one call, and the executor prices the trade from the pool itself.` });
   } else if (strategy?.rail === 'reuse') {
-    turns.push({
-      from: 'settlement', to: 'risk',
-      text: `A live verdict already covers this commitment - I am not asking for another round. Settling straight off `
-        + `the recorded verdict, which is why this run costs seconds instead of the appeal window.`,
-    });
+    turns.push({ from: 'settlement', to: 'risk', text: `A verdict for this order is already on chain. Settling in seconds.` });
   } else if (strategy?.rail === 'blocked') {
-    turns.push({ from: 'settlement', to: 'intent', text: `⛔ ${strategy.rationale}` });
+    turns.push({ from: 'settlement', to: 'intent', text: `⛔ ${firstSentence(strategy.rationale)}.` });
   }
 
   // Only the market phase gets a closing statement when nothing was raised.
@@ -755,10 +736,7 @@ export function buildDebate({ analysis, route, intent, strategy, phase = 'market
   // objection from me" in that same agent's name a few lines later. A debate
   // that contradicts itself is worse than no debate.
   if (!turns.length && phase === 'market') {
-    turns.push({
-      from: 'market', to: 'risk',
-      text: `Pools on this path are deep enough for the size and the venues agree on price. No objection from me.`,
-    });
+    turns.push({ from: 'market', to: 'risk', text: `Deep enough, and the venues agree. No objection.` });
   }
 
   return turns;

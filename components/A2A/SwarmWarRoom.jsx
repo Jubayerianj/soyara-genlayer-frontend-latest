@@ -10,25 +10,13 @@ import { useSettlementQueue } from '../../hooks/useSettlementQueue';
 import { normaliseAction } from '../../lib/actions';
 import { useAgentSwapExecution } from '../../hooks/useAgentSwapExecution';
 import ConsensusProgress from '../ConsensusProgress';
-import ActivityPanel from '../ActivityPanel';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
 import { ensureMandateRequested } from '../../lib/mandate';
 import { mergeVerdictResponse, applyLateVerdict } from '../../lib/settlement';
+import { notices } from '../../lib/notify';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
-
-/** Raw units to a short readable figure for timeline copy. */
-function humanAmount(raw, decimals = 18) {
-  try {
-    const v = BigInt(raw);
-    const base = 10n ** BigInt(decimals);
-    const frac = (v % base).toString().padStart(decimals, '0').slice(0, 4).replace(/0+$/, '');
-    return frac ? `${v / base}.${frac}` : `${v / base}`;
-  } catch {
-    return String(raw ?? '');
-  }
-}
 
 const PRESET_CHIPS = [
   { label: '100 USDC to WGEN', query: 'Swap 100 USDC to WGEN with 0.3% slippage' },
@@ -55,6 +43,9 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   // Consensus rounds dominate the wait here, so the timeline gets a live panel
   // showing the real phase and elapsed time rather than sitting silent.
   const [consensus, setConsensus] = useState(null); // {startedAt, statusName, txHash, retry}
+  // What is running right now, in one line. Status frames update this in
+  // place instead of piling up in the timeline.
+  const [liveStatus, setLiveStatus] = useState(null); // {agent, text}
   // A liquidity request is handed to the pools app rather than quoted here.
   const [poolsHandoff, setPoolsHandoff] = useState(false);
   // What the settled transaction actually delivered, read back from its
@@ -83,7 +74,10 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   const failedMandatesRef = useRef(new Set());
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll the feed, never the window: scrollIntoView moved the whole page
+    // on load and tucked the card under the header.
+    const box = scrollRef.current?.parentElement;
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
   }, [timeline, isRunning]);
 
   // Normalize the swarm's proposal shape (agents.js RiskValidatorAgent.validate)
@@ -136,7 +130,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       // executable - e.g. ETH has no pool on Bradbury at all.
       executable: route.isLiveQuote !== false,
       notExecutableReason: route.isLiveQuote === false
-        ? `No liquidity pool exists for ${route.tokenIn.symbol}/${route.tokenOut.symbol} on Soyara DEX. The rate shown is a rough estimate and cannot be executed.`
+        ? `No pool for ${route.tokenIn.symbol}/${route.tokenOut.symbol} on Soyara, so this rate cannot be executed.`
         : null,
       priceImpactPct: typeof route.priceImpact === 'number' ? route.priceImpact : null,
       highImpact: typeof route.priceImpact === 'number' && route.priceImpact >= 5,
@@ -176,8 +170,14 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   // user is still watching. A mandate-covered trade is never queued: it has no
   // verdict of its own to wait for, and queueing it would give one intent two
   // ways to settle.
+  // Only for the wallet that is actually connected. Without one the swarm runs
+  // for a placeholder recipient so the page can still show a full run, and a
+  // queue entry or a fast lane for that address could never be used.
+  const isOwnOrder = (r) => Boolean(userAddress)
+    && String(r?.pendingOrder?.user || '').toLowerCase() === String(userAddress).toLowerCase();
+
   const queueApprovedTrade = (r, rt) => {
-    if (!(r?.isApproved && r?.rail === 'consensus' && r?.pendingOrder && r?.pendingProgram)) return false;
+    if (!(r?.isApproved && r?.rail === 'consensus' && r?.pendingOrder && r?.pendingProgram && isOwnOrder(r))) return false;
     settlementQueue.enqueue({
       commitment: r.commitment,
       order: r.pendingOrder,
@@ -185,7 +185,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       validationTxHash: r.txHash || null,
       validatedAt: Date.now(),
       stage: 'finalising',
-      label: `${rt?.amountInNum ?? ''} ${rt?.tokenIn?.symbol} to ${rt?.tokenOut?.symbol}`,
+      label: `${rt?.amountInNum ?? ''} ${rt?.tokenIn?.symbol} → ${rt?.tokenOut?.symbol}`,
     });
     if (needsApprovalRef.current) {
       approveRef.current?.().catch(() => { /* surfaced on the queue entry */ });
@@ -197,22 +197,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   // ask for one in the background and say so: it does not speed up this trade,
   // but the next one in this direction settles in seconds.
   const requestFastLaneFor = (r, rt) => {
-    if (!(r?.rail === 'consensus' && r?.mandateEligible && r?.pendingOrder)) return;
+    if (!(r?.rail === 'consensus' && r?.mandateEligible && r?.pendingOrder && isOwnOrder(r))) return;
     const o = r.pendingOrder;
-    const tin = rt?.tokenIn?.symbol;
+    // Announced by lib/mandate as a notice; the bell tracks it until it is live.
     ensureMandateRequested({
       user: o.user, tokenIn: o.tokenIn, tokenOut: o.tokenOut,
       amountIn: o.amountIn, slippageBps: Number(o.slippageBps) || 100,
-    }).then((m) => {
-      if (m.status !== 'requested') return;
-      setTimeline((prev) => [...prev, {
-        agent: AGENT_REGISTRY.settlement,
-        text: `⚡ **Fast lane requested.** Asked GenLayer for a trading mandate for ${tin} to ${rt?.tokenOut?.symbol}: `
-          + `up to ${humanAmount(m.requested?.maxAmountIn)} ${tin} per trade, ${humanAmount(m.requested?.totalBudgetIn)} ${tin} `
-          + `in total, for 24 hours. Consensus sets its own limits on top. Once it finalizes, trades like this settle `
-          + `in seconds, each still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
-        time: 'Mandate',
-      }]);
     }).catch(() => { /* background; never blocks a trade */ });
   };
 
@@ -261,22 +251,21 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         reason,
       });
 
+      const label = `${route?.amountInNum ?? ''} ${route?.tokenIn?.symbol} → ${route?.tokenOut?.symbol}`;
       let text;
       if (approved) {
+        notices.roundApproved(txHash, label, nextRisk.rail);
         const queued = queueApprovedTrade(nextRisk, route);
         requestFastLaneFor(nextRisk, route);
-        text = `✅ **Consensus approved** (round \`${txHash.slice(0, 10)}...\`). The verdict is bound to this exact order. `
-          + (queued
-            ? `It is on the settlement queue and settles by itself once the verdict reaches AgentExecutor, after `
-              + `Bradbury's finality window of about 30 minutes. You can leave this page.`
-            : `Execute when ready.`);
+        text = queued ? '✓ Approved by GenLayer consensus · settling by itself' : '✓ Approved by GenLayer consensus';
       } else if (undecided) {
-        text = `🔄 **The round ended without a verdict.** ${reason || ''} That is a validator-set condition, not a `
-          + `rejection, and nothing moved. Run the swarm again for a fresh round.`;
+        notices.roundUndecided(txHash, label);
+        text = '↻ No verdict from the network, not a rejection. Run it again.';
       } else {
-        text = `⚠️ **Consensus rejected this trade.** ${reason || ''} Nothing moved.`;
+        notices.roundRejected(txHash, label, reason);
+        text = `✗ Rejected · ${String(reason || 'consensus did not approve').split('. ')[0]}`;
       }
-      setTimeline((prev) => [...prev, { agent: AGENT_REGISTRY.risk, text, time: approved ? 'Approved' : 'Consensus' }]);
+      setTimeline((prev) => [...prev, { agent: AGENT_REGISTRY.risk, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     };
 
     const tick = async (attempt) => {
@@ -345,6 +334,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
     setConsensus(null);
     setPoolsHandoff(false);
     setOutcome(null);
+    setLiveStatus(null);
     setIsRunning(true);
 
     setTimeline(prev => [
@@ -356,20 +346,14 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       // Consensus rounds run for tens of seconds. Without this the timeline sat
       // completely still for the whole wait and read as a hang.
       const onProgress = (text, meta) => {
+        // The live consensus panel shows the phase; one line per poll used to
+        // fill the timeline with forty near-identical messages.
         setConsensus((prev) => ({
           startedAt: prev?.startedAt || Date.now(),
           statusName: meta?.statusName ?? prev?.statusName ?? null,
           txHash: meta?.txHash ?? prev?.txHash ?? null,
           retry: meta?.retry ?? prev?.retry ?? false,
         }));
-        setTimeline((prev) => [
-          ...prev,
-          {
-            agent: AGENT_REGISTRY.risk,
-            text,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
       };
       const generator = orchestrateSwarm(
         textToRun,
@@ -377,6 +361,10 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         { onProgress, excludeMandateIds: [...failedMandatesRef.current] }
       );
       for await (const step of generator) {
+        if (step.type === 'MESSAGE') {
+          setLiveStatus({ agent: step.agent, text: step.text });
+          continue;
+        }
         if (step.type === 'REDIRECTED') {
           setPoolsHandoff(true);
         }
@@ -388,17 +376,10 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           queueApprovedTrade(r, rt);
           requestFastLaneFor(r, rt);
 
-          // The round outlived the swarm's wait. It is still running, and the
-          // watcher above keeps checking it; say so, so "pending" does not
-          // read as stuck.
+          // The round outlived the swarm's wait. The watcher above keeps
+          // checking it, and the bell tracks it until it resolves.
           if (r?.isPending && r?.txHash) {
-            setTimeline((prev) => [...prev, {
-              agent: AGENT_REGISTRY.risk,
-              text: `👀 **Still watching round** \`${r.txHash.slice(0, 10)}...\`. The validators have not returned a `
-                + `verdict yet. When they do, an approved trade goes straight onto the settlement queue and settles `
-                + `by itself; there is nothing to click.`,
-              time: 'Watching',
-            }]);
+            notices.roundRunning(r.txHash, `${rt?.amountInNum ?? ''} ${rt?.tokenIn?.symbol} → ${rt?.tokenOut?.symbol}`);
           }
 
           if (r) {
@@ -431,6 +412,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       ]);
     } finally {
       setConsensus(null);
+      setLiveStatus(null);
       setIsRunning(false);
     }
   };
@@ -452,16 +434,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       if (needsApproval) {
         setExecState('approving');
         const approveResult = await approve();
-        if (approveResult) {
-          setTimeline(prev => [
-            ...prev,
-            {
-              agent: AGENT_REGISTRY.risk,
-              text: `⏳ **One-time ${approveResult.symbol} approval submitted.** This is the only approval you sign for this token - every later swarm-executed trade settles with no wallet prompt.\n\nWaiting for confirmation... (Tx: \`${approveResult.hash.slice(0, 10)}...\`)`,
-              time: 'Approval'
-            }
-          ]);
-        }
+        if (approveResult) notices.tokenApproval(approveResult.hash, approveResult.symbol);
       }
 
       setExecState('executing');
@@ -485,11 +458,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       setBalanceRefreshKey((k) => k + 1);
       if (!result) return;
 
+      const shortTx = (h) => (h ? `${h.slice(0, 6)}…${h.slice(-4)}` : '');
       let text;
       if (result.kind === 'wrap') {
-        text = `🚀 **Wrap Submitted!** Tx: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`;
+        text = `✓ Wrapped · tx ${shortTx(result.hash)}`;
       } else if (result.kind === 'unwrap') {
-        text = `🚀 **Unwrap Submitted!** Tx: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`;
+        text = `✓ Unwrapped · tx ${shortTx(result.hash)}`;
       } else if (result.kind === 'swap') {
         recordActivity({
           id: result.hash, kind: 'swap', user: userAddress,
@@ -512,23 +486,16 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           if (!o?.ok) return;
           setTimeline((prev) => [...prev, {
             agent: AGENT_REGISTRY.auditor,
-            text: `🔎 **Post-trade audit.** Receipt confirms **${o.delivered.toLocaleString(undefined, { maximumFractionDigits: 6 })} `
-              + `${payload.route.tokenOut.symbol}** delivered to your wallet`
-              + (o.quoted != null ? `, against a quote of ${o.quoted.toLocaleString(undefined, { maximumFractionDigits: 6 })}` : '')
-              + (o.slipPct != null && Math.abs(o.slipPct) >= 0.01 ? ` (${o.slipPct > 0 ? '+' : ''}${o.slipPct.toFixed(3)}%)` : '')
-              + `. ${o.honouredMinimum === false ? 'This is BELOW the committed minimum and should have reverted.' : 'The committed minimum was honoured.'}`,
+            text: `Receipt: **${o.delivered.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${payload.route.tokenOut.symbol}** delivered · `
+              + (o.honouredMinimum === false ? '⚠️ below the committed minimum' : 'minimum honoured'),
             time: 'Audit',
           }]);
         }).catch(() => { /* the receipt panel simply stays empty */ });
-        text = result.rail === 'mandate'
-          ? `🚀 **Settled under your consensus mandate** \`${String(result.mandateId).slice(0, 14)}...\`. AgentExecutor `
-            + `checked this trade against the mandate and priced it from the pool in one transaction.\n\n`
-            + `Settlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`
-          : `🚀 **Settled against this trade's own consensus verdict.** The commitment \`${String(result.commitment).slice(0, 14)}...\` `
-            + `was single use and is now spent.\n\n`
-            + `Settlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`;
+        const label = `${proposalForExecution?.amountIn} ${proposalForExecution?.tokenIn} → ${proposalForExecution?.tokenOut}`;
+        notices.settled(result.commitment || result.mandateId || result.hash, label, result.hash);
+        text = `✓ Settled${result.rail === 'mandate' ? ' in the fast lane' : ''} · tx ${shortTx(result.hash)}`;
       } else {
-        text = `🚀 **Trade Submitted!** Tx: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`;
+        text = `✓ Submitted · tx ${shortTx(result.hash)}`;
       }
       setTimeline(prev => [...prev, { agent: AGENT_REGISTRY.dev, text, time: 'Settlement' }]);
     } catch (err) {
@@ -540,8 +507,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         if (payload?.risk?.mandateId) failedMandatesRef.current.add(String(payload.risk.mandateId).toLowerCase());
         setTimeline(prev => [...prev, {
           agent: AGENT_REGISTRY.settlement,
-          text: `ℹ️ **Your mandate no longer covers this trade.** ${err.message} Re-running the swarm so the trade gets `
-            + `its own consensus round.`,
+          text: 'Fast lane no longer covers this. Re-running on its own round.',
           time: 'Mandate',
         }]);
         setExecState(null);
@@ -552,9 +518,8 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       if (err?.verdictExpired) {
         setTimeline(prev => [...prev, {
           agent: AGENT_REGISTRY.risk,
-          text: `⌛ **That approval expired before settlement.** A verdict is time-boxed so it cannot be `
-            + `spent against a stale price. Nothing moved. Re-run the swarm for a fresh quote and round.`,
-          time: 'Verdict expired',
+          text: '⌛ Approval expired before settling. Nothing moved. Run it again.',
+          time: 'Expired',
         }]);
         setExecState(null);
         return;
@@ -573,18 +538,12 @@ export default function SwarmWarRoom({ mode = 'user' }) {
             validationTxHash: err.validationTxHash || null,
             validatedAt: Date.now(),
             stage: 'finalising',
-            label: 'A2A trade',
+            label: `${proposalForExecution?.amountIn ?? ''} ${proposalForExecution?.tokenIn || ''} → ${proposalForExecution?.tokenOut || ''}`,
           });
         }
         setTimeline(prev => [
           ...prev,
-          {
-            agent: AGENT_REGISTRY.risk,
-            text: `⏳ **Consensus approved this trade.** The verdict reaches the executor only once the round `
-              + `can no longer be appealed, about **30 minutes** on Bradbury. It is on the settlement `
-              + `queue now and will execute by itself - no need to wait here or click again.`,
-            time: 'Pending Finalization'
-          }
+          { agent: AGENT_REGISTRY.risk, text: '⏳ Queued · settles by itself in ~30 min', time: 'Queued' }
         ]);
         setExecState(null);
         return;
@@ -685,7 +644,11 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           {isRunning && (
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', padding: '0.4rem' }}>
               <div className={styles.agentDotWorking} />
-              <span>Working...</span>
+              <span>
+                {liveStatus
+                  ? <><strong style={{ color: liveStatus.agent?.color }}>{liveStatus.agent?.name}</strong> · {liveStatus.text}…</>
+                  : 'Working…'}
+              </span>
             </div>
           )}
           {proposalForExecution && (
@@ -698,9 +661,6 @@ export default function SwarmWarRoom({ mode = 'user' }) {
                 />
               </div>
             )}
-            <div style={{ margin: '0.6rem 0' }}>
-              <ActivityPanel />
-            </div>
             {consensus && (
               <div style={{ margin: '0.6rem 0' }}>
                 <ConsensusProgress
@@ -755,64 +715,63 @@ export default function SwarmWarRoom({ mode = 'user' }) {
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 fontSize: '0.72rem', lineHeight: 1.55, color: 'var(--text-sub, #cbd5e1)',
               }}>
-Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct pool
-                {payload.route.directOutNum != null
-                  ? <> (<strong>{payload.route.directOutNum.toFixed(4)} {payload.route.tokenOut.symbol}</strong>)</>
-                  : null}. The pools disagree on price rather than the route being better, so the
-                minimum below is not reliable.
+Pools disagree <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> on this route. The minimum below is not reliable.
               </div>
             )}
 
             <div className={styles.statRow}>
-              <span>In / Out:</span>
+              <span>You get</span>
               <span className={styles.statVal}>
-                {`${payload.route.amountInNum} ${payload.route.tokenIn.symbol} ➔ ~${payload.route.expectedOutNum.toFixed(4)} ${payload.route.tokenOut.symbol}`}
+                {`~${payload.route.expectedOutNum.toFixed(4)} ${payload.route.tokenOut.symbol} for ${payload.route.amountInNum} ${payload.route.tokenIn.symbol}`}
               </span>
             </div>
 
             <div className={styles.statRow}>
-              <span>{payload.route.priceWarning ? 'Min (unreliable):' : 'Min Guaranteed:'}</span>
+              <span>{payload.route.priceWarning ? 'Minimum (unreliable)' : 'Minimum'}</span>
               <span className={styles.statVal}>
                 {`${payload.route.minAmountOutNum.toFixed(4)} ${payload.route.tokenOut.symbol} (${(payload.intent.slippageBps / 100).toFixed(2)}%)`}
               </span>
             </div>
 
             <div className={styles.statRow}>
-              <span>GenVM Consensus:</span>
+              <span>Consensus</span>
               <span
                 className={styles.statVal}
                 style={{ color: payload.risk.isApproved ? '#10b981' : (payload.risk.isPending || payload.risk.isUndecided) ? '#f59e0b' : '#f43f5e' }}
               >
                 {payload.risk.isApproved
-                  ? (payload.risk.rail === 'mandate' ? 'Covered by mandate' : 'Verified Quorum')
+                  ? (payload.risk.rail === 'mandate' ? '⚡ Fast lane' : '✓ Approved')
                   : payload.risk.isPending
-                    ? 'Consensus Pending (still watching)'
-                    : payload.risk.isUndecided ? 'No verdict - run again' : 'Rejected'}
+                    ? '⏳ Waiting for validators'
+                    : payload.risk.isUndecided ? 'No verdict - run again' : '✗ Rejected'}
               </span>
             </div>
 
             <div className={styles.statRow}>
-              <span>Settles via:</span>
+              <span>Settles</span>
               <span className={styles.statVal}>
-                {payload.risk.rail === 'mandate'
-                  ? 'AgentExecutor, under mandate (seconds)'
-                  : 'AgentExecutor, own verdict (after appeal window)'}
+                {payload.risk.rail === 'mandate' ? 'In ~5s' : 'By itself in ~30 min'}
               </span>
             </div>
 
-            <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '3px' }}>
-                {payload.risk.rail === 'mandate' ? 'CONSENSUS MANDATE (bounded, reusable):' : 'CONSENSUS COMMITMENT (single use):'}
+            {/* The proof and the agents' findings, one tap away: a trader needs
+                the numbers above to decide, and the rest to check. */}
+            <details style={{ fontSize: '0.78rem' }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--text-muted, #94a3b8)', fontWeight: 600, padding: '2px 0' }}>
+                Details
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.6rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', marginBottom: '3px' }}>
+                    {payload.risk.rail === 'mandate' ? 'Mandate' : 'Commitment (single use)'}
+                  </div>
+                  <div className={styles.hashBoxMini}>{payload.risk.tradeHash}</div>
+                </div>
+                <MarketReadPanel analysis={payload.analysis} route={payload.route} />
+                <BindingsPanel audit={payload.audit} />
+                <SettlementRailPanel strategy={payload.strategy} />
               </div>
-              <div className={styles.hashBoxMini}>{payload.risk.tradeHash}</div>
-            </div>
-
-            {/* The three working agents' findings, in the order a trader reads
-                them: is the price real, does the verdict bind, how fast can it
-                settle. */}
-            <MarketReadPanel analysis={payload.analysis} route={payload.route} />
-            <BindingsPanel audit={payload.audit} />
-            <SettlementRailPanel strategy={payload.strategy} />
+            </details>
 
             <button
               onClick={handleExecute}
@@ -833,7 +792,7 @@ Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct p
                   ? 'Settling on GenLayer...'
                   : needsApproval
                     ? `Approve ${proposalForExecution?.tokenIn} & Execute`
-                    : 'Execute Non-Custodial Swap'}
+                    : 'Execute'}
             </button>
 
             {execState === 'done' && (
@@ -847,21 +806,11 @@ Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct p
                     </span>
                   )}
                 </div>
-                {/* Settlement is a plain EVM transaction. The GenLayer explorer
-                    indexes GenVM/consensus transactions, so linking there renders
-                    an empty page and makes a successful swap look like it failed. */}
-                {activeTxHash && (
-                  <div style={{ fontWeight: 500, fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
-                    The GenLayer explorer indexes only GenVM transactions, so this hash reads as empty
-                    there. Check it with <code style={{ fontSize: '0.66rem' }}>eth_getTransactionReceipt</code>.
-                  </div>
-                )}
                 {/* ERC-20 output is invisible in most wallets until the token is
                     imported - say so, or a successful swap looks like lost funds. */}
                 {!payload.route.tokenOut.isNative && (
-                  <div style={{ fontWeight: 500, fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
-                    Add <code style={{ fontSize: '0.68rem' }}>{payload.route.tokenOut.address}</code> in
-                    your wallet to see the {payload.route.tokenOut.symbol} balance.
+                  <div style={{ fontWeight: 500, fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    Not in your wallet? Import {payload.route.tokenOut.symbol}: <code style={{ fontSize: '0.66rem' }}>{payload.route.tokenOut.address}</code>
                   </div>
                 )}
               </div>

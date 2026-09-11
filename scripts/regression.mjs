@@ -686,5 +686,65 @@ try {
   eq('the summary never labels an undecided round "Rejected"', /isUndecided \? 'No verdict/.test(room), true);
 } catch (e) { bad('late verdicts on /a2a', e.message); }
 
+// Shipped: the agent pages wrote every background event as a paragraph, one
+// line per consensus poll, and nothing ever said when a fast lane was ready.
+// Events are now one-line notices in localStorage, and a watcher reports the
+// fast lane. Last in this file: it installs a minimal browser on globalThis.
+console.log('\nnotices and the fast-lane watcher');
+try {
+  const store = new Map();
+  const listeners = {};
+  globalThis.window = {
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => { store.set(k, String(v)); },
+      removeItem: (k) => { store.delete(k); },
+    },
+    addEventListener: (t, f) => { (listeners[t] ||= new Set()).add(f); },
+    removeEventListener: (t, f) => { listeners[t]?.delete(f); },
+    dispatchEvent: (e) => { for (const f of listeners[e.type] || []) f(e); return true; },
+  };
+  globalThis.localStorage = globalThis.window.localStorage;
+
+  const n = await import(base + 'lib/notify.js');
+  let calls = 0;
+  const off = n.subscribeNotices(() => { calls += 1; });
+  n.notices.queued('0xabc', '1 USDC → USDT');
+  eq('a queued trade is one notice', n.listNotices().length, 1);
+  n.notices.settled('0xabc', '1 USDC → USDT', '0x' + '12'.repeat(32));
+  eq('settling, then settled, updates the same notice', n.listNotices().length, 1);
+  eq('and it now reads settled', n.listNotices()[0].kind, 'success');
+  const seen = calls;
+  n.notices.settled('0xabc', '1 USDC → USDT', '0x' + '12'.repeat(32));
+  eq('re-reporting the same state does not pop again', calls, seen);
+  eq('every notice is one short line', n.listNotices().every((x) => x.title.length <= 60 && x.body.length <= 80), true);
+  for (let i = 0; i < 60; i += 1) n.notify({ id: `x${i}`, title: `t${i}` });
+  eq('history is bounded', n.listNotices().length <= n.MAX_NOTICES, true);
+  n.clearNotices();
+  eq('clear empties it', n.listNotices().length, 0);
+  off();
+
+  const m = await import(base + 'lib/mandate.js');
+  m.rememberMandate('0xu', '0x58B6CD7891cd0A682226E25607b958a6479195A6', '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc', '0x' + 'aa'.repeat(32), '0x' + 'bb'.repeat(32));
+  eq('a requested mandate is watched', m.listUnconfirmedMandates().length, 1);
+  eq('the notice names the pair, not addresses', m.pairLabel('0x58B6CD7891cd0A682226E25607b958a6479195A6', '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc'), 'USDC → USDT');
+  eq('going live reports once', m.markMandateLive('0xu', '0x58B6CD7891cd0A682226E25607b958a6479195A6', '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc'), true);
+  eq('and only once', m.markMandateLive('0xu', '0x58B6CD7891cd0A682226E25607b958a6479195A6', '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc'), false);
+  eq('a live mandate is no longer watched', m.listUnconfirmedMandates().length, 0);
+  m.rememberMandate('0xu', '0xa', '0xb', '0x' + 'cc'.repeat(32), '0x' + 'dd'.repeat(32));
+  eq('a request past the watch window is dropped', m.listUnconfirmedMandates(Date.now() + m.MANDATE_WATCH_MS + 1).length, 0);
+
+  const room = fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8');
+  eq('/a2a shows status frames in one live line', /step\.type === 'MESSAGE'[\s\S]{0,80}setLiveStatus/.test(room), true);
+  eq('/a2a writes no timeline line per consensus poll', /const onProgress = [\s\S]{0,700}?setTimeline/.test(room), false);
+  eq('/a2a never queues or asks a fast lane for a placeholder recipient',
+     /const isOwnOrder = [\s\S]{0,160}userAddress/.test(room)
+     && (room.match(/isOwnOrder\(r\)/g) || []).length >= 2, true);
+  const ai = fs.readFileSync(base + 'pages/ai.jsx', 'utf8');
+  eq('/ai queues a verdict that came back after polling', /pollValidationStatus[\s\S]*queueApprovedRef\.current\?\.\(data, proposal\)/.test(ai), true);
+  const app = fs.readFileSync(base + 'pages/_app.jsx', 'utf8');
+  eq('one settlement queue runs app-wide', /<SettlementQueueProvider>/.test(app) && /<BackgroundJobs \/>/.test(app), true);
+} catch (e) { bad('notices', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

@@ -163,8 +163,8 @@ console.log('\nclosing line');
   const strategy = { rail: 'consensus', eta: '~30 minutes' };
 
   const pendingBad = swarmClosingLine({ risk: { isPending: true }, analysis: { concerns: [objection] }, audit: unbound, strategy });
-  ok('pending: says consensus is still pending', /consensus still pending/.test(pendingBad));
-  ok('pending: says the trade was not rejected', /not rejected/.test(pendingBad));
+  ok('pending: says it is waiting for validators', /Waiting for validators/.test(pendingBad));
+  ok('pending: says Execute unlocks on approval', /Execute unlocks/.test(pendingBad));
   ok('pending: still names the objection', /objection/i.test(pendingBad) && /21\.0x the direct pool/.test(pendingBad), pendingBad.slice(-90));
   const pendingClean = swarmClosingLine({ risk: { isPending: true }, analysis: { concerns: [{ ...objection, severity: 'medium' }] }, audit: unbound, strategy });
   ok('pending: a medium concern is not called an objection', !/objection/i.test(pendingClean));
@@ -172,11 +172,13 @@ console.log('\nclosing line');
     swarmClosingLine({ risk: { isPending: true }, analysis: bad, audit: unbound, strategy })) === bad.concerns.some((c) => c.severity === 'high'));
 
   const unverified = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [] }, audit: unbound, strategy });
-  ok('approved but unbound: never called an agreement', /Approved, but unverified/.test(unverified) && !/agreement/i.test(unverified));
+  ok('approved but unbound: never called an agreement', /Approved, but the bindings/.test(unverified) && !/agree/i.test(unverified));
   const contested = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [objection] }, audit: bound, strategy });
-  ok('approved with objections: counts them', /Approved, with 1 unresolved objection from/.test(contested));
+  ok('approved with objections: counts them', /Approved with 1 price objection from/.test(contested));
   const agreed = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [] }, audit: bound, strategy });
-  ok('approved, bound, clean: agreement and the rail eta', /Swarm agreement reached/.test(agreed) && /~30 minutes rail ready/.test(agreed));
+  ok('approved, bound, clean: agreement and the rail eta', /All agents agree/.test(agreed) && /Settles in ~30 minutes/.test(agreed));
+  ok('every closing line is one short line', [pendingBad, pendingClean, unverified, contested, agreed].every((l) => l.length <= 160 && !l.includes('\n')),
+     String(Math.max(...[pendingBad, pendingClean, unverified, contested, agreed].map((l) => l.length))) + ' chars max');
   ok('no branch uses an em dash', ![pendingBad, pendingClean, unverified, contested, agreed].some((s) => s.includes('\u2014')));
   ok('a missing analysis or audit does not throw', typeof swarmClosingLine({ risk: { isPending: true } }) === 'string');
 }

@@ -590,12 +590,11 @@ export class DevInspectorAgent {
 export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   const A = AGENT_REGISTRY;
 
-  yield {
-    agent: A.intent,
-    type: 'MESSAGE',
-    text: `Analyzing user intent: "${userPrompt}"...`,
-    status: 'working'
-  };
+  // Every frame's `text` is ONE short line; the detail lives in `data` and in
+  // the panels that render it. A frame of type MESSAGE is a live status - what
+  // is running right now - which the UI shows in place instead of appending,
+  // so the timeline holds results, not narration.
+  yield { agent: A.intent, type: 'MESSAGE', text: 'Reading your request', status: 'working' };
 
   // Cosmetic pacing delays removed - they added ~1.5s of pure wait per run.
   // A 0ms yield is still enough for React to paint each handoff.
@@ -618,17 +617,12 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   // Stop before quoting if the request is under-specified. Guessing the other
   // side of a trade is how "swap 34 udc to usdt" became a USDT -> GEN proposal.
   if (!intent.confident && intent.needs?.length) {
-    const missing = intent.needs.includes('pair-token')
-      ? 'which token you want on the other side of the trade'
-      : intent.needs.join(', ');
+    const missing = intent.needs.includes('pair-token') ? 'the other token' : intent.needs.join(', ');
     yield {
       agent: A.intent,
       type: 'INTENT_UNCLEAR',
       data: intent,
-      text: `❓ **I need one more detail before I can quote this.** I could not determine: ${missing}.\n\n`
-        + `Supported tokens: **USDC, USDT, GEN, WGEN, WBTC, ETH, FSWP**. Try e.g. *"swap 50 USDC to USDT"* `
-        + `or *"what is the best route for 2 WGEN into USDC"*.\n\n`
-        + `No proposal was prepared - guessing a token would risk trading something you did not ask for.`,
+      text: `❓ I need ${missing}. Try "swap 50 USDC to USDT".`,
       status: 'error',
     };
     return;
@@ -638,22 +632,14 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     agent: A.intent,
     type: 'INTENT_PARSED',
     data: intent,
-    text: `Parsed intent: **${intent.amountIn} ${intent.tokenInSymbol}** ➔ **${intent.tokenOutSymbol}** `
-      + `(max slippage ${(intent.slippageBps / 100).toFixed(2)}%). Requesting a multi-venue simulation from **${A.router.name}**...`,
+    text: `${intent.amountIn} ${intent.tokenInSymbol} → ${intent.tokenOutSymbol} · max slippage ${(intent.slippageBps / 100).toFixed(2)}%`,
     status: 'complete'
   };
 
   // ── Router ────────────────────────────────────────────────────────────────
-  yield {
-    agent: A.router,
-    type: 'MESSAGE',
-    // Venue is not a user choice for a swap: the aggregator compares every pool
-    // and takes the best fill.
-    text: `Scanning every venue through the **AGGFlow aggregator** - V2 constant-product and V3 concentrated `
-      + `liquidity, direct and multi-hop - and taking whichever fills best. Venue is never something you pin for a `
-      + `swap; the aggregator decides.`,
-    status: 'working'
-  };
+  // Venue is not a user choice for a swap: the aggregator compares every pool,
+  // V2 and V3, direct and multi-hop, and takes the best fill.
+  yield { agent: A.router, type: 'MESSAGE', text: 'Finding the best route', status: 'working' };
 
   await yieldFrame();
   const route = await RouterMathAgent.simulateRoute(intent);
@@ -667,40 +653,42 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
       agent: A.router,
       type: 'ROUTE_REJECTED',
       data: { route, maxImpact, routedImpact },
-      text: `⛔ **Halted by your policy.** Routed price impact **${routedImpact.toFixed(2)}%** exceeds the `
-        + `**${maxImpact}%** ceiling set on the Routing agent. No consensus round was requested and no funds were touched.`,
+      text: `⛔ Stopped: ${routedImpact.toFixed(2)}% price impact is over your ${maxImpact}% limit. Nothing was sent.`,
       status: 'error'
     };
     return;
   }
 
+  const impactText = Number.isFinite(routedImpact) ? `${routedImpact.toFixed(2)}%` : String(route.priceImpact ?? '');
   yield {
     agent: A.router,
     type: 'ROUTE_SIMULATED',
     data: route,
+    // Never "optimal" when the pools on the path disagree about the price: a
+    // number built on that is not a rate anyone has committed to honour.
     text: route.priceWarning
-      // Do not call this optimal. It pays more only because the pools on the
-      // path disagree about the price, and a number built on that is not a rate
-      // anyone has committed to honour.
-      ? `⚠️ **This quote is not trustworthy.** The best-paying route is **${route.chosenRoute}**, returning `
-        + `**${route.expectedOutNum.toFixed(4)} ${route.tokenOut.symbol}** for ${route.amountInNum} ${route.tokenIn.symbol}`
-        + `${route.directOutNum != null ? `, while the direct pool returns **${route.directOutNum.toFixed(4)}**` : ''}. `
-        + `That is about **${route.dislocationFactor.toFixed(1)}x** apart. Handing to **${A.market.name}** for a read on the pools themselves...`
-      : `Simulation complete. **${route.chosenRoute}** wins with **${route.expectedOutNum.toFixed(4)} ${route.tokenOut.symbol}**`
-        + `${route.savingsVsV2 && !String(route.savingsVsV2).startsWith('-100') && route.savingsVsV2 !== 'N/A' ? ` (${route.savingsVsV2} vs the alternative venue)` : ' (only one venue could fill this size)'}. `
-        + `Price impact ${route.priceImpact}. Handing to **${A.market.name}** for a depth check...`,
+      ? `⚠️ Unreliable price: pools on this route disagree ${route.dislocationFactor.toFixed(1)}x`
+      : `Best route ${route.chosenRoute} · ${route.expectedOutNum.toFixed(4)} ${route.tokenOut.symbol} · impact ${impactText}`,
     status: 'complete'
   };
+
+  // Consensus is the long pole, and the round does not depend on the market
+  // read, so it starts now and runs while the pools are read. The market
+  // findings still come first on screen; they just no longer add to the wait.
+  const riskPromise = userAddress
+    ? RiskValidatorAgent.validate(
+      intent, route, userAddress, config.onProgress || null,
+      { excludeMandateIds: config.excludeMandateIds || [] },
+    )
+    : null;
+  // Handled here so a failure before it is awaited is not reported as an
+  // unhandled rejection; awaiting it below still throws.
+  riskPromise?.catch(() => {});
 
   // ── Market Analyst ────────────────────────────────────────────────────────
   // Reads the reserves behind the quote. A quote can be arithmetically perfect
   // and still come off a pool holding almost nothing.
-  yield {
-    agent: A.market,
-    type: 'MESSAGE',
-    text: `Reading live reserves for every pool on this path, and checking whether the venues agree on price.`,
-    status: 'working'
-  };
+  yield { agent: A.market, type: 'MESSAGE', text: 'Checking pool depth', status: 'working' };
 
   await yieldFrame();
   const analysis = await MarketAnalystAgent.analyse(intent, route).catch((err) => ({
@@ -709,223 +697,148 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     verdict: 'cautioned',
   }));
 
+  const share = analysis.sizeVsDepthPct == null ? null
+    : analysis.sizeVsDepthPct < 0.01 ? '<0.01%' : `${analysis.sizeVsDepthPct.toFixed(2)}%`;
+  const depth = String(analysis.depthLabel || 'unknown');
   yield {
     agent: A.market,
     type: 'MARKET_READ',
     data: analysis,
     text: analysis.entryReserveHuman
-      // Named with the entry pool's own two tokens: on a multi-hop route that
-      // pool holds the intermediate token, not the token being bought.
-      ? `Pool read (**${analysis.entryPairLabel}**): `
-        + `**${Number(analysis.entryReserveHuman).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${analysis.entrySymbol}** `
-        + `/ **${Number(analysis.exitReserveHuman).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${analysis.exitSymbol}**`
-        + `${analysis.poolCount > 1 ? `, first of ${analysis.poolCount} pools on this path` : ''}. This order is `
-        + `**${analysis.sizeVsDepthPct != null ? analysis.sizeVsDepthPct.toFixed(2) + '%' : 'an unknown share'}** of the `
-        + `${analysis.entrySymbol} side - depth reads **${analysis.depthLabel}**.`
-        + (analysis.venueSpreadPct != null ? ` Venue spread: ${analysis.venueSpreadPct.toFixed(1)}%.` : '')
-      : `No V2 pool could be read for this path, so depth is unverified. Reporting that rather than assuming it is fine.`,
+      ? `${depth.charAt(0).toUpperCase()}${depth.slice(1)} pool${share ? ` · this order is ${share} of it` : ''}`
+      : `Couldn't read pool depth for this route`,
     status: analysis.verdict === 'contested' ? 'warning' : 'complete',
   };
 
   // ── Debate ────────────────────────────────────────────────────────────────
-  // A finding nobody answers is just a banner. Here the agent that raised it
-  // gets a reply from the agent that owns the number, in front of the user.
-  const openingDebate = buildDebate({ analysis, route, intent, strategy: null, phase: 'market' });
-  for (const turn of openingDebate) {
+  // A finding nobody answers is just a banner. The agent that raised it gets a
+  // one-line reply from the agent that owns the number.
+  for (const turn of buildDebate({ analysis, route, intent, strategy: null, phase: 'market' })) {
     await yieldFrame();
     yield {
       agent: A[turn.from] || A.market,
       type: 'DEBATE',
       data: { to: turn.to },
-      text: `**→ ${A[turn.to]?.name || turn.to}:** ${turn.text}`,
+      text: `→ ${A[turn.to]?.name || turn.to}: ${turn.text}`,
       status: 'working',
     };
   }
 
   // A verdict is bound to the address that will receive the output, so there is
-  // nothing to validate until a wallet is connected. Stopping here is not a
-  // limitation to apologise for: it is the property that makes the verdict worth
-  // anything. Consensus approves a trade TO SOMEONE, and an approval that did
-  // not name the recipient could be redirected by whoever relayed it.
+  // nothing to validate until a wallet is connected. That is the property that
+  // makes the verdict worth anything: an approval that did not name the
+  // recipient could be redirected by whoever relayed it.
   if (!userAddress) {
     yield {
       agent: A.risk,
       type: 'CONSENSUS_REACHED',
       data: { isApproved: false, isPending: false, checks: [] },
-      text: '🔌 **Connect a wallet to continue.** The consensus verdict is bound to the address that receives the '
-        + 'output, so validation cannot run without one. This is deliberate: an approval that did not name the '
-        + 'recipient could be pointed somewhere else by whoever relayed it.',
+      text: '🔌 Connect a wallet to continue. The approval is tied to your address.',
       status: 'error'
     };
     return;
   }
 
   // ── Risk & GenLayer consensus ─────────────────────────────────────────────
-  yield {
-    agent: A.risk,
-    type: 'MESSAGE',
-    text: `Checking whether a consensus mandate you already hold covers this trade. If not, broadcasting it to the `
-      + `AgentValidator Intelligent Contract (\`${INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8)}...\`) for its own GenVM `
-      + `round. Validators do not take my word for the route: they decode the aggregator program, verify each pool `
-      + `against the factory, and re-derive the quote from live reserves before approving.`,
-    status: 'working'
-  };
+  // Validators do not take this agent's word for the route: they decode the
+  // aggregator program, check each pool against the factory and re-derive the
+  // quote from live reserves. A mandate that already covers the trade is
+  // checked first, and then no round is opened at all.
+  yield { agent: A.risk, type: 'MESSAGE', text: 'Waiting for GenLayer validators', status: 'working' };
 
-  const risk = await RiskValidatorAgent.validate(
-    intent, route, userAddress, config.onProgress || null,
-    { excludeMandateIds: config.excludeMandateIds || [] },
-  );
+  const risk = await riskPromise;
 
   yield {
     agent: A.risk,
     type: 'CONSENSUS_REACHED',
     data: risk,
     text: risk.isApproved && risk.rail === 'mandate'
-      ? `✅ **Covered by your GenLayer mandate** \`${String(risk.mandateId).slice(0, 14)}...\`. An earlier consensus round `
-        + `approved trades like this one for you, this pair and direction, within fixed limits, so no new round is needed. `
-        + `AgentExecutor checks this trade against the mandate and prices it from the pool itself. Handing to `
-        + `**${A.settlement.name}**...`
+      ? '⚡ Covered by your fast lane · no new round needed'
       : risk.isApproved
-      ? `✅ **GenLayer consensus reached.** All ${risk.checks.length} guardrails passed. The verdict is bound to `
-        + `\`${String(risk.tradeHash).slice(0, 14)}...\` - a commitment covering the route, the fee and its recipient, `
-        + `you, and the quote it was checked against. Handing to **${A.settlement.name}** to pick a rail...`
-      : risk.isPending
-        // The round has not returned a verdict yet (still in flight, or it ended
-        // without a validator majority). That is a network condition - calling it
-        // "Rejected" here misreports a trade the validator never actually refused.
-        ? `⏳ **Awaiting GenVM consensus** - the validator round has not returned a verdict yet. This is not a rejection. ${risk.reason}`
-        : `❌ **GenLayer validation rejected**: ${risk.reason}. Fail-closed security activated.`,
+        ? '✓ Approved by GenLayer consensus'
+        // Still in flight, or ended without a majority: a network condition,
+        // never reported as a rejection.
+        : risk.isPending
+          ? '⏳ Validators still voting · watching the round'
+          : `✗ Rejected · ${String(risk.reason || 'consensus did not approve').split('. ')[0]}`,
     status: risk.isApproved ? 'complete' : risk.isPending ? 'working' : 'error'
   };
 
-  // A refused proposal ends the swarm here.
-  //
-  // The flow used to continue into calldata inspection and then announce
-  // "Swarm agreement ready - execute this trade", directly under a red
-  // rejection. Nothing is executable at that point, and offering an Execute
-  // button for a proposal consensus refused is the most dangerous thing this
-  // page could do.
+  // A refused proposal ends the swarm here. Offering an Execute button for a
+  // proposal consensus refused is the most dangerous thing this page could do.
   if (!risk.isApproved && !risk.isPending) {
     yield {
       agent: A.intent,
       type: 'SWARM_HALTED',
       payload: { intent, route, risk, analysis },
-      text: `⛔ **Swarm halted - nothing will be executed.** GenLayer consensus did not approve this proposal, so no `
-        + `settlement is possible and no funds have moved. ${risk.reason || ''}`,
+      text: '⛔ Stopped. Nothing will execute and nothing moved.',
       status: 'error',
     };
     return;
   }
 
-  // ── Settlement Strategist ─────────────────────────────────────────────────
-  // Reads the deployed executor and reports which rail can actually carry this
-  // verdict. The three differ by nearly three orders of magnitude in latency.
-  yield {
-    agent: A.settlement,
-    type: 'MESSAGE',
-    text: `Reading executor state for the authority this trade settles on - a consensus mandate, a live verdict, or `
-      + `the full appeal window.`,
-    status: 'working'
-  };
+  // ── Settlement Strategist and Post-Trade Auditor, in parallel ─────────────
+  // Both only read the executor, and neither needs the other's answer.
+  const onMandate = risk.rail === 'mandate';
+  yield { agent: A.settlement, type: 'MESSAGE', text: 'Picking the rail and verifying bindings', status: 'working' };
 
   await yieldFrame();
-  const strategy = await SettlementStrategistAgent.plan({
-    rail: risk.rail,
-    mandateId: risk.mandateId,
-    commitment: risk.commitment,
-    order: risk.pendingOrder,
-    deadline: risk.proposal?.deadline,
-  }).catch((err) => ({ rail: 'unknown', eta: null, rationale: `Executor state unavailable: ${err.message}`, blockers: [] }));
+  const [strategy, audit] = await Promise.all([
+    SettlementStrategistAgent.plan({
+      rail: risk.rail,
+      mandateId: risk.mandateId,
+      commitment: risk.commitment,
+      order: risk.pendingOrder,
+      deadline: risk.proposal?.deadline,
+    }).catch((err) => ({ rail: 'unknown', eta: null, rationale: `Executor state unavailable: ${err.message}`, blockers: [] })),
+    // Checked live against the deployed executor rather than asserted: the
+    // contract re-derives the commitment from the order, and if any field
+    // differs from what consensus saw the hashes diverge and this fails.
+    PostTradeAuditorAgent.preflight({
+      order: risk.pendingOrder,
+      program: risk.pendingProgram,
+      commitment: risk.commitment,
+      user: userAddress,
+      rail: onMandate ? 'mandate' : 'consensus',
+      mandateId: risk.mandateId,
+    }).catch((err) => ({ checks: [{ name: 'Pre-flight', passed: false, detail: err.message }], passed: false, allBound: false })),
+  ]);
 
-  const RAIL_LABEL = { mandate: '⚡ Consensus mandate', reuse: '♻️ Verdict reuse', consensus: '🐢 Full appeal window', blocked: '⛔ Blocked', unknown: '❔ Unknown' };
+  const RAIL_LINE = {
+    mandate: '⚡ Fast lane · settles in ~5s',
+    reuse: '♻️ Verdict already on chain · settles in ~2s',
+    consensus: '⏳ Own verdict · settles by itself in ~30 min',
+  };
   yield {
     agent: A.settlement,
     type: 'SETTLEMENT_PLAN',
     data: strategy,
-    text: `${RAIL_LABEL[strategy.rail] || strategy.rail}${strategy.eta ? ` - **${strategy.eta}**` : ''}. ${strategy.rationale}`
-      + (strategy.secondsToDeadline > 0 ? `\n\nThe order itself is valid for another ${Math.round(strategy.secondsToDeadline / 60)} minutes.` : ''),
+    text: strategy.rail === 'blocked'
+      ? `⛔ ${String(strategy.blockers?.[0] || strategy.rationale).split('. ')[0]}`
+      : (RAIL_LINE[strategy.rail] || `Couldn't read the executor`),
     status: strategy.rail === 'blocked' ? 'error' : 'complete',
   };
-
-  // Only the rail is up for discussion here; the market findings were already
-  // debated above and replaying them would just repeat the same exchange.
-  const railDebate = buildDebate({ analysis: { concerns: [] }, route, intent, strategy, phase: 'settlement' });
-  for (const turn of railDebate) {
-    await yieldFrame();
-    yield {
-      agent: A[turn.from] || A.settlement,
-      type: 'DEBATE',
-      data: { to: turn.to },
-      text: `**→ ${A[turn.to]?.name || turn.to}:** ${turn.text}`,
-      status: 'working',
-    };
-  }
-
-  // ── Post-Trade Auditor: pre-flight ────────────────────────────────────────
-  // The team's requirement, checked live against the deployed executor rather
-  // than asserted. The contract re-derives the commitment from the order; if any
-  // field differs from what consensus saw, the hashes diverge and this fails.
-  const onMandate = risk.rail === 'mandate';
-  yield {
-    agent: A.auditor,
-    type: 'MESSAGE',
-    text: onMandate
-      ? `Reading the mandate back from the executor and checking every binding: recipient, pair and direction, route `
-        + `hash, per-trade ceiling, remaining budget, fee and collector, router.`
-      : `Re-deriving the commitment from the executor and checking every binding: route bytes, fee, fee collector, `
-        + `recipient, quote, deadline.`,
-    status: 'working'
-  };
-
-  await yieldFrame();
-  const audit = await PostTradeAuditorAgent.preflight({
-    order: risk.pendingOrder,
-    program: risk.pendingProgram,
-    commitment: risk.commitment,
-    user: userAddress,
-    rail: onMandate ? 'mandate' : 'consensus',
-    mandateId: risk.mandateId,
-  }).catch((err) => ({ checks: [{ name: 'Pre-flight', passed: false, detail: err.message }], passed: false, allBound: false }));
 
   const failed = audit.checks.filter((c) => !c.passed);
   yield {
     agent: A.auditor,
     type: 'AUDIT_PREFLIGHT',
     data: audit,
-    text: audit.passed && onMandate
-      ? `✅ **${audit.checks.length}/${audit.checks.length} mandate bindings verified on-chain.** The executor holds a `
-        + `mandate the validator wrote for you, this pair and direction, and the aggregator program hashes to the route `
-        + `the validators built. The settlement agent can choose only the size of this trade, inside the ceilings `
-        + `consensus set; the executor prices it from the pool.`
-      : audit.passed
-      ? `✅ **${audit.checks.length}/${audit.checks.length} bindings verified on-chain.** The executor derives the same `
-        + `commitment from this order that consensus approved, and the aggregator program hashes to the committed `
-        + `routeHash. Nothing between here and settlement can change the route, the fee, the recipient or the quote `
-        + `without the commitment failing to match.`
+    text: audit.passed
+      ? `✓ ${audit.checks.length}/${audit.checks.length} ${onMandate ? 'mandate ' : ''}bindings verified on-chain`
       : audit.allBound
-        ? `🔎 **Bindings verified, ${failed.length} pre-condition${failed.length === 1 ? '' : 's'} outstanding:** `
-          + failed.map((c) => `${c.name} - ${c.detail}`).join(' ')
-        : `⚠️ **Binding check failed:** ${failed.map((c) => `${c.name} - ${c.detail}`).join(' ')}`,
+        ? `✓ Bindings verified · still needed: ${failed.map((c) => c.name).join(', ')}`
+        : `⚠️ Binding check failed: ${failed.map((c) => c.name).join(', ')}`,
     status: audit.passed ? 'complete' : audit.allBound ? 'working' : 'error',
   };
 
   // ── Dev Inspector ─────────────────────────────────────────────────────────
-  yield {
-    agent: A.dev,
-    type: 'MESSAGE',
-    text: `Performing byte-level calldata inspection and revert simulation against the settlement contract...`,
-    status: 'working'
-  };
-
   const devInspection = DevInspectorAgent.inspect(intent, route, risk);
-
   yield {
     agent: A.dev,
     type: 'DEV_INSPECTED',
     data: devInspection,
-    text: `Inspection complete. Route program: ${devInspection.calldataSize}, settled by **${devInspection.settlementCall}** `
-      + `| est. gas: ${devInspection.gasEstimate}. Each tamper vector reverts on chain: `
-      + devInspection.tamperVectors.map((t) => `${t.param} → \`${t.predictedRevert.split(' - ')[0]}\``).join('; ') + '.',
+    text: `✓ Calldata ${devInspection.calldataSize} · every tampered field reverts on chain`,
     status: 'complete'
   };
 
@@ -940,54 +853,31 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
 }
 
 /**
- * The swarm's closing line.
- *
- * It must describe what actually happened. An earlier version said "verified
- * every binding on-chain" from a fixed string, and printed it directly under an
- * auditor frame reporting that it had verified nothing - the same contradiction
- * as the "Settled / executeSwap reverted" pair. Every claim below is read from
- * the result it refers to.
+ * The swarm's closing line: one sentence, and every claim in it read from the
+ * result it refers to. An earlier version said "verified every binding
+ * on-chain" from a fixed string, directly under an auditor frame reporting that
+ * it had verified nothing.
  */
 export function swarmClosingLine({ risk, analysis, audit, strategy }) {
-  const A = AGENT_REGISTRY;
   const objections = (analysis?.concerns || []).filter((c) => c.severity === 'high');
-  const checks = audit?.checks || [];
-  const failed = checks.filter((c) => !c.passed);
+  const n = objections.length;
+  const plural = n === 1 ? '' : 's';
+  const first = n ? String(objections[0].text || objections[0].message || '').replace(/\*\*/g, '').split('. ')[0].replace(/\.$/, '') : '';
   const bindingsHeld = audit?.allBound === true;
-  const auditorLine = bindingsHeld
-    ? `${A.auditor.name} verified the bindings on-chain`
-    : `${A.auditor.name} could not verify the bindings`;
-  const eta = strategy?.eta || 'settlement';
 
   if (risk?.isPending) {
-    // Still undecided: the swarm has done its part, but there is no verdict to
-    // execute against yet. Saying "ready" here would be untrue - and an
-    // objection the Market Analyst raised still stands whatever consensus
-    // decides, so it is named here too rather than left in the scrollback.
-    return `⏳ **Swarm finished, consensus still pending.** The validator round has not returned a verdict, so Execute `
-      + `stays disabled until it does. Your trade was not rejected.`
-      + (objections.length
-        ? ` Separately, ${A.market.name} raised ${objections.length} unresolved objection${objections.length === 1 ? '' : 's'} `
-          + `about the price behind this quote: ${objections.map((c) => String(c.text || c.message || '').replace(/\*\*/g, '').split('. ')[0]).join('; ')}.`
-        : '');
+    // No verdict yet, so nothing is ready - but an objection the Market Analyst
+    // raised stands whatever consensus decides, so it is named here too.
+    return '⏳ Waiting for validators. Execute unlocks when they approve.'
+      + (n ? ` ⚠️ ${n} price objection${plural}: ${first}.` : '');
   }
   if (!bindingsHeld) {
-    // Consensus approved, but nothing here could prove the approval binds this
-    // order. Do not present that as a finished agreement.
-    return `⚠️ **Approved, but unverified.** Consensus authorised this trade and ${A.settlement.name} has a `
-      + `${eta} rail, but ${A.auditor.name} could not confirm the commitment binds this `
-      + `exact order: ${failed.map((c) => c.detail).join(' ')} The executor performs the same check itself at `
-      + `settlement and refuses anything that does not match, so nothing unsafe can settle - but this run cannot `
-      + `show you the proof.`;
+    // Approved, but nothing here could prove it binds this order.
+    return "⚠️ Approved, but the bindings couldn't be verified here. The executor still checks them at settlement.";
   }
-  if (objections.length) {
-    // Approved is not the same as advisable, and the swarm should say which one
-    // it means.
-    return `⚠️ **Approved, with ${objections.length} unresolved objection${objections.length === 1 ? '' : 's'} from `
-      + `${A.market.name}.** Consensus authorised this trade and ${auditorLine}, but the market read says the `
-      + `price behind it is not sound. Execute is enabled because the trade is authorised - the judgement call is yours.`;
+  if (n) {
+    // Approved is not the same as advisable.
+    return `⚠️ Approved with ${n} price objection${plural} from ${AGENT_REGISTRY.market.name}. Your call.`;
   }
-  return `🎉 **Swarm agreement reached.** ${A.market.name} found no objection, consensus approved, `
-    + `${auditorLine}, and ${A.settlement.name} has a `
-    + `${eta} rail ready. Execute for one-click non-custodial settlement.`;
+  return `✓ All agents agree. Settles${strategy?.eta ? ` in ${strategy.eta}` : ' when ready'}.`;
 }

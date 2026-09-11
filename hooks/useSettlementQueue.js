@@ -26,11 +26,23 @@
 // commitment, which are a receipt, not a permission: a tampered entry hashes to
 // an identifier no verdict backs, and the executor refuses it.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPublicClient, http } from 'viem';
 import AGENT_EXECUTOR_ABI from '../abi/AgentExecutor.json';
 import { CONTRACT_ADDRESSES } from '../constants/addresses';
 import { isTerminal } from '../lib/settlement';
+import { notices } from '../lib/notify.js';
+
+// Each stage change reports once, in one line. The queue retries transient
+// errors on its own, so those are not announced; an outcome is.
+function announce(entry, patch) {
+  const label = entry?.label || 'Swap';
+  if (patch.stage && patch.stage !== entry?.stage) {
+    if (patch.stage === 'settled') notices.settled(entry.id, label, patch.execTxHash || entry.execTxHash);
+    else if (patch.stage === 'expired') notices.verdictExpired(entry.id, label);
+  }
+  if (patch.needsApproval && !entry?.needsApproval) notices.needsApproval(entry.id, label);
+}
 
 const STORAGE_KEY = 'soyara.settlementQueue.v1';
 const POLL_MS = 20000;
@@ -71,7 +83,7 @@ function save(entries) {
   }
 }
 
-export function useSettlementQueue({ enabled = true } = {}) {
+function useQueueState({ enabled = true } = {}) {
   const [entries, setEntries] = useState([]);
   const busy = useRef(new Set());
 
@@ -83,6 +95,10 @@ export function useSettlementQueue({ enabled = true } = {}) {
   }, []);
 
   const update = useCallback((id, patch) => {
+    // Read the entry as stored, so the announcement compares against the real
+    // previous stage even when several ticks land close together.
+    const before = load().find((e) => e.id === id);
+    if (before) announce(before, patch);
     setEntries((prev) => {
       const next = prev.map((e) => (e.id === id ? { ...e, ...patch, updatedAt: Date.now() } : e));
       save(next);
@@ -91,6 +107,7 @@ export function useSettlementQueue({ enabled = true } = {}) {
   }, []);
 
   const enqueue = useCallback((entry) => {
+    if (!load().some((e) => e.commitment === entry.commitment)) notices.queued(entry.commitment, entry.label || 'Swap');
     setEntries((prev) => {
       // Keyed by commitment: re-validating the same intent must update the
       // existing entry rather than stacking duplicates that all settle the same
@@ -262,4 +279,24 @@ export function useSettlementQueue({ enabled = true } = {}) {
   const pending = entries.filter((e) => !isTerminal(e.stage));
 
   return { entries, pending, enqueue, remove, update, clearFinished, settle, write };
+}
+
+// ── One queue for the whole app ─────────────────────────────────────────────
+//
+// The queue used to live inside /ai and /a2a, so it only ticked while one of
+// those pages was open: leave for /swap and a trade whose verdict had landed
+// simply waited. The provider in _app runs a single instance everywhere, and
+// every page reads the same entries from it.
+const QueueContext = createContext(null);
+
+export function SettlementQueueProvider({ children }) {
+  const queue = useQueueState({ enabled: true });
+  return React.createElement(QueueContext.Provider, { value: queue }, children);
+}
+
+export function useSettlementQueue(opts = {}) {
+  const shared = useContext(QueueContext);
+  // Without a provider (a test, an isolated render) fall back to a local queue.
+  const local = useQueueState({ ...opts, enabled: !shared && (opts.enabled ?? true) });
+  return shared || local;
 }

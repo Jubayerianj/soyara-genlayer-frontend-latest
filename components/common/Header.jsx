@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { NotificationBell } from '../NotificationCenter'
 import { 
   useAccount, 
   useChainId, 
@@ -172,6 +173,7 @@ export default function Header() {
 
         {/* Global Actions Area */}
         <div className={styles.actions}>
+          <NotificationBell className={styles.themeToggleBtn} />
           <button
             type="button"
             onClick={toggleTheme}

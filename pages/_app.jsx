@@ -21,6 +21,9 @@ import Header from '../components/common/Header'
 import Footer from '../components/Footer'
 import { TokenProvider } from '../components/contexts/TokenContext'
 import { ThemeProvider, useTheme } from '../components/contexts/ThemeContext'
+import { SettlementQueueProvider } from '../hooks/useSettlementQueue'
+import { NotificationToasts } from '../components/NotificationCenter'
+import BackgroundJobs from '../components/BackgroundJobs'
 
 // GenLayer Network definition
 const GenLayer = {
@@ -104,13 +107,19 @@ function AppInner({ Component, pageProps }) {
   return (
     <RainbowKitProvider theme={rkTheme}>
       <TokenProvider>
-        <div className="app-container">
-          <Header />
-          <main className="main-content">
-            <Component {...pageProps} />
-          </main>
-          <Footer />
-        </div>
+        {/* One settlement queue and one notice stream for the whole app, so a
+            trade keeps settling and reporting whichever page is open. */}
+        <SettlementQueueProvider>
+          <div className="app-container">
+            <Header />
+            <main className="main-content">
+              <Component {...pageProps} />
+            </main>
+            <Footer />
+          </div>
+          <BackgroundJobs />
+          <NotificationToasts />
+        </SettlementQueueProvider>
       </TokenProvider>
     </RainbowKitProvider>
   );

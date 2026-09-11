@@ -34,22 +34,11 @@ import { useAgentSwapExecution } from '../hooks/useAgentSwapExecution';
 import ActivityPanel from '../components/ActivityPanel';
 import BalanceStrip from '../components/BalanceStrip';
 import { recordActivity } from '../lib/txStore';
+import { notices } from '../lib/notify';
 import { recallMandateIds, ensureMandateRequested } from '../lib/mandate';
 import { useTheme } from '../components/contexts/ThemeContext';
 import aiStyles from '../styles/AIPage.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../lib/nodeRetry';
-
-/** Raw units to a short readable figure for chat copy. */
-function humanAmount(raw, decimals = 18) {
-  try {
-    const v = BigInt(raw);
-    const base = 10n ** BigInt(decimals);
-    const frac = (v % base).toString().padStart(decimals, '0').slice(0, 4).replace(/0+$/, '');
-    return frac ? `${v / base}.${frac}` : `${v / base}`;
-  } catch {
-    return String(raw ?? '');
-  }
-}
 
 const STARTER_PROMPTS = [
   'Swap 100 USDC to GEN with the best route',
@@ -78,8 +67,7 @@ export default function AIPage() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Welcome to **Soyara AI Trading** on **GenLayer Testnet**!\n\nI am your specialized DeFi trading assistant. Every trade I prepare is approved by decentralized AI consensus on **GenVM** through the **AgentValidator** Intelligent Contract (`" + INTELLIGENT_CONTRACTS.agentValidator.slice(0, 8) + "...`), and settles only through **AgentExecutor**, which refuses anything consensus did not authorise.\n\nAsk me for real-time swap quotes, route comparisons, fee analysis, or to prepare trade proposals!",
-      toolsUsed: ['GenVM Consensus', 'AgentValidator IC', 'DeFi Analytics'],
+      content: "Hi! Tell me a trade, like **swap 50 USDC to USDT**. GenLayer consensus approves it, and **AgentExecutor** settles it.",
     }
   ]);
   const [input, setInput] = useState('');
@@ -124,7 +112,10 @@ export default function AIPage() {
   const handleExecuteRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll the feed, never the window: scrollIntoView moved the whole page
+    // on load and tucked the card under the header.
+    const box = messagesEndRef.current?.parentElement;
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -168,8 +159,7 @@ export default function AIPage() {
         ...prev,
         {
           role: 'assistant',
-          content: `**Settled.** Tx \`${activeTxHash}\``,
-          toolsUsed: ['GenLayer Bradbury Explorer', 'AGGFlow Entrypoint'],
+          content: `✓ Settled · tx \`${activeTxHash.slice(0, 6)}…${activeTxHash.slice(-4)}\``,
         }
       ]);
     } else if (isTxFailed && activeTxHash) {
@@ -304,8 +294,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `🔄 **GenVM round ended without a majority** - this is a validator-set condition, not a rejection. Automatically submitting a fresh consensus round...`,
-            toolsUsed: ['AgentValidator IC', 'GenVM Consensus'],
+            content: '↻ No majority this round, not a rejection. Running a fresh one.',
           }
         ]);
         handleValidateRef.current?.(retryRound + 1, proposal);
@@ -327,26 +316,28 @@ export default function AIPage() {
         reason: data.reason,
       });
 
+      const label = `${proposal.amountIn} ${proposal.tokenIn} → ${proposal.tokenOut}`;
       if (data.approved) {
+        // A verdict that took a while is queued exactly like a prompt one: it
+        // settles by itself, and nobody has to come back and press Execute.
+        const queued = queueApprovedRef.current?.(data, proposal);
+        notices.roundApproved(txHash, label, data.rail);
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'assistant',
-            content: `**Consensus approved.** The verdict is bound to a commitment covering your route, fee, recipient and quote. Execute when ready.\n\nValidator \`${data.genlayer_contract}\``,
-            toolsUsed: ['AgentValidator IC', 'GenVM Consensus'],
-          }
+          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min. You can leave.' : '✓ Approved. Execute when ready.' }
         ]);
       } else {
+        if (data.retryable) notices.roundUndecided(txHash, label);
+        else if (!data.pending) notices.roundRejected(txHash, label, data.reason);
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
             content: data.pending
-              ? `⏳ **Still Awaiting GenVM Consensus**\n\nThe validator round is taking longer than usual. Tx: \`${txHash.slice(0, 10)}...\` - you can check the [explorer](https://explorer-bradbury.genlayer.com/tx/${txHash}) or try Validate again shortly.`
+              ? '⏳ Still waiting for validators. I will keep checking.'
               : data.retryable
-                ? `🔄 **GenVM Consensus Did Not Reach a Verdict**\n\n${data.reason}\n\nPress **Validate** again to run another round.`
-                : `⚠️ **GenLayer IC Validation Rejected**\n\nReason: *${data.reason}*`,
-            toolsUsed: ['AgentValidator IC'],
+                ? '↻ No verdict this round, not a rejection. Press **Validate** to run it again.'
+                : `✗ Rejected · ${String(data.reason || '').split('. ')[0]}`,
           }
         ]);
       }
@@ -367,21 +358,7 @@ export default function AIPage() {
       tokenOut: order.tokenOut,
       amountIn: order.amountIn,
       slippageBps: Number(order.slippageBps) || 100,
-    }).then((r) => {
-      if (r.status !== 'requested') return;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `**Fast lane requested.** I asked GenLayer for a trading mandate for ${proposal.tokenIn} to `
-            + `${proposal.tokenOut}: up to ${humanAmount(r.requested?.maxAmountIn)} ${proposal.tokenIn} per trade and `
-            + `${humanAmount(r.requested?.totalBudgetIn)} ${proposal.tokenIn} in total, for 24 hours. Consensus checks the `
-            + `pool and sets its own limits. Once the round finalizes, trades like this one settle in seconds, each `
-            + `still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
-          toolsUsed: ['AgentValidator IC', 'Consensus mandate'],
-        },
-      ]);
-    }).catch(() => { /* background; never blocks a trade */ });
+    }).catch(() => { /* background; never blocks a trade; the bell reports it */ });
   }, []);
 
   // Validate current proposal with GenLayer Intelligent Contract.
@@ -448,13 +425,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `**Covered by your GenLayer mandate** \`${String(data.mandate_id).slice(0, 12)}...\`\n\n`
-              + `An earlier consensus round approved trades like this one: this pair and direction, up to `
-              + `${humanAmount(data.mandate?.maxAmountIn)} ${proposal.tokenIn} per trade, with `
-              + `${humanAmount(data.mandate?.remainingBudget)} ${proposal.tokenIn} of its budget left. `
-              + `AgentExecutor checks this trade against that mandate and prices it from the pool itself, so `
-              + `**Execute settles it in one transaction** with no new round.`,
-            toolsUsed: ['AgentValidator IC', 'Consensus mandate', 'AgentExecutor'],
+            content: '⚡ Fast lane: already approved. **Execute** settles it in ~5s.',
           }
         ]);
         return;
@@ -484,13 +455,10 @@ export default function AIPage() {
           status: 'pending',
         });
         setValidationResult(data);
+        notices.roundRunning(data.tx_hash, `${proposal.amountIn} ${proposal.tokenIn} → ${proposal.tokenOut}`);
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'assistant',
-            content: `⏳ **Validating with GenLayer IC...**\n\nConsensus tx submitted: \`${data.tx_hash.slice(0, 10)}...\`. This can take a bit longer during testnet congestion - I'll keep checking automatically.`,
-            toolsUsed: ['AgentValidator IC', 'GenVM Consensus'],
-          }
+          { role: 'assistant', content: '⏳ Validators are checking this. Usually under a minute.' }
         ]);
         pollValidationStatus(data.tx_hash, 0, retryRound, proposal, data.proposal_id || null, data);
         return;
@@ -502,8 +470,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `🔄 **GenVM round ended without a majority** - not a rejection. Submitting a fresh consensus round...`,
-            toolsUsed: ['AgentValidator IC', 'GenVM Consensus'],
+            content: '↻ No majority this round, not a rejection. Running a fresh one.',
           }
         ]);
         handleValidate(retryRound + 1, proposal);
@@ -519,29 +486,12 @@ export default function AIPage() {
       // running, instead of at the end. The signature is the only thing that
       // needs the user, so it belongs at the point where they are still
       // watching, not half an hour later when they have moved on.
-      if (data.approved && data.pendingOrder && data.pendingProgram) {
-        settlementQueue.enqueue({
-          commitment: data.commitment,
-          order: data.pendingOrder,
-          program: data.pendingProgram,
-          validationTxHash: data.tx_hash,
-          validatedAt: Date.now(),
-          stage: 'finalising',
-          label: `${proposal.amountIn} ${proposal.tokenIn} to ${proposal.tokenOut}`,
-        });
-        if (needsApproval) {
-          handleApprove().catch(() => { /* surfaced on the queue entry */ });
-        }
-      }
+      const queued = data.approved ? queueApprovedRef.current?.(data, proposal) : false;
 
       if (data.approved) {
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'assistant',
-            content: `**Consensus approved.** The verdict is bound to a commitment covering your route, fee, recipient and quote. Execute when ready.\n\nValidator \`${data.genlayer_contract}\``,
-            toolsUsed: ['AgentValidator IC', 'GenVM Consensus'],
-          }
+          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min. You can leave.' : '✓ Approved. Execute when ready.' }
         ]);
       } else {
         setMessages((prev) => [
@@ -549,9 +499,8 @@ export default function AIPage() {
           {
             role: 'assistant',
             content: data.retryable
-              ? `🔄 **GenVM Consensus Did Not Reach a Verdict**\n\n${data.reason}\n\nPress **Validate** again to run another round.`
-              : `⚠️ **GenLayer IC Validation Rejected**\n\nReason: *${data.reason}*`,
-            toolsUsed: ['AgentValidator IC'],
+              ? '↻ No verdict this round, not a rejection. Press **Validate** to run it again.'
+              : `✗ Rejected · ${String(data.reason || '').split('. ')[0]}`,
           }
         ]);
       }
@@ -575,13 +524,7 @@ export default function AIPage() {
     try {
       const result = await approve();
       if (!result) return;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `⏳ **One-time approval submitted for ${result.symbol}.** This is the only approval you'll sign for this token - every future agent-executed trade settles without a wallet prompt.\n\nWaiting for confirmation... (Tx: \`${result.hash.slice(0, 10)}...\`)`,
-        }
-      ]);
+      notices.tokenApproval(result.hash, result.symbol);
     } catch (err) {
       console.error('Approval failed:', err);
       // Not `err.shortMessage`: for a node throttle viem's short message reads
@@ -592,6 +535,25 @@ export default function AIPage() {
         explainThrottle().then(setExecutionError).catch(() => {});
       }
     }
+  };
+
+  // One path for an approved trade with its own verdict, whether the verdict
+  // came back at once or after polling: queue it, since it settles by itself,
+  // and take the one signature it needs now, while the user is still here.
+  const queueApprovedRef = useRef(null);
+  queueApprovedRef.current = (data, proposal) => {
+    if (!(data?.approved && data.rail !== 'mandate' && data.pendingOrder && data.pendingProgram && data.commitment)) return false;
+    settlementQueue.enqueue({
+      commitment: data.commitment,
+      order: data.pendingOrder,
+      program: data.pendingProgram,
+      validationTxHash: data.tx_hash || null,
+      validatedAt: Date.now(),
+      stage: 'finalising',
+      label: `${proposal.amountIn} ${proposal.tokenIn} → ${proposal.tokenOut}`,
+    });
+    if (needsApproval) handleApprove().catch(() => { /* surfaced on the queue entry */ });
+    return true;
   };
 
   // Settle through AgentExecutor on the rail consensus chose (/api/agent-execute):
@@ -610,8 +572,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `🚀 **Wrap Submitted!**\n\nWrapping **${result.amountIn} GEN** to **WGEN** (1:1 direct wrap)...\n\nTx Hash: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`,
-            toolsUsed: ['WGEN Deposit', 'GenLayer Bradbury'],
+            content: `✓ Wrapping ${result.amountIn} GEN to WGEN · tx \`${result.hash.slice(0, 6)}…${result.hash.slice(-4)}\``,
           }
         ]);
       } else if (result.kind === 'unwrap') {
@@ -619,8 +580,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `🚀 **Unwrap Submitted!**\n\nUnwrapping **${result.amountIn} WGEN** to **GEN** (1:1 direct unwrap)...\n\nTx Hash: [${result.hash.slice(0, 10)}...${result.hash.slice(-8)}](https://explorer-bradbury.genlayer.com/tx/${result.hash})`,
-            toolsUsed: ['WGEN Withdraw', 'GenLayer Bradbury'],
+            content: `✓ Unwrapping ${result.amountIn} WGEN to GEN · tx \`${result.hash.slice(0, 6)}…${result.hash.slice(-4)}\``,
           }
         ]);
       } else if (result.kind === 'swap') {
@@ -633,17 +593,16 @@ export default function AIPage() {
           settleTxHash: result.hash,
           status: 'settled',
         });
-        const authority = result.rail === 'mandate'
-          ? `✅ Settled by **AgentExecutor** under consensus mandate \`${String(result.mandateId).slice(0, 12)}...\`, `
-            + `which checked this trade against the mandate and priced it from the pool.`
-          : `✅ Settled by **AgentExecutor** against this trade's own consensus verdict. The commitment `
-            + `\`${String(result.commitment).slice(0, 12)}...\` is single use and is now spent.`;
+        notices.settled(
+          result.commitment || result.mandateId || result.hash,
+          `${currentProposal?.amountIn} ${currentProposal?.tokenIn} → ${currentProposal?.tokenOut}`,
+          result.hash,
+        );
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: `🚀 **Trade settled.**\n\n${authority}\n\nSettlement tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
-            toolsUsed: ['AgentExecutor', 'AGGFlowEntrypoint', result.rail === 'mandate' ? 'Consensus mandate' : 'Consensus verdict'],
+            content: `✓ Settled${result.rail === 'mandate' ? ' in the fast lane' : ''} · tx \`${result.hash?.slice(0, 6)}…${result.hash?.slice(-4)}\``,
           }
         ]);
       } else if (result.kind === 'remove_liquidity') {
@@ -651,8 +610,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `💸 **Liquidity withdrawn via AgentExecutor.** The consensus verdict for this withdrawal was consumed.\n\nLP burned: \`${result.lpBurned}\`\n\nExecution Tx: [${result.hash?.slice(0, 10)}...${result.hash?.slice(-8)}](${result.explorerUrl})`,
-            toolsUsed: ['AgentExecutor', 'UniswapV2Router', 'GenLayer Bradbury'],
+            content: `✓ Liquidity withdrawn · tx \`${result.hash?.slice(0, 6)}…${result.hash?.slice(-4)}\``,
           }
         ]);
       } else if (result.kind === 'add_liquidity') {
@@ -660,8 +618,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `**Liquidity added.** [View transaction](${result.explorerUrl})`,
-            toolsUsed: ['AgentExecutor', 'UniswapV2Router', 'GenLayer Bradbury'],
+            content: `✓ Liquidity added · tx \`${result.hash?.slice(0, 6)}…${result.hash?.slice(-4)}\``,
           }
         ]);
       }
@@ -680,9 +637,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `ℹ️ **Your mandate no longer covers this trade.** ${err.message}\n\n`
-              + `Nothing was sent. Running this trade through its own consensus round now.`,
-            toolsUsed: ['AgentExecutor', 'Consensus mandate'],
+            content: 'Fast lane no longer covers this. Nothing was sent. Running its own round.',
           },
         ]);
         setValidationResult(null);
@@ -709,11 +664,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `⌛ **That approval expired before it could settle.**\n\n`
-              + `GenLayer approved the trade, but a verdict is time-boxed so it cannot be spent `
-              + `against a stale price. Nothing was spent and nothing moved.\n\n`
-              + `Ask me for the trade again and I will run a fresh round on a current quote.`,
-            toolsUsed: ['AgentValidator IC', 'Verdict TTL'],
+            content: '⌛ Approval expired before settling. Nothing moved. Ask again for a fresh round.',
           },
         ]);
         return;
@@ -744,7 +695,7 @@ export default function AIPage() {
             validatedAt: Date.now(),
             stage: 'finalising',
             needsApproval: Boolean(needsApproval),
-            label: `${currentProposal?.amountIn ?? ''} ${currentProposal?.tokenIn ?? ''} to ${currentProposal?.tokenOut ?? ''}`.trim(),
+            label: `${currentProposal?.amountIn ?? ''} ${currentProposal?.tokenIn ?? ''} → ${currentProposal?.tokenOut ?? ''}`.trim(),
           });
         }
 
@@ -752,13 +703,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `⏳ **Consensus approved this trade. The verdict is on its way to the executor.**\n\n`
-              + `GenLayer delivers a verdict to the settlement contract only once the round can no longer `
-              + `be appealed, which takes about **30 minutes** on Bradbury. That wait belongs to the `
-              + `network, not to this page.\n\n`
-              + `It is now on your settlement queue below and will execute by itself the moment the verdict `
-              + `lands - you can close this page.`,
-            toolsUsed: ['AgentValidator IC', 'Appeal window', 'Settlement queue'],
+            content: '⏳ Queued · settles by itself in ~30 min. You can leave.',
           },
         ]);
         return;
@@ -775,8 +720,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: `⚠️ **The pool moved past your ${(p.slippageBps || 30) / 100}% slippage tolerance while this quote was validating.**\n\nFetching a fresh quote and re-validating automatically - no need to retype your request.`,
-            toolsUsed: ['Live pool re-quote'],
+            content: `↻ Price moved past your ${(p.slippageBps || 30) / 100}% slippage. Getting a fresh quote.`,
           },
         ]);
         try {
@@ -798,8 +742,7 @@ export default function AIPage() {
               ...prev,
               {
                 role: 'assistant',
-                content: `🔄 **Fresh quote:** ${data.proposal.amountIn} ${data.proposal.tokenIn} → **${data.proposal.expectedOutput}** (min ${data.proposal.minAmountOut}, impact ${data.proposal.priceImpact}).\n\nRe-validating through GenLayer consensus now - press Execute once it turns green.`,
-                toolsUsed: ['AgentValidator IC'],
+                content: `Fresh quote: ${data.proposal.amountIn} ${data.proposal.tokenIn} → **${data.proposal.expectedOutput}**. Validating again.`,
               },
             ]);
             handleValidateRef.current?.(0, data.proposal);

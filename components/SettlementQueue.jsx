@@ -157,10 +157,9 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
 
                     <div style={{ fontSize: '0.68rem', color: textMuted, lineHeight: 1.5 }}>
                       {e.stage === 'finalising' && remaining > 0
-                        // Explicitly an estimate: the appeal window is a protocol
-                        // parameter the app is never told, so a hard countdown
-                        // would be a promise it cannot keep.
-                        ? `${STAGES.finalising.blurb} Roughly ${formatDuration(remaining)} left, estimated.`
+                        // An estimate, never a promise: the window is a protocol
+                        // parameter the app is never told.
+                        ? `${STAGES.finalising.blurb} ~${formatDuration(remaining)} left.`
                         : (STAGES[e.stage]?.blurb || '')}
                     </div>
 
@@ -174,7 +173,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
                           color: '#fff', fontSize: '0.72rem', fontWeight: 700,
                         }}
                       >
-                        Approve token to finish settling
+                        Approve to finish
                       </button>
                     )}
 
@@ -193,7 +192,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
 
                     {!isTerminal(e.stage) && (
                       <div style={{ marginTop: '5px', fontSize: '0.62rem', color: textMuted, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-                        {short(e.commitment, 10, 8)} · waiting {formatDuration(elapsed)}
+                        waiting {formatDuration(elapsed)}
                       </div>
                     )}
                   </div>
@@ -205,8 +204,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
               padding: '9px 14px', borderTop: `1px solid ${boxBorder}`,
               fontSize: '0.66rem', color: textMuted, lineHeight: 1.5,
             }}>
-              You can leave this page. These settle on their own once the appeal
-              window closes and the verdict reaches the settlement contract.
+              Runs by itself. You can leave this page.
             </div>
           </motion.div>
         )}

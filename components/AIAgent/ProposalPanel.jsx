@@ -422,8 +422,8 @@ const ProposalPanel = ({
               {validationResult.approved && (
                 <div style={{ fontSize: '0.72rem', color: textMuted, lineHeight: 1.45 }}>
                   {validationResult.rail === 'mandate'
-                    ? 'Settles in one transaction: AgentExecutor checks it against the mandate and prices it from the pool.'
-                    : 'Settles when this verdict reaches AgentExecutor, once the round can no longer be appealed.'}
+                    ? 'Fast lane: settles in ~5s.'
+                    : 'Settles by itself in ~30 min.'}
                 </div>
               )}
               {validationResult.proposal_id && !validationResult.commitment && (
@@ -619,8 +619,8 @@ const ProposalPanel = ({
               }}>
                 {isNotExecutable
                   ? (notExecutableReason
-                     || 'This pair has no liquidity pool on Soyara DEX. The rate shown is a reference estimate and cannot be executed.')
-                  : `Your wallet does not hold enough ${proposal.tokenIn} for this ${proposal.amountIn} ${proposal.tokenIn} trade. Ask for a smaller amount and a fresh quote.`}
+                     || 'No pool for this pair on Soyara, so this rate cannot be executed.')
+                  : `Not enough ${proposal.tokenIn} for this trade. Try a smaller amount.`}
               </div>
             )}
 
