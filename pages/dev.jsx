@@ -37,7 +37,7 @@ const CODE_EXAMPLES = {
   typescript: `// TypeScript / Node.js agent against the app's settlement API.
 // Validation is a GenLayer consensus WRITE and settlement is an onlyAgent call
 // on AgentExecutor, so both run server-side, where those keys live.
-const BASE = 'https://app.soyara.com';   // or your deployment of these routes
+const BASE = 'https://app.soyara.xyz';   // or your deployment of these routes
 const USER = '0xYourWallet';               // receives the output; approved AgentExecutor once
 
 const post = (path: string, body: object) =>
@@ -68,7 +68,7 @@ export async function executeAgentTrade() {
   python: `# Python agent against the app's settlement API.
 import time, requests
 
-BASE = "https://app.soyara.com"
+BASE = "https://app.soyara.xyz"
 USER = "0xYourWallet"
 
 def post(path, body):
@@ -135,12 +135,12 @@ interface IAgentExecutor {
 //          QuoteInconsistent, SlippageExceeded, NoMandate, MandateBudgetExceeded`,
 
   curl: `# 1. Consensus authorises the exact order (no keys needed on your side)
-curl -s -X POST https://app.soyara.com/api/genlayer-validate \\
+curl -s -X POST https://app.soyara.xyz/api/genlayer-validate \\
   -H "Content-Type: application/json" \\
   -d '{"action":"SWAP","user":"0xYourWallet","tokenIn":"USDC","tokenOut":"WGEN","amountIn":"100","slippageBps":30}'
 
 # 2. Preview without opening a round: the exact order and commitment
-curl -s -X POST https://app.soyara.com/api/genlayer-validate \\
+curl -s -X POST https://app.soyara.xyz/api/genlayer-validate \\
   -H "Content-Type: application/json" \\
   -d '{"action":"SWAP","user":"0xYourWallet","tokenIn":"USDC","tokenOut":"WGEN","amountIn":"100","slippageBps":30,"dryRun":true}'
 

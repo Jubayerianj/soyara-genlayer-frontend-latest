@@ -862,7 +862,7 @@ Reply with ONLY: {{"approved": true|false, "reason": "..."}}"""
 // Validation is a GenLayer consensus WRITE and settlement is an onlyAgent call
 // on AgentExecutor, so both run on the server that holds those keys - the
 // app's own API routes, or your deployment of them.
-const BASE = 'https://app.soyara.com';
+const BASE = 'https://app.soyara.xyz';
 const USER = '0xYourWallet'; // receives the output; has approved AgentExecutor once
 const post = (path, body) => fetch(BASE + path, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -914,7 +914,7 @@ trade().then((s) => console.log('settled via', s.rail, s.execTxHash)).catch(cons
                     code={`import time
 import requests
 
-BASE = "https://app.soyara.com"   # or your deployment of the app's API routes
+BASE = "https://app.soyara.xyz"   # or your deployment of the app's API routes
 USER = "0xYourWallet"             # receives the output; has approved AgentExecutor once
 
 def post(path, body):
@@ -1653,7 +1653,7 @@ async function openRound(order, aggProgram) {
                     code={`import requests
 
 class SoyaraAgent:
-    def __init__(self, base="https://app.soyara.com", user="0xYourWallet"):
+    def __init__(self, base="https://app.soyara.xyz", user="0xYourWallet"):
         self.base, self.user = base, user
 
     def _post(self, path, body):

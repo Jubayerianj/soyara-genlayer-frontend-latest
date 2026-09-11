@@ -789,6 +789,20 @@ try {
   }
 } catch (e) { bad('proposal deadlines', e.message); }
 
+// Shipped: every link to the app said app.soyara.com, which never resolved
+// (soyara.com is an unrelated company). The app lives at app.soyara.xyz.
+console.log('\napp domain');
+{
+  const { POOLS_URL } = await import(base + 'lib/pools.js');
+  eq('liquidity requests are handed to the live pools app', POOLS_URL, 'https://app.soyara.xyz/pools');
+  const walk = (dir) => fs.readdirSync(base + dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(`${dir}/${d.name}`) : [`${dir}/${d.name}`]));
+  const stray = ['pages', 'lib', 'components', 'services', 'hooks', 'constants', 'scripts']
+    .flatMap(walk)
+    .filter((f) => /\.(js|jsx|mjs|md)$/.test(f) && !f.endsWith('scripts/regression.mjs'))
+    .filter((f) => /soyara\.com/.test(fs.readFileSync(base + f, 'utf8')));
+  eq('no link or example points at soyara.com', stray.join(', ') || 'none', 'none');
+}
+
 // Shipped: an approved trade could only settle while a Soyara tab was open,
 // because only the browser held its order. The server now keeps the order and
 // settles it itself when the verdict lands.

@@ -533,7 +533,7 @@ async function generateComprehensiveDiscussion(message) {
     const verb = intent.action === 'REMOVE_LIQUIDITY' ? 'Withdrawing' : 'Adding';
     return {
       reply: `### 💧 Liquidity happens on the pools app\n\n`
-        + `${verb} liquidity${pair} is handled at [app.soyara.com/pools](${POOLS_URL}), which is built for managing positions.\n\n`
+        + `${verb} liquidity${pair} is handled at [app.soyara.xyz/pools](${POOLS_URL}), which is built for managing positions.\n\n`
         + `I route and settle **swaps**. My seven agents compare every venue, read the pools behind the quote, run the `
         + `trade through GenLayer consensus, and verify on-chain that the approved commitment binds the route, the fee, `
         + `you and the quote before anything settles.\n\n`
@@ -632,7 +632,7 @@ async function generateComprehensiveDiscussion(message) {
     const pair = foundTokens.length >= 2 ? ` for **${foundTokens[0]}/${foundTokens[1]}**` : '';
     return {
       reply: `### 💧 Liquidity happens on the pools app\n\n`
-        + `Managing a position${pair} is handled at [app.soyara.com/pools](${POOLS_URL}), which is built for it.\n\n`
+        + `Managing a position${pair} is handled at [app.soyara.xyz/pools](${POOLS_URL}), which is built for it.\n\n`
         + `I route and settle **swaps**. My agents compare every venue, read the reserves behind the quote, run the `
         + `trade through GenLayer consensus, and verify on-chain that the approved commitment binds the route, the `
         + `fee, you and the quote before anything settles.\n\n`
@@ -702,7 +702,7 @@ export default async function handler(req, res) {
       const verb = asIntent.action === 'REMOVE_LIQUIDITY' ? 'Withdrawing' : 'Managing';
       return res.status(200).json({
         reply: `### 💧 Liquidity happens on the pools app\n\n`
-          + `${verb} liquidity${pair} is handled at [app.soyara.com/pools](${POOLS_URL}), which is built for positions.\n\n`
+          + `${verb} liquidity${pair} is handled at [app.soyara.xyz/pools](${POOLS_URL}), which is built for positions.\n\n`
           + `I route and settle **swaps**. My agents compare every venue, read the reserves behind the quote, run the `
           + `trade through GenLayer consensus, and verify on-chain that the approved commitment binds the route, the `
           + `fee, you and the quote before anything settles.\n\n`

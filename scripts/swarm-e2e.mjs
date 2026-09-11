@@ -37,7 +37,7 @@ console.log('\n=== 1. liquidity is handed off before any work is done ===');
   ok('no route was quoted', !types.includes('ROUTE_SIMULATED'));
   ok('no consensus round was opened', !types.includes('CONSENSUS_REACHED'));
   ok('nothing became executable', !types.includes('SWARM_COMPLETE'));
-  ok('names the pools app', f.some((x) => String(x.text).includes('app.soyara.com/pools')));
+  ok('names the pools app', f.some((x) => String(x.text).includes('app.soyara.xyz/pools')));
 }
 
 console.log('\n=== 2. an under-specified request is refused, not guessed ===');
