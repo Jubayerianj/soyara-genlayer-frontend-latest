@@ -930,44 +930,64 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   };
 
   // ── Consolidated swarm state ──────────────────────────────────────────────
-  //
-  // The closing line must describe what actually happened. An earlier version
-  // said "verified every binding on-chain" from a fixed string, and printed it
-  // directly under an auditor frame reporting that it had verified nothing -
-  // the same contradiction as the "Settled / executeSwap reverted" pair. Every
-  // claim below is now read from the result it refers to.
-  const objections = analysis.concerns.filter((c) => c.severity === 'high');
-  const bindingsHeld = audit.allBound === true;
-  const auditorLine = bindingsHeld
-    ? `${A.auditor.name} verified the bindings on-chain`
-    : `${A.auditor.name} could not verify the bindings`;
-
   yield {
     agent: A.intent,
     type: 'SWARM_COMPLETE',
     payload: { intent, route, risk, devInspection, analysis, strategy, audit },
-    text: risk.isPending
-      // Still undecided: the swarm has done its part, but there is no verdict to
-      // execute against yet. Saying "ready" here would be untrue.
-      ? `⏳ **Swarm finished, consensus still pending.** The validator round has not returned a verdict, so Execute `
-        + `stays disabled until it does. Your trade was not rejected.`
-      : !bindingsHeld
-        // Consensus approved, but nothing here could prove the approval binds
-        // this order. Do not present that as a finished agreement.
-        ? `⚠️ **Approved, but unverified.** Consensus authorised this trade and ${A.settlement.name} has a `
-          + `${strategy.eta || 'settlement'} rail, but ${A.auditor.name} could not confirm the commitment binds this `
-          + `exact order: ${failed.map((c) => c.detail).join(' ')} The executor performs the same check itself at `
-          + `settlement and refuses anything that does not match, so nothing unsafe can settle - but this run cannot `
-          + `show you the proof.`
-        : objections.length
-          // Approved is not the same as advisable, and the swarm should say
-          // which one it means.
-          ? `⚠️ **Approved, with ${objections.length} unresolved objection${objections.length === 1 ? '' : 's'} from `
-            + `${A.market.name}.** Consensus authorised this trade and ${auditorLine}, but the market read says the `
-            + `price behind it is not sound. Execute is enabled because the trade is authorised - the judgement call is yours.`
-          : `🎉 **Swarm agreement reached.** ${A.market.name} found no objection, consensus approved, `
-            + `${auditorLine}, and ${A.settlement.name} has a `
-            + `${strategy.eta || 'settlement'} rail ready. Execute for one-click non-custodial settlement.`,
+    text: swarmClosingLine({ risk, analysis, audit, strategy }),
     status: 'ready'
   };
+}
+
+/**
+ * The swarm's closing line.
+ *
+ * It must describe what actually happened. An earlier version said "verified
+ * every binding on-chain" from a fixed string, and printed it directly under an
+ * auditor frame reporting that it had verified nothing - the same contradiction
+ * as the "Settled / executeSwap reverted" pair. Every claim below is read from
+ * the result it refers to.
+ */
+export function swarmClosingLine({ risk, analysis, audit, strategy }) {
+  const A = AGENT_REGISTRY;
+  const objections = (analysis?.concerns || []).filter((c) => c.severity === 'high');
+  const checks = audit?.checks || [];
+  const failed = checks.filter((c) => !c.passed);
+  const bindingsHeld = audit?.allBound === true;
+  const auditorLine = bindingsHeld
+    ? `${A.auditor.name} verified the bindings on-chain`
+    : `${A.auditor.name} could not verify the bindings`;
+  const eta = strategy?.eta || 'settlement';
+
+  if (risk?.isPending) {
+    // Still undecided: the swarm has done its part, but there is no verdict to
+    // execute against yet. Saying "ready" here would be untrue - and an
+    // objection the Market Analyst raised still stands whatever consensus
+    // decides, so it is named here too rather than left in the scrollback.
+    return `⏳ **Swarm finished, consensus still pending.** The validator round has not returned a verdict, so Execute `
+      + `stays disabled until it does. Your trade was not rejected.`
+      + (objections.length
+        ? ` Separately, ${A.market.name} raised ${objections.length} unresolved objection${objections.length === 1 ? '' : 's'} `
+          + `about the price behind this quote: ${objections.map((c) => String(c.text || c.message || '').replace(/\*\*/g, '').split('. ')[0]).join('; ')}.`
+        : '');
+  }
+  if (!bindingsHeld) {
+    // Consensus approved, but nothing here could prove the approval binds this
+    // order. Do not present that as a finished agreement.
+    return `⚠️ **Approved, but unverified.** Consensus authorised this trade and ${A.settlement.name} has a `
+      + `${eta} rail, but ${A.auditor.name} could not confirm the commitment binds this `
+      + `exact order: ${failed.map((c) => c.detail).join(' ')} The executor performs the same check itself at `
+      + `settlement and refuses anything that does not match, so nothing unsafe can settle - but this run cannot `
+      + `show you the proof.`;
+  }
+  if (objections.length) {
+    // Approved is not the same as advisable, and the swarm should say which one
+    // it means.
+    return `⚠️ **Approved, with ${objections.length} unresolved objection${objections.length === 1 ? '' : 's'} from `
+      + `${A.market.name}.** Consensus authorised this trade and ${auditorLine}, but the market read says the `
+      + `price behind it is not sound. Execute is enabled because the trade is authorised - the judgement call is yours.`;
+  }
+  return `🎉 **Swarm agreement reached.** ${A.market.name} found no objection, consensus approved, `
+    + `${auditorLine}, and ${A.settlement.name} has a `
+    + `${eta} rail ready. Execute for one-click non-custodial settlement.`;
 }

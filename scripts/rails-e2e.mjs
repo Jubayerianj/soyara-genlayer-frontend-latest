@@ -93,7 +93,7 @@ async function mandateRail() {
   for (let i = 0; !live && i < 60; i += 1) {
     const c = await post('/api/agent-mandate', {
       mandateId: req.mandateId, checkOnly: true, roundTxHash: req.roundTxHash, roundSubmittedAt: req.roundSubmittedAt,
-    });
+    }).catch((e) => ({ live: false, note: e.message }));
     live = Boolean(c.live);
     if (live) { log(R, `mandate LIVE on executor: budget ${c.remainingBudget}, per-trade ${c.maxAmountIn}, expiry ${c.expiry}`); break; }
     if (i % 3 === 0) log(R, `  mandate not on the executor yet (finalization pending)`);
@@ -120,19 +120,48 @@ async function mandateRail() {
 
 async function consensusRail() {
   const R = 'consensus';
-  // Same pair, no mandate ids: this trade gets a round of its own.
-  const v = await validateUntilDecided(R, {
-    action: 'SWAP', user: USER, tokenIn: 'USDC', tokenOut: 'USDT', amountIn: '2', slippageBps: 30,
-  });
-  if (v.rail !== 'consensus' || !v.approved) throw new Error(`expected an approved consensus round, got ${v.rail}/${v.approved}: ${v.reason}`);
-  log(R, `approved by consensus, commitment ${v.commitment}`);
+  // --resume <file> picks up an approved round saved by an earlier run, so a
+  // wait that outlived the script (a timeout, a laptop asleep) is not lost.
+  let v;
+  if (arg('resume')) {
+    v = JSON.parse(fs.readFileSync(arg('resume'), 'utf8'));
+    log(R, `resuming round ${v.tx_hash}, commitment ${v.commitment}`);
+  } else {
+    // Same pair, no mandate ids: this trade gets a round of its own. A round
+    // that ends undecided (LEADER_TIMEOUT, UNDETERMINED) is a network
+    // condition, not a verdict - the app runs a fresh round, and so does this.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      v = await validateUntilDecided(R, {
+        action: 'SWAP', user: USER, tokenIn: 'USDC', tokenOut: 'USDT', amountIn: '2', slippageBps: 30,
+      });
+      if (v.approved || !v.retryable) break;
+      log(R, `  round undecided (${v.reason?.slice(0, 60)}...), fresh round ${attempt + 1}/3`);
+    }
+    if (v.rail !== 'consensus' || !v.approved) throw new Error(`expected an approved consensus round, got ${v.rail}/${v.approved}: ${v.reason}`);
+    log(R, `approved by consensus, commitment ${v.commitment}`);
+    const saved = `rails-e2e.consensus.${v.commitment.slice(2, 10)}.json`;
+    fs.writeFileSync(saved, JSON.stringify({
+      rail: v.rail, approved: v.approved, tx_hash: v.tx_hash, commitment: v.commitment,
+      pendingOrder: v.pendingOrder, pendingProgram: v.pendingProgram,
+    }, null, 2));
+    log(R, `  saved to ${saved}; continue a cut-short wait with --rail consensus --resume ${saved}`);
+  }
 
   const body = {
     rail: 'consensus', pendingOrder: v.pendingOrder, pendingProgram: v.pendingProgram,
     validationSubmitted: true, validationTxHash: v.tx_hash,
   };
-  for (let i = 0; i < 50; i += 1) {
-    const live = await client.readContract({ address: EXECUTOR, abi: ABI, functionName: 'isVerdictLive', args: [v.commitment] });
+  for (let i = 0; i < 90; i += 1) {
+    // One failed read (a node hiccup, a laptop waking up) must not end a wait
+    // that takes most of an hour. Log it and try again next tick.
+    let live = false;
+    try {
+      live = await client.readContract({ address: EXECUTOR, abi: ABI, functionName: 'isVerdictLive', args: [v.commitment] });
+    } catch (e) {
+      log(R, `  read failed (${e.shortMessage || e.message}), retrying`);
+      await sleep(15_000);
+      continue;
+    }
     if (live) {
       log(R, 'verdict LIVE on executor - settling');
       const s = await post('/api/agent-execute', body);
@@ -145,7 +174,7 @@ async function consensusRail() {
       return { rail: R, hash: s.execTxHash, commitment: v.commitment };
     }
     // Drive finalization the way the settlement queue does.
-    await post('/api/finalize-round', { txHash: v.tx_hash, submittedAt: t0 });
+    await post('/api/finalize-round', { txHash: v.tx_hash, submittedAt: t0 }).catch(() => null);
     if (i % 3 === 0) log(R, '  verdict not on the executor yet (appeal window)');
     await sleep(60_000);
   }

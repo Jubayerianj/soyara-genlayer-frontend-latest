@@ -6,17 +6,21 @@
 // and validated but had no settlement path at all - an approved withdrawal did
 // nothing on-chain.
 //
-// Same enforced flow as swaps and deposits:
+// Same enforced path as swaps and deposits:
 //
-//   AgentValidator.validate_proposal(action="REMOVE_LIQUIDITY")  ← consensus WRITE
-//        ↓ verdict recorded on-chain
-//   this route reads it back with get_validation                 ← never trusted from the client
+//   AgentExecutor.getLiquidityV2RemoveHash(...)       ← the commitment, derived by the
+//                                                       contract from the exact withdrawal
 //        ↓
-//   AgentValidator.validate_liquidity_v2_remove(...)             ← consensus round; the IC
-//                                                                 confirms lpToken IS the
-//                                                                 canonical pair, then emits
-//                                                                 recordVerdict on finalization
-//   AgentExecutor.executeRemoveLiquidityV2(...)                  ← checks + CONSUMES the verdict
+//   AgentValidator.validate_liquidity_v2_remove(...)  ← consensus round; the IC confirms
+//                                                       lpToken IS the canonical pair, then
+//                                                       emits recordVerdict on finalization
+//        ↓
+//   AgentExecutor.executeRemoveLiquidityV2(...)       ← re-derives the commitment and
+//                                                       CONSUMES the verdict, single use
+//
+// Only the AgentValidator IC can write that verdict, so `validationApproved` in
+// the request body is a fail-closed hint, never the authorisation. There is no
+// V3 withdrawal path: the IC has no V3 liquidity validator.
 //
 // The user must have approved their LP token to AgentExecutor, because
 // executeRemoveLiquidityV2 pulls the LP position with transferFrom.

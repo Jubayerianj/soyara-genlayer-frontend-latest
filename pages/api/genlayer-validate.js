@@ -87,7 +87,7 @@ export default async function handler(req, res) {
   // Keeper account for public calls (finalising idle transactions).
   const agentAccount = getKeeperAccount();
 
-  // ── Polling path: check status of an already-submitted validate_proposal tx ──
+  // ── Polling path: check status of an already-submitted consensus round ──
   // Used when a prior call returned pending:true. This does NOT resubmit a
   // transaction - it just re-checks the existing one, so polling repeatedly
   // never adds more load to the network.

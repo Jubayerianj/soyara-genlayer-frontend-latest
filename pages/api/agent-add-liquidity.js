@@ -2,27 +2,27 @@
 //
 // SERVER-SIDE AGENT LIQUIDITY ROUTE
 // =================================
-// The liquidity counterpart to /api/agent-execute, enforcing the same
-// GenLayer-to-settlement flow:
+// The V2 deposit counterpart to /api/agent-execute, on the same enforced path:
 //
-//   AgentValidator.validate_proposal(action="ADD_LIQUIDITY")   ← consensus WRITE
-//        ↓ verdict recorded on-chain
-//   this route reads the verdict back with get_validation       ← never trusted from the client
+//   AgentExecutor.getLiquidityV2AddHash(...)        ← the commitment, derived by the
+//                                                     contract from the exact deposit
 //        ↓
-//   AgentValidator.validate_liquidity_v2_add(...)               ← consensus round; the IC
-//                                                                 emits recordVerdict to the
-//                                                                 executor on finalization
-//   AgentExecutor.executeAddLiquidityV2(...)                    ← checks + CONSUMES the verdict
+//   AgentValidator.validate_liquidity_v2_add(...)   ← consensus round; the IC confirms
+//                                                     the canonical factory pair and emits
+//                                                     recordVerdict on finalization
+//        ↓
+//   AgentExecutor.executeAddLiquidityV2(...)        ← re-derives the commitment and
+//                                                     CONSUMES the verdict, single use
 //
-// Why AgentValidator and not LiquidityValidator: LiquidityValidator has no
-// verdict persistence (no `get_validation`, no `compute_proposal_id`), so a
-// verdict issued by it cannot be re-read on-chain at settlement time and the
-// flow could not be enforced without redeploying that IC. AgentValidator already
-// accepts ADD_LIQUIDITY and records the verdict, so liquidity and swaps share one
-// enforcement path.
+// Only the AgentValidator IC can write that verdict, so the gate is on chain:
+// `validationApproved` in the request body is a fail-closed hint for callers,
+// never the thing that authorises a deposit. The retired LiquidityValidator IC
+// is not involved, and there is no V3 deposit path: the IC has no V3 liquidity
+// validator, and /api/genlayer-validate refuses V3 before any round.
 //
-// Before this route existed, an approved liquidity proposal on /a2a validated and
-// then did nothing at all on-chain - the Execute button only ever settled swaps.
+// The aggregator's own agent surfaces hand liquidity to the pools app before
+// anything is quoted. This route serves API callers such as the SDK's
+// `SoyaraClient.addLiquidity`.
 
 import { createPublicClient, createWalletClient, http, zeroAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';

@@ -151,5 +151,35 @@ const noMandate = await PostTradeAuditorAgent.preflight({
 });
 ok('refuses to claim mandate bindings it cannot check', noMandate.passed === false && noMandate.allBound === false);
 
+// The closing line under every verdict state. Whether a live round is still
+// pending when the swarm finishes depends on how fast the validators are that
+// minute, so the live e2e cannot be relied on to reach every branch; this can.
+console.log('\nclosing line');
+{
+  const { swarmClosingLine } = await import('../services/a2a/agents.js');
+  const objection = { severity: 'high', topic: 'dislocation', text: 'The winning path pays about **21.0x** the direct pool. Pools disagree.' };
+  const bound = { allBound: true, checks: [{ name: 'Commitment binds this exact order', passed: true }] };
+  const unbound = { allBound: false, checks: [{ name: 'Commitment binds this exact order', passed: false, detail: 'MISMATCH.' }] };
+  const strategy = { rail: 'consensus', eta: '~40 minutes' };
+
+  const pendingBad = swarmClosingLine({ risk: { isPending: true }, analysis: { concerns: [objection] }, audit: unbound, strategy });
+  ok('pending: says consensus is still pending', /consensus still pending/.test(pendingBad));
+  ok('pending: says the trade was not rejected', /not rejected/.test(pendingBad));
+  ok('pending: still names the objection', /objection/i.test(pendingBad) && /21\.0x the direct pool/.test(pendingBad), pendingBad.slice(-90));
+  const pendingClean = swarmClosingLine({ risk: { isPending: true }, analysis: { concerns: [{ ...objection, severity: 'medium' }] }, audit: unbound, strategy });
+  ok('pending: a medium concern is not called an objection', !/objection/i.test(pendingClean));
+  ok('pending with a live dislocated read names it', /objection/i.test(
+    swarmClosingLine({ risk: { isPending: true }, analysis: bad, audit: unbound, strategy })) === bad.concerns.some((c) => c.severity === 'high'));
+
+  const unverified = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [] }, audit: unbound, strategy });
+  ok('approved but unbound: never called an agreement', /Approved, but unverified/.test(unverified) && !/agreement/i.test(unverified));
+  const contested = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [objection] }, audit: bound, strategy });
+  ok('approved with objections: counts them', /Approved, with 1 unresolved objection from/.test(contested));
+  const agreed = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [] }, audit: bound, strategy });
+  ok('approved, bound, clean: agreement and the rail eta', /Swarm agreement reached/.test(agreed) && /~40 minutes rail ready/.test(agreed));
+  ok('no branch uses an em dash', ![pendingBad, pendingClean, unverified, contested, agreed].some((s) => s.includes('\u2014')));
+  ok('a missing analysis or audit does not throw', typeof swarmClosingLine({ risk: { isPending: true } }) === 'string');
+}
+
 console.log(`\n${fail === 0 ? 'All swarm agent checks passed.' : fail + ' CHECK(S) FAILED'}  (${pass} passed)`);
 process.exit(fail === 0 ? 0 : 1);

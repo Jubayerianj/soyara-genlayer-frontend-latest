@@ -93,7 +93,8 @@ export default function SdkPage() {
               >
                 View the package
               </a>
-              . <code>viem</code> is a peer dependency, so install it alongside.
+              {' '}(0.3.0 or newer targets the contracts in service; earlier releases target a retired
+              executor). <code>viem</code> is a peer dependency, so install it alongside.
             </p>
           </div>
         </div>
@@ -112,7 +113,8 @@ export default function SdkPage() {
               { icon: Globe, k: 'parseIntent', d: 'natural language → structured intent', server: false },
               { icon: Globe, k: 'quoteBestRouteMultiHop', d: 'live best-route pricing, direct + multi-hop', server: false },
               { icon: Globe, k: 'buildProgram', d: 'AGGFlow settlement calldata', server: false },
-              { icon: Server, k: 'validate', d: 'GenLayer consensus write - needs a funded account', server: true },
+              { icon: Globe, k: 'readSettlementPlan / verifyBindings / readMandate', d: 'which rail settles, and proof the authority covers this exact order', server: false },
+              { icon: Server, k: 'validate / requestMandate', d: 'GenLayer consensus writes - need a funded account', server: true },
               { icon: Server, k: 'settleSwap / addLiquidity / removeLiquidity', d: 'needs an authorised agent on AgentExecutor', server: true },
             ].map((r) => (
               <div key={r.k} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: '0.83rem' }}>
@@ -143,7 +145,7 @@ export default function SdkPage() {
           <p style={{ color: muted, fontSize: '0.84rem', marginTop: 0, marginBottom: 12 }}>
             Understand and price a request in one call - no key required.
           </p>
-          <Code isDark={isDark}>{`import { understand, SoyaraClient } from '@soyaradex/sdk';
+          <Code isDark={isDark}>{`import { understand, SoyaraClient, verifyBindings } from '@soyaradex/sdk';
 
 // 1. Parse + price. Pure + public RPC, no key.
 const { intent, quote } = await understand('swap 50 USDC to USDT');
@@ -155,17 +157,28 @@ if (!intent.confident) {
 
 console.log(quote.amountOutRaw, quote.isMultiHop ? \`via \${quote.via}\` : 'direct');
 
-// 2. Consensus, then settle.
+// 2. Validate. The server picks the rail before any round is opened:
+//    'mandate' when a mandate you pass covers this exact order, else 'consensus'.
 const soyara = new SoyaraClient({ baseUrl: 'https://your-deployment.example' });
 
-const verdict = await soyara.validate(proposal, {
-  onProgress: ({ phase, attempt }) => console.log(phase, attempt),
+const verdict = await soyara.validate({
+  action: 'SWAP', user, tokenIn: 'USDC', tokenOut: 'USDT', amountIn: '50', slippageBps: 50,
+  mandateIds, // optional, from soyara.requestMandate()
 });
+if (!verdict.approved) return reply(verdict.reason);
 
-if (verdict.approved) {
-  const receipt = await soyara.settleSwap(trade);
-  console.log('settled:', receipt.explorerUrl);
-}`}</Code>
+// 3. On the consensus rail, prove the verdict binds this order.
+if (verdict.rail === 'consensus') {
+  const b = await verifyBindings({
+    order: verdict.order, program: verdict.program, commitment: verdict.commitment, user,
+  });
+  if (!b.bound) throw new Error('verdict does not bind this order');
+}
+
+// 4. Settle through AgentExecutor, on that rail and no other.
+//    err.pending means the verdict is still in its appeal window: retry later.
+const receipt = await soyara.settleSwap(verdict);
+console.log('settled:', receipt.explorerUrl);`}</Code>
         </section>
 
         {/* Why it's safe */}
@@ -191,8 +204,10 @@ if (verdict.approved) {
             </li>
             <li>
               Repeated trades in one direction can instead settle under a <strong>mandate</strong> an
-              earlier round issued. The executor checks each trade against it - size, budget, fee, route -
-              and prices it from the pool itself, so they settle in seconds without a round each.
+              earlier round issued (<code>soyara.requestMandate()</code>). The executor checks each trade
+              against it - size, budget, fee, route - and prices it from the pool itself, so they settle in
+              seconds without a round each. There is no third rail: an order no verdict or mandate covers
+              does not settle.
             </li>
           </ol>
           <p style={{ color: muted, fontSize: '0.78rem', marginBottom: 0, marginTop: 12 }}>

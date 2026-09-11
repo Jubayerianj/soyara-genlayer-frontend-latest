@@ -27,3 +27,6 @@ yarn-error.log*
 
 # scratch test scripts
 __*.mjs
+
+# rails-e2e saves an approved round here so a cut-short wait can resume
+rails-e2e.consensus.*.json

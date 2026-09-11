@@ -251,7 +251,7 @@ export default function AIPage() {
     }
   };
 
-  // Poll a pending validate_proposal tx (does NOT resubmit - just re-checks status)
+  // Poll a pending validate_swap round (does NOT resubmit - just re-checks status)
   // until it resolves or we give up. GenVM consensus rounds on Bradbury testnet can
   // occasionally take several minutes under load; treating a slow round as an
   // immediate hard rejection is misleading, so this keeps checking in the background.

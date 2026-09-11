@@ -45,7 +45,7 @@ import {
   Compass,
   Gauge
 } from 'lucide-react';
-import { CONTRACT_ADDRESSES, INTELLIGENT_CONTRACTS } from '../constants/addresses';
+import { CONTRACT_ADDRESSES, INTELLIGENT_CONTRACTS, RETIRED_CONTRACTS } from '../constants/addresses';
 import { useTheme } from '../components/contexts/ThemeContext';
 import styles from '../styles/Docs.module.css';
 
@@ -920,7 +920,7 @@ if __name__ == "__main__":
                 <div className={styles.subSection}>
                   <h2 className={styles.h2}>Retired: LiquidityValidator</h2>
                   <p className={styles.p}>
-                    A separate <code className={styles.inlineCode}>LiquidityValidator</code> contract (<code className={styles.code}>{INTELLIGENT_CONTRACTS.liquidityValidator}</code>) was deployed earlier with V2 and V3 checks. AgentExecutor never accepted its answers, so it authorised nothing; the app answered V3 requests with a read simulation against it, which looked like consensus and could never settle. That call is removed and the contract is retired.
+                    A separate <code className={styles.inlineCode}>LiquidityValidator</code> contract (<code className={styles.code}>{RETIRED_CONTRACTS.liquidityValidator}</code>) was deployed earlier with V2 and V3 checks. AgentExecutor never accepted its answers, so it authorised nothing; the app answered V3 requests with a read simulation against it, which looked like consensus and could never settle. That call is removed and the contract is retired.
                   </p>
                 </div>
               </article>

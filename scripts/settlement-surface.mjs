@@ -103,6 +103,53 @@ ok('the app never calls the LiquidityValidator contract',
    !files.some((f) => /GENLAYER_CONFIG\.liquidityValidator|address:\s*INTELLIGENT_CONTRACTS\.liquidityValidator/.test(read(f))),
    files.filter((f) => /GENLAYER_CONFIG\.liquidityValidator/.test(read(f))).map(rel).join(', '));
 
+// ── 1b. Nothing targets a retired contract ───────────────────────────────────
+// Two test scripts kept settling against the 2026-09-07 executor, one of them
+// signing attestor verdicts for a parameter the deployed executor does not
+// have. A retired address in code is a call that will be refused, or a
+// description of a trust model that no longer exists.
+console.log('\nRetired contracts');
+const RETIRED = {
+  '0xa835c0a86dD64726eF23D83a8ca7D60b542EE2e4': 'pre-enforcement executor',
+  '0x0F1E98571BADd0fF59a34140Fe1e820DaDF907E1': 'executor, 2026-09-07 pair',
+  '0xf47492A969b2bC8f99B62Bdf8958541F2234C42b': 'AgentValidator, 2026-09-07 pair',
+  '0x758d57cF9c96bC6235c1fA3929209A1C42346E18': 'executor, 2026-09-08 pair',
+  '0x0a7125fdFAf4092b10Be8f509ce76A2AE7f5735A': 'AgentValidator, 2026-09-08 pair',
+  '0x0c4F0F784cC06fb6964e2C9Ab4704ebfB4d64cFb': 'AgentValidator, first mandate build',
+  '0x7aBa03DD415A096845A9C0ce8893E86EF74f8a98': 'earlier AgentValidator',
+};
+const scriptFiles = walk(path.join(base, 'scripts'));
+for (const [addr, what] of Object.entries(RETIRED)) {
+  const hits = [...files, ...scriptFiles].filter((f) => code(read(f)).toLowerCase().includes(addr.toLowerCase())
+    && !f.endsWith('settlement-surface.mjs'));
+  ok(`no code targets the retired ${what}`, hits.length === 0, hits.map(rel).join(', '));
+}
+// The /sdk page tells developers what to call. Every SDK import and client
+// method it shows must exist in the SDK: its quick start once called
+// `settleSwap(trade)` with a `trade` that was never defined.
+const SDK_DIR = path.join(base, '../../contracts-sdks-others/sdk');
+if (fs.existsSync(path.join(SDK_DIR, 'src/index.js'))) {
+  const sdk = await import(path.join(SDK_DIR, 'src/index.js'));
+  const page = read(path.join(base, 'pages/sdk.jsx'));
+  const imported = [...page.matchAll(/import\s*\{([^}]+)\}\s*from\s*'@soyaradex\/sdk'/g)]
+    .flatMap((m) => m[1].split(',').map((x) => x.trim()).filter(Boolean));
+  const missingImports = imported.filter((n) => !(n in sdk));
+  ok('the /sdk page imports only what the SDK exports', imported.length > 0 && missingImports.length === 0,
+     missingImports.join(', ') || imported.join(', '));
+  const methods = [...new Set([...page.matchAll(/\bsoyara\.([a-zA-Z]+)\(/g)].map((m) => m[1]))];
+  const missingMethods = methods.filter((m) => typeof sdk.SoyaraClient.prototype[m] !== 'function');
+  ok('and calls only methods SoyaraClient has', methods.length > 0 && missingMethods.length === 0,
+     missingMethods.join(', ') || methods.join(', '));
+  ok('and settles the validated result, not an undefined trade', !/settleSwap\(\s*trade\s*\)/.test(page));
+} else {
+  console.log('  note  SDK source not beside the app; /sdk page API check skipped');
+}
+ok('the live address maps carry no LiquidityValidator',
+   !('liquidityValidator' in INTELLIGENT_CONTRACTS) && !('liquidityValidator' in A));
+const attestorSigners = [...files, ...scriptFiles].filter((f) => !f.endsWith('settlement-surface.mjs')
+  && /SettlementVerdict|ATTESTOR_PRIVATE_KEYS/.test(code(read(f))));
+ok('nothing signs an attestor verdict', attestorSigners.length === 0, attestorSigners.map(rel).join(', '));
+
 // ── 2. The agent path settles only through AgentExecutor ─────────────────────
 console.log('\nAgent surfaces: no direct settlement');
 const hook = code(read(path.join(base, 'hooks/useAgentSwapExecution.js')));
