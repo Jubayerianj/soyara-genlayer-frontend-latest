@@ -789,6 +789,28 @@ try {
   }
 } catch (e) { bad('proposal deadlines', e.message); }
 
+// Shipped: a trade from native GEN was settled with the relayer's own GEN.
+// AgentExecutor pulls ERC-20s from the user, but for native GEN it forwards
+// the settling transaction's value, and the relayer sends that transaction. So
+// "swap 1 GEN to USDC" paid the user out of the relayer. Agent trades start
+// from WGEN; the user wraps GEN in their own wallet first.
+console.log('\nnative GEN input');
+try {
+  const { isNativeGen, nativeInputReason } = await import(base + 'lib/nativeInput.js');
+  eq('GEN, its zero address and its token object all read as native', isNativeGen('GEN') && isNativeGen('0x0000000000000000000000000000000000000000') && isNativeGen({ symbol: 'GEN', isNative: true }) && !isNativeGen('WGEN') && !isNativeGen('USDC'), true);
+  eq('the reason is one short line', nativeInputReason(1, 'USDC').length <= 110, true);
+  const { buildSwapOrder } = await import(base + 'lib/swapOrder.js');
+  const untouchable = new Proxy({}, { get() { throw new Error('touched the chain'); } });
+  const r = await buildSwapOrder({ publicClient: untouchable, executor: '0x1', abi: [], user: '0x23D542DCEFb00b1f4268E67a0EC1EF4de0A58fe2', tokenIn: '0x0000000000000000000000000000000000000000', tokenOut: '0x58B6CD7891cd0A682226E25607b958a6479195A6', amountIn: '1000000000000000000', slippageBps: 30, deadline: Math.floor(Date.now() / 1000) + 7200 });
+  eq('the order builder refuses GEN in, before any quote or round', !r.ok && r.status === 400 && r.body.wrapFirst === true, true);
+  const exec = fs.readFileSync(base + 'pages/api/agent-execute.js', 'utf8');
+  eq('the settlement route refuses it too, and never sends value', /order\.tokenIn === zeroAddress\) \{\s*return res\.status\(400\)/.test(exec) && !/value:\s*isNative/.test(exec), true);
+  eq('the agent marks a GEN trade not executable, with the wrap to do instead', /executable: quote\.isLiveQuote === true && !nativeIn/.test(fs.readFileSync(base + 'pages/api/agent-v2.js', 'utf8')), true);
+  eq('so does the swarm, and it opens no round for one', /executable: route\.isLiveQuote !== false && !isNativeGen\(route\.tokenIn\)/.test(fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8'))
+     && /userAddress && !isNativeGen\(route\.tokenIn\)/.test(fs.readFileSync(base + 'services/a2a/agents.js', 'utf8')), true);
+  eq('/ai does not pre-validate a proposal that can never settle', /if \(data\.proposal\.executable !== false\) handleValidateRef/.test(fs.readFileSync(base + 'pages/ai.jsx', 'utf8')), true);
+} catch (e) { bad('native GEN input', e.message); }
+
 // Shipped: every link to the app said app.soyara.com, which never resolved
 // (soyara.com is an unrelated company). The app lives at app.soyara.xyz.
 console.log('\napp domain');

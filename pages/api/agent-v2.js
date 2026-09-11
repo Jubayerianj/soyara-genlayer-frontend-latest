@@ -5,6 +5,7 @@ import { quoteBestRouteMultiHop, quoteBestRoute, getQuoteClient } from '../../li
 import { TOKEN_LIST, GEN_NATIVE_TOKEN } from '../../constants/tokens.js';
 import { CONTRACT_ADDRESSES, INTELLIGENT_CONTRACTS } from '../../constants/addresses.js';
 import { POOLS_URL, mentionsLiquidity } from '../../lib/pools.js';
+import { isNativeGen, nativeInputReason } from '../../lib/nativeInput.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -370,6 +371,9 @@ async function buildProposalObject(action, params) {
     const tokenOutSym = normalizeToken(params.tokenOut || params.toToken) || 'GEN';
     const amountIn = parseFloat(params.amountIn || params.fromAmount || 100);
     const quote = await calculateQuote(tokenInSym, tokenOutSym, amountIn, params.dex || params.model || 'best');
+    // GEN -> WGEN is a wrap, done in the user's own wallet. Any other trade
+    // from GEN would be paid for by the relayer, so it is never executable.
+    const nativeIn = isNativeGen(tokenInSym) && tokenOutSym !== 'WGEN';
 
     const tokenInObj = getTokenObject(tokenInSym);
     const tokenOutObj = getTokenObject(tokenOutSym);
@@ -419,10 +423,14 @@ async function buildProposalObject(action, params) {
       // pool behind it - settling one can only revert. Mark it so the UI can
       // refuse execution up front instead of failing at settlement.
       isLiveQuote: quote.isLiveQuote === true,
-      executable: quote.isLiveQuote === true,
-      notExecutableReason: quote.isLiveQuote === true
-        ? null
-        : `No liquidity pool exists for ${tokenInSym}/${tokenOutSym} on Soyara DEX. The rate shown is a reference estimate only and cannot be executed.`,
+      // Native GEN in cannot be taken from the user's wallet (lib/nativeInput.js);
+      // the agent offers the wrap instead of a trade the relayer would pay for.
+      executable: quote.isLiveQuote === true && !nativeIn,
+      notExecutableReason: nativeIn
+        ? nativeInputReason(amountIn, tokenOutSym)
+        : quote.isLiveQuote === true
+          ? null
+          : `No liquidity pool exists for ${tokenInSym}/${tokenOutSym} on Soyara DEX. The rate shown is a reference estimate only and cannot be executed.`,
       genlayerContract: INTELLIGENT_CONTRACTS.agentValidator,
     };
   }

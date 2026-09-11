@@ -215,7 +215,9 @@ export default function AIPage() {
         // connecting their wallet, so by the time they hit Execute the approval
         // is usually already in hand. Same enforced flow and same one-time
         // approval hash - just moved off the user's critical path.
-        handleValidateRef.current?.(0, data.proposal);
+        // Not for a proposal that can never settle (no pool, or native GEN in):
+        // the panel says why, and no round is spent on it.
+        if (data.proposal.executable !== false) handleValidateRef.current?.(0, data.proposal);
       }
 
       setMessages([

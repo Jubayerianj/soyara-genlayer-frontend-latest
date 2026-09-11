@@ -15,6 +15,7 @@ import { recordActivity } from '../../lib/txStore';
 import { ensureMandateRequested } from '../../lib/mandate';
 import { mergeVerdictResponse, applyLateVerdict, describeWait } from '../../lib/settlement';
 import { notices } from '../../lib/notify';
+import { isNativeGen, nativeInputReason } from '../../lib/nativeInput';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
 
@@ -128,10 +129,13 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       // 1:1 estimate so the swarm dialogue can still complete. That estimate has
       // no liquidity behind it and can only revert, so it must never be
       // executable - e.g. ETH has no pool on Bradbury at all.
-      executable: route.isLiveQuote !== false,
-      notExecutableReason: route.isLiveQuote === false
-        ? `No pool for ${route.tokenIn.symbol}/${route.tokenOut.symbol} on Soyara, so this rate cannot be executed.`
-        : null,
+      // And never from native GEN: the relayer would pay for it (lib/nativeInput.js).
+      executable: route.isLiveQuote !== false && !isNativeGen(route.tokenIn),
+      notExecutableReason: isNativeGen(route.tokenIn)
+        ? nativeInputReason(intent?.amountIn ?? null, route.tokenOut.symbol)
+        : route.isLiveQuote === false
+          ? `No pool for ${route.tokenIn.symbol}/${route.tokenOut.symbol} on Soyara, so this rate cannot be executed.`
+          : null,
       priceImpactPct: typeof route.priceImpact === 'number' ? route.priceImpact : null,
       highImpact: typeof route.priceImpact === 'number' && route.priceImpact >= 5,
     };

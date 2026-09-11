@@ -14,6 +14,7 @@ import { recallMandateIds } from '../../lib/mandate.js';
 import { MarketAnalystAgent, SettlementStrategistAgent, PostTradeAuditorAgent, buildDebate } from './analysts.js';
 // One definition of the liquidity handoff, shared with the /ai API route.
 import { POOLS_URL, isLiquidityIntent, liquidityRedirectMessage } from '../../lib/pools.js';
+import { isNativeGen, nativeInputReason } from '../../lib/nativeInput.js';
 export { POOLS_URL, isLiquidityIntent, liquidityRedirectMessage };
 
 // ── Live on-chain quoting ───────────────────────────────────────────────────
@@ -675,7 +676,8 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
   // Consensus is the long pole, and the round does not depend on the market
   // read, so it starts now and runs while the pools are read. The market
   // findings still come first on screen; they just no longer add to the wait.
-  const riskPromise = userAddress
+  // Never for native GEN in: the relayer would pay for it (lib/nativeInput.js).
+  const riskPromise = userAddress && !isNativeGen(route.tokenIn)
     ? RiskValidatorAgent.validate(
       intent, route, userAddress, config.onProgress || null,
       { excludeMandateIds: config.excludeMandateIds || [] },
@@ -734,6 +736,19 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
       type: 'CONSENSUS_REACHED',
       data: { isApproved: false, isPending: false, checks: [] },
       text: '🔌 Connect a wallet to continue. The approval is tied to your address.',
+      status: 'error'
+    };
+    return;
+  }
+
+  // Native GEN cannot be taken from the user's wallet, so there is nothing to
+  // put to consensus: the user wraps it first, then trades WGEN.
+  if (isNativeGen(route.tokenIn)) {
+    yield {
+      agent: A.risk,
+      type: 'CONSENSUS_REACHED',
+      data: { isApproved: false, isPending: false, checks: [] },
+      text: `🔁 ${nativeInputReason(intent?.amountIn ?? null, route.tokenOut.symbol)}`,
       status: 'error'
     };
     return;

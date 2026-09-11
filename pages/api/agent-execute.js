@@ -68,6 +68,7 @@ import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swap
 import { obtainVerdict, isVerdictLive, readVerdictState, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
 import { findCoveringMandate, expectedOutUnderMandate, mandateMinAmountOut } from '../../lib/mandateCoverage.js';
 import { recordSettled } from '../../lib/settlementBackend.js';
+import { nativeInputReason } from '../../lib/nativeInput.js';
 import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
 
 // Commitments this server is sending a settlement for right now. The browser
@@ -260,6 +261,12 @@ export default async function handler(req, res) {
 
     console.log(`[agent-execute] commitment ${commitment.slice(0, 10)}... user=${order.user}`);
     console.log(`[agent-execute] amountIn=${order.amountIn} quoted=${order.quotedAmountOut} minOut=${order.minAmountOut} slippage=${order.slippageBps}bps`);
+
+    // Never pay for a trade. With native GEN in, AgentExecutor would take the
+    // input from this relayer's transaction, not from the user's wallet.
+    if (order.tokenIn === zeroAddress) {
+      return res.status(400).json({ success: false, wrapFirst: true, error: nativeInputReason() });
+    }
 
     // ── STEP 2: Pre-flight allowance / balance check ─────────────────────────
     // AgentExecutor pulls tokenIn from the user with transferFrom. If the user
@@ -577,13 +584,12 @@ export default async function handler(req, res) {
     //
     // There is no attestations argument any more: the executor already holds
     // the verdict, or the call reverts with NoConsensusVerdict.
-    const isNative = order.tokenIn === zeroAddress;
+    // No value, ever: the input comes from the user's wallet (checked above).
     const execTxHash = await sendWithRetry(() => walletClient.writeContract({
       address: agentExecutorAddress,
       abi: AGENT_EXECUTOR_ABI,
       functionName: 'executeSwap',
       args: [order, aggProgram],
-      value: isNative ? order.amountIn : 0n,
     }), 'executeSwap');
 
     console.log(`[agent-execute] executeSwap submitted: ${execTxHash}`);
