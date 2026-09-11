@@ -166,6 +166,13 @@ for (const f of SETUP_DOCS) {
   ];
   ok(`${rel(f)} names no retired contract or removed method`, stale.length === 0, stale.join(', '));
 }
+// The same wait was shown as "~40 minutes", "15 to 25 minutes" and "about 30
+// minutes" on one page. Measured on 2026-09-11, twice: the authority reaches
+// the executor 30 minutes after the round's last vote. Only that figure ships.
+const staleWindow = files.filter((f) => /15 ?(to|-) ?25 min|~40 min|roughly 40 min|forty minutes/i.test(code(read(f))));
+ok('no user-facing copy names a stale finality window', staleWindow.length === 0, staleWindow.map(rel).join(', '));
+ok('the settlement queue estimates the measured window',
+   (await import(base + 'lib/settlement.js')).APPEAL_WINDOW_MS === 31 * 60 * 1000);
 ok('the live address maps carry no LiquidityValidator',
    !('liquidityValidator' in INTELLIGENT_CONTRACTS) && !('liquidityValidator' in A));
 const attestorSigners = [...files, ...scriptFiles].filter((f) => !f.endsWith('settlement-surface.mjs')

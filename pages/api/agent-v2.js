@@ -772,7 +772,7 @@ The swarm you speak for:
   settles through AgentExecutor, which refuses anything the AgentValidator IC
   did not authorise: a consensus mandate an earlier round issued for this user
   and pair (seconds), a verdict already on chain (seconds), or this trade's own
-  verdict after the appeal window (~40 min). There is no path that skips the
+  verdict after the appeal window (~30 min). There is no path that skips the
   executor.
 - Post-Trade Auditor asks the executor to re-derive the commitment from the order
   and verifies every binding, then reads the receipt afterwards to report what

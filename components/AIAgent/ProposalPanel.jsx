@@ -101,7 +101,7 @@ const ProposalPanel = ({
   //
   // `validationResult.pending` means the round was SUBMITTED and we are waiting
   // for it to finalize - which is the appeal window, not validation. Rendering
-  // it as `validating` is what made a normal 15-25 minute wait look like a
+  // it as `validating` is what made a normal 30-minute wait look like a
   // stuck spinner, because the label never changed and no ETA was ever shown.
   //
   // A mandate-covered trade has no appeal window of its own: its authority is

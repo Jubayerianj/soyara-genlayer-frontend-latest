@@ -16,7 +16,7 @@
 //              Wait for the verdict to reach the executor, then settle it with
 //              executeSwap, which consumes the verdict.
 //
-// Each rail waits out one appeal window (15 to 25 minutes on Bradbury). They
+// Each rail waits out one appeal window (30 minutes after the last vote on Bradbury). They
 // run concurrently. Every step is logged with its transaction hash.
 
 import { createPublicClient, http, decodeEventLog } from 'viem';

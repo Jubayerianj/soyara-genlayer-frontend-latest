@@ -116,7 +116,7 @@ export default function AIPage() {
   // Trades waiting on their consensus verdict.
   //
   // A validated trade goes in here rather than holding the page in a loading
-  // state: the appeal window runs to roughly 40 minutes, the queue survives
+  // state: the appeal window runs to about 30 minutes, the queue survives
   // navigation and reloads, and settlement happens on its own when the verdict
   // reaches the executor. The user is free as soon as the round is submitted.
   const settlementQueue = useSettlementQueue();
@@ -518,7 +518,7 @@ export default function AIPage() {
       // And ask for the token approval NOW, while the appeal window is still
       // running, instead of at the end. The signature is the only thing that
       // needs the user, so it belongs at the point where they are still
-      // watching, not 40 minutes later when they have moved on.
+      // watching, not half an hour later when they have moved on.
       if (data.approved && data.pendingOrder && data.pendingProgram) {
         settlementQueue.enqueue({
           commitment: data.commitment,
@@ -754,7 +754,7 @@ export default function AIPage() {
             role: 'assistant',
             content: `⏳ **Consensus approved this trade. The verdict is on its way to the executor.**\n\n`
               + `GenLayer delivers a verdict to the settlement contract only once the round can no longer `
-              + `be appealed, which takes roughly **15 to 25 minutes** on Bradbury. That wait belongs to the `
+              + `be appealed, which takes about **30 minutes** on Bradbury. That wait belongs to the `
               + `network, not to this page.\n\n`
               + `It is now on your settlement queue below and will execute by itself the moment the verdict `
               + `lands - you can close this page.`,

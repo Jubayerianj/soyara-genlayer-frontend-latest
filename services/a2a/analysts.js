@@ -294,7 +294,7 @@ export class SettlementStrategistAgent {
    *               executeSwapUnderMandate call, seconds.
    *   reuse     - a live verdict already covers this exact commitment. Instant.
    *   consensus - wait for the GenLayer round to finalize and deliver the
-   *               verdict over its ghost contract (appeal window, ~40 min).
+   *               verdict over its ghost contract (appeal window, ~30 min).
    *
    * There was a fourth, an EIP-712 attestor quorum that carried the verdict in
    * about thirty seconds. It has been removed from the executor: nothing on
@@ -378,7 +378,7 @@ export class SettlementStrategistAgent {
         + `${formatDuration(secondsToExpiry)}. Nothing needs to be re-decided - settlement is a single call.`;
     } else {
       rail = 'consensus';
-      eta = '~40 minutes';
+      eta = '~30 minutes';
       rationale = `The verdict arrives the only way it can: the GenLayer round must finalize and deliver it to the `
         + `executor over the validator's ghost contract. That wait is the appeal window, and it belongs to the `
         + `network. Nothing this server signs can shorten it, which is the point.`;

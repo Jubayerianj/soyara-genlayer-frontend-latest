@@ -784,7 +784,7 @@ if __name__ == "__main__":
                 <div className={styles.subSection}>
                   <h2 className={styles.h2}>Why mandates exist</h2>
                   <p className={styles.p}>
-                    A per-order verdict reaches AgentExecutor as an EVM-bound external message, and GenLayer delivers those when the round finalizes. <code className={styles.inlineCode}>EthSend</code> carries no delivery-timing field, so every per-order trade waits out the appeal window (15 to 25 minutes on Bradbury). A mandate pays that wait once: one consensus round approves a bounded authority, and each trade inside it settles in one transaction.
+                    A per-order verdict reaches AgentExecutor as an EVM-bound external message, and GenLayer delivers those when the round finalizes. <code className={styles.inlineCode}>EthSend</code> carries no delivery-timing field, so every per-order trade waits out the appeal window (about 30 minutes on Bradbury). A mandate pays that wait once: one consensus round approves a bounded authority, and each trade inside it settles in one transaction.
                   </p>
                 </div>
 
@@ -911,7 +911,7 @@ if __name__ == "__main__":
                   <h2 className={styles.h2}>V3: not on the settlement path</h2>
                   <ul className={styles.ul}>
                     <li className={styles.li}>AgentValidator has <strong>no V3 liquidity validator</strong>. The V3 methods were removed when the deployable build exceeded GenVM&apos;s per-block pubdata limit.</li>
-                    <li className={styles.li}>AgentExecutor still has <code className={styles.inlineCode}>executeAddLiquidityV3</code> / <code className={styles.inlineCode}>executeRemoveLiquidityV3</code> in its deployed bytecode, but they need a verdict only AgentValidator could record, so every call reverts with <code className={styles.inlineCode}>NoConsensusVerdict</code>. They fail closed, and removing them requires redeploying the pair.</li>
+                    <li className={styles.li}>AgentExecutor still has <code className={styles.inlineCode}>executeAddLiquidityV3</code> / <code className={styles.inlineCode}>executeRemoveLiquidityV3</code> in its deployed bytecode, but they need a verdict only AgentValidator could record, so every call reverts with <code className={styles.inlineCode}>NoConsensusVerdict</code>. They fail closed. Removing them would mean deploying a new executor and re-pointing AgentValidator to it; the IC itself would not change.</li>
                     <li className={styles.li}>The app makes no V3 liquidity call, and <code className={styles.inlineCode}>/api/genlayer-validate</code> refuses a V3 liquidity request before any round, pointing to the pools app.</li>
                     <li className={styles.li}>V3 positions are managed on the pools app, which works with the SoyaraDex V3 position manager (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].v3PositionManager}</code>) directly from your wallet.</li>
                   </ul>
@@ -957,7 +957,7 @@ if __name__ == "__main__":
                           <td><strong>consensus</strong></td>
                           <td><code className={styles.inlineCode}>executeSwap(order, aggProgram)</code></td>
                           <td>Re-derives the commitment from the whole order (route hash, fee, fee collector, recipient, quote, deadline, nonce, chain, executor) and consumes the matching verdict. Single use; no verdict means <code className={styles.inlineCode}>NoConsensusVerdict</code>.</td>
-                          <td>After the appeal window (15 to 25 min on Bradbury)</td>
+                          <td>After the appeal window (about 30 min on Bradbury)</td>
                         </tr>
                         <tr>
                           <td><strong>mandate</strong></td>

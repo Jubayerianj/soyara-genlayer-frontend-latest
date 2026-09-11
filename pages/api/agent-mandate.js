@@ -10,7 +10,7 @@
 // GenVM's `EthSend` emission carries address, calldata, value and fees and no
 // delivery-timing field, while `PostMessage` and `DeployContract` both take
 // `on` ("accepted" | "finalized"). An Intelligent Contract therefore cannot ask
-// for anything sooner, and on Bradbury that is 15-25 minutes in front of every
+// for anything sooner, and on Bradbury that is about 30 minutes in front of every
 // single trade.
 //
 // A mandate pays that once. The consensus round verifies the pool against the

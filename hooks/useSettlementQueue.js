@@ -5,7 +5,7 @@
 // WHY A QUEUE AND NOT A SPINNER
 // -----------------------------
 // A trade cannot settle until its consensus round's appeal window closes, which
-// on Bradbury runs to roughly 40 minutes. Holding a component in a loading state
+// on Bradbury runs to about 30 minutes. Holding a component in a loading state
 // for that long is not a UX decision, it is a mistake: it pins the user to a
 // page for something that does not need them, and it loses the whole trade if
 // they navigate away or reload.

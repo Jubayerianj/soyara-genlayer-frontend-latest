@@ -160,7 +160,7 @@ console.log('\nclosing line');
   const objection = { severity: 'high', topic: 'dislocation', text: 'The winning path pays about **21.0x** the direct pool. Pools disagree.' };
   const bound = { allBound: true, checks: [{ name: 'Commitment binds this exact order', passed: true }] };
   const unbound = { allBound: false, checks: [{ name: 'Commitment binds this exact order', passed: false, detail: 'MISMATCH.' }] };
-  const strategy = { rail: 'consensus', eta: '~40 minutes' };
+  const strategy = { rail: 'consensus', eta: '~30 minutes' };
 
   const pendingBad = swarmClosingLine({ risk: { isPending: true }, analysis: { concerns: [objection] }, audit: unbound, strategy });
   ok('pending: says consensus is still pending', /consensus still pending/.test(pendingBad));
@@ -176,7 +176,7 @@ console.log('\nclosing line');
   const contested = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [objection] }, audit: bound, strategy });
   ok('approved with objections: counts them', /Approved, with 1 unresolved objection from/.test(contested));
   const agreed = swarmClosingLine({ risk: { isApproved: true }, analysis: { concerns: [] }, audit: bound, strategy });
-  ok('approved, bound, clean: agreement and the rail eta', /Swarm agreement reached/.test(agreed) && /~40 minutes rail ready/.test(agreed));
+  ok('approved, bound, clean: agreement and the rail eta', /Swarm agreement reached/.test(agreed) && /~30 minutes rail ready/.test(agreed));
   ok('no branch uses an em dash', ![pendingBad, pendingClean, unverified, contested, agreed].some((s) => s.includes('\u2014')));
   ok('a missing analysis or audit does not throw', typeof swarmClosingLine({ risk: { isPending: true } }) === 'string');
 }

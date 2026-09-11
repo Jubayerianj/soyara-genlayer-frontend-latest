@@ -14,6 +14,7 @@ import ActivityPanel from '../ActivityPanel';
 import BalanceStrip from '../BalanceStrip';
 import { recordActivity } from '../../lib/txStore';
 import { ensureMandateRequested } from '../../lib/mandate';
+import { mergeVerdictResponse, applyLateVerdict } from '../../lib/settlement';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
 
@@ -64,7 +65,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
   // Approved trades wait here rather than pinning the war room open.
   //
   // The swarm finishes in seconds; the appeal window that has to close before
-  // the verdict reaches the executor runs to roughly 40 minutes. Holding the
+  // the verdict reaches the executor runs to about 30 minutes. Holding the
   // room in a loading state for the second of those would strand the user on a
   // page for something that does not need them.
   const settlementQueue = useSettlementQueue();
@@ -160,6 +161,160 @@ export default function SwarmWarRoom({ mode = 'user' }) {
     reset: resetExecution,
   } = useAgentSwapExecution(proposalForExecution);
 
+  // The approval state belongs to the payload on screen, which changes after
+  // the handlers below were created. Reading it through refs means a verdict
+  // that lands minutes later acts on the current values, not the ones from
+  // before the swarm ran.
+  const approveRef = useRef(approve);
+  const needsApprovalRef = useRef(needsApproval);
+  approveRef.current = approve;
+  needsApprovalRef.current = needsApproval;
+
+  // One path for a trade consensus approved on its own round, whether the
+  // verdict arrived while the swarm was running or after it had finished.
+  // Queue it, and get the one signature it needs out of the way now, while the
+  // user is still watching. A mandate-covered trade is never queued: it has no
+  // verdict of its own to wait for, and queueing it would give one intent two
+  // ways to settle.
+  const queueApprovedTrade = (r, rt) => {
+    if (!(r?.isApproved && r?.rail === 'consensus' && r?.pendingOrder && r?.pendingProgram)) return false;
+    settlementQueue.enqueue({
+      commitment: r.commitment,
+      order: r.pendingOrder,
+      program: r.pendingProgram,
+      validationTxHash: r.txHash || null,
+      validatedAt: Date.now(),
+      stage: 'finalising',
+      label: `${rt?.amountInNum ?? ''} ${rt?.tokenIn?.symbol} to ${rt?.tokenOut?.symbol}`,
+    });
+    if (needsApprovalRef.current) {
+      approveRef.current?.().catch(() => { /* surfaced on the queue entry */ });
+    }
+    return true;
+  };
+
+  // This trade took its own round. When a mandate could carry trades like it,
+  // ask for one in the background and say so: it does not speed up this trade,
+  // but the next one in this direction settles in seconds.
+  const requestFastLaneFor = (r, rt) => {
+    if (!(r?.rail === 'consensus' && r?.mandateEligible && r?.pendingOrder)) return;
+    const o = r.pendingOrder;
+    const tin = rt?.tokenIn?.symbol;
+    ensureMandateRequested({
+      user: o.user, tokenIn: o.tokenIn, tokenOut: o.tokenOut,
+      amountIn: o.amountIn, slippageBps: Number(o.slippageBps) || 100,
+    }).then((m) => {
+      if (m.status !== 'requested') return;
+      setTimeline((prev) => [...prev, {
+        agent: AGENT_REGISTRY.settlement,
+        text: `⚡ **Fast lane requested.** Asked GenLayer for a trading mandate for ${tin} to ${rt?.tokenOut?.symbol}: `
+          + `up to ${humanAmount(m.requested?.maxAmountIn)} ${tin} per trade, ${humanAmount(m.requested?.totalBudgetIn)} ${tin} `
+          + `in total, for 24 hours. Consensus sets its own limits on top. Once it finalizes, trades like this settle `
+          + `in seconds, each still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
+        time: 'Mandate',
+      }]);
+    }).catch(() => { /* background; never blocks a trade */ });
+  };
+
+  // A round the swarm stopped waiting for is still running.
+  //
+  // The swarm polls a round for about five minutes and then hands back
+  // "pending". Nothing watched it after that: the room sat on "Consensus
+  // Pending" for good, and an approval that arrived a minute later was never
+  // queued, so the trade never settled. Keep watching the SAME round - a new
+  // one would be a second authority for one intent - and act on its verdict
+  // when it comes. A new swarm run replaces the payload and stops the watch, so
+  // an abandoned trade is never settled behind the user's back.
+  const resolvedRoundsRef = useRef(new Set());
+  useEffect(() => {
+    const r = payload?.risk;
+    const txHash = r?.txHash;
+    if (isRunning || !r?.isPending || !txHash || resolvedRoundsRef.current.has(txHash)) return undefined;
+
+    const route = payload.route;
+    const base = {
+      tx_hash: txHash,
+      proposal_id: r.proposalId || null,
+      commitment: r.commitment || null,
+      pendingOrder: r.pendingOrder || null,
+      pendingProgram: r.pendingProgram || null,
+      rail: 'consensus',
+      mandate_eligible: r.mandateEligible,
+      mandate_note: r.mandateNote || null,
+    };
+    const WATCH_LIMIT_MS = 30 * 60 * 1000;
+    const startedAt = Date.now();
+    let cancelled = false;
+    let timer = null;
+
+    const settleOutcome = (data) => {
+      resolvedRoundsRef.current.add(txHash);
+      const { risk: nextRisk, outcome } = applyLateVerdict(r, data);
+      const approved = outcome === 'approved';
+      const undecided = outcome === 'undecided';
+      const { reason } = nextRisk;
+      setPayload((p) => (p?.risk?.txHash === txHash ? { ...p, risk: nextRisk } : p));
+      recordActivity({
+        id: r.proposalId || txHash,
+        kind: 'swap',
+        status: approved ? 'approved' : undecided ? 'undecided' : 'rejected',
+        reason,
+      });
+
+      let text;
+      if (approved) {
+        const queued = queueApprovedTrade(nextRisk, route);
+        requestFastLaneFor(nextRisk, route);
+        text = `✅ **Consensus approved** (round \`${txHash.slice(0, 10)}...\`). The verdict is bound to this exact order. `
+          + (queued
+            ? `It is on the settlement queue and settles by itself once the verdict reaches AgentExecutor, after `
+              + `Bradbury's finality window of about 30 minutes. You can leave this page.`
+            : `Execute when ready.`);
+      } else if (undecided) {
+        text = `🔄 **The round ended without a verdict.** ${reason || ''} That is a validator-set condition, not a `
+          + `rejection, and nothing moved. Run the swarm again for a fresh round.`;
+      } else {
+        text = `⚠️ **Consensus rejected this trade.** ${reason || ''} Nothing moved.`;
+      }
+      setTimeline((prev) => [...prev, { agent: AGENT_REGISTRY.risk, text, time: approved ? 'Approved' : 'Consensus' }]);
+    };
+
+    const tick = async (attempt) => {
+      if (cancelled) return;
+      let data = null;
+      try {
+        const res = await fetch('/api/genlayer-validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // After a few minutes, also let the server clear a round validators
+          // never picked up, so idle rounds do not pile up on a lane.
+          body: JSON.stringify({ checkTxHash: txHash, proposalId: base.proposal_id, finalizeIfStuck: attempt >= 24 }),
+        });
+        if (res.ok) data = mergeVerdictResponse(base, await res.json());
+      } catch {
+        // A failed check is not a verdict; try again on the next tick.
+      }
+      if (cancelled) return;
+
+      if (data && !data.pending && !data.needs_verdict_lookup) {
+        settleOutcome(data);
+        return;
+      }
+      if (Date.now() - startedAt > WATCH_LIMIT_MS) {
+        settleOutcome({ approved: false, timedOut: true, reason: 'No verdict after 30 minutes of watching.' });
+        return;
+      }
+      timer = setTimeout(() => tick(attempt + 1), attempt < 24 ? 5000 : 15000);
+    };
+
+    tick(0);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, isRunning]);
+
   useEffect(() => {
     if (isTxSuccess && activeTxHash) {
       setExecState('done');
@@ -230,47 +385,20 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           setPayload(step.payload);
           const r = step.payload?.risk;
           const rt = step.payload?.route;
-          // Queue a trade that has its OWN verdict coming, and get the one
-          // signature it needs out of the way now, while the user is still
-          // watching. A mandate-covered trade is never queued: it has no
-          // verdict of its own to wait for, and queueing it would give one
-          // intent two ways to settle.
-          if (r?.isApproved && r?.rail === 'consensus' && r?.pendingOrder && r?.pendingProgram) {
-            settlementQueue.enqueue({
-              commitment: r.commitment,
-              order: r.pendingOrder,
-              program: r.pendingProgram,
-              validationTxHash: r.txHash || null,
-              validatedAt: Date.now(),
-              stage: 'finalising',
-              label: `${rt?.amountInNum ?? ''} ${rt?.tokenIn?.symbol} to ${rt?.tokenOut?.symbol}`,
-            });
-            if (needsApproval) {
-              approve().catch(() => { /* surfaced on the queue entry */ });
-            }
-          }
+          queueApprovedTrade(r, rt);
+          requestFastLaneFor(r, rt);
 
-          // This trade took its own round. When a mandate could carry trades
-          // like it, ask for one in the background and say so: it does not
-          // speed up this trade, but the next one in this direction settles in
-          // seconds.
-          if (r?.rail === 'consensus' && r?.mandateEligible && r?.pendingOrder) {
-            const o = r.pendingOrder;
-            const tin = rt?.tokenIn?.symbol;
-            ensureMandateRequested({
-              user: o.user, tokenIn: o.tokenIn, tokenOut: o.tokenOut,
-              amountIn: o.amountIn, slippageBps: Number(o.slippageBps) || 100,
-            }).then((m) => {
-              if (m.status !== 'requested') return;
-              setTimeline((prev) => [...prev, {
-                agent: AGENT_REGISTRY.settlement,
-                text: `⚡ **Fast lane requested.** Asked GenLayer for a trading mandate for ${tin} to ${rt?.tokenOut?.symbol}: `
-                  + `up to ${humanAmount(m.requested?.maxAmountIn)} ${tin} per trade, ${humanAmount(m.requested?.totalBudgetIn)} ${tin} `
-                  + `in total, for 24 hours. Consensus sets its own limits on top. Once it finalizes, trades like this settle `
-                  + `in seconds, each still checked and priced on chain by AgentExecutor. This trade keeps its own verdict.`,
-                time: 'Mandate',
-              }]);
-            }).catch(() => { /* background; never blocks a trade */ });
+          // The round outlived the swarm's wait. It is still running, and the
+          // watcher above keeps checking it; say so, so "pending" does not
+          // read as stuck.
+          if (r?.isPending && r?.txHash) {
+            setTimeline((prev) => [...prev, {
+              agent: AGENT_REGISTRY.risk,
+              text: `👀 **Still watching round** \`${r.txHash.slice(0, 10)}...\`. The validators have not returned a `
+                + `verdict yet. When they do, an approved trade goes straight onto the settlement queue and settles `
+                + `by itself; there is nothing to click.`,
+              time: 'Watching',
+            }]);
           }
 
           if (r) {
@@ -435,7 +563,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
       if (err?.pending) {
         // Hand it to the settlement queue rather than asking the user to come
         // back and click again. The verdict rides an external message that is
-        // delivered only on finalization, 15-25 minutes out - "wait a moment"
+        // delivered only on finalization, about 30 minutes out - "wait a moment"
         // was off by an order of magnitude, and nothing was watching for it.
         if (err.pendingOrder && err.pendingProgram && err.commitment) {
           settlementQueue.enqueue({
@@ -453,7 +581,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
           {
             agent: AGENT_REGISTRY.risk,
             text: `⏳ **Consensus approved this trade.** The verdict reaches the executor only once the round `
-              + `can no longer be appealed, roughly **15 to 25 minutes** on Bradbury. It is on the settlement `
+              + `can no longer be appealed, about **30 minutes** on Bradbury. It is on the settlement `
               + `queue now and will execute by itself - no need to wait here or click again.`,
             time: 'Pending Finalization'
           }
@@ -653,11 +781,13 @@ Pays <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> the direct p
               <span>GenVM Consensus:</span>
               <span
                 className={styles.statVal}
-                style={{ color: payload.risk.isApproved ? '#10b981' : payload.risk.isPending ? '#f59e0b' : '#f43f5e' }}
+                style={{ color: payload.risk.isApproved ? '#10b981' : (payload.risk.isPending || payload.risk.isUndecided) ? '#f59e0b' : '#f43f5e' }}
               >
                 {payload.risk.isApproved
                   ? (payload.risk.rail === 'mandate' ? 'Covered by mandate' : 'Verified Quorum')
-                  : payload.risk.isPending ? 'Consensus Pending' : 'Rejected'}
+                  : payload.risk.isPending
+                    ? 'Consensus Pending (still watching)'
+                    : payload.risk.isUndecided ? 'No verdict - run again' : 'Rejected'}
               </span>
             </div>
 

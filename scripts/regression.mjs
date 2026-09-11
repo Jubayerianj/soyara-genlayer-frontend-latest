@@ -644,5 +644,47 @@ try {
   eq('lib/genlayer.js never calls LiquidityValidator', /GENLAYER_CONFIG\.liquidityValidator/.test(src), false);
 } catch (e) { bad('V3 liquidity', e.message); }
 
+// Shipped: /a2a froze on "Consensus Pending". The swarm polls a round for about
+// five minutes and then hands back "pending"; the room watched nothing after
+// that, so a verdict that landed later was never shown, and an approval was
+// never queued, so the trade never settled.
+console.log('\nlate verdicts on /a2a');
+try {
+  const { applyLateVerdict, mergeVerdictResponse } = await import(base + 'lib/settlement.js');
+  const pending = {
+    isApproved: false, isPending: true, rail: null, txHash: '0x' + 'ab'.repeat(32), proposalId: 'p1',
+    commitment: '0xc0ffee', tradeHash: '0xc0ffee', pendingOrder: { user: '0x1' }, pendingProgram: '0xdead',
+    reason: 'awaiting consensus',
+    checks: [
+      { name: 'Slippage Cap Check', passed: true },
+      { name: 'GenVM AI Coherence Consensus', passed: false, detail: 'Still awaiting consensus' },
+    ],
+  };
+  // What the watcher really merges: the status check carries no order.
+  const base0 = { tx_hash: pending.txHash, commitment: pending.commitment, pendingOrder: pending.pendingOrder, pendingProgram: pending.pendingProgram, rail: 'consensus' };
+  const ok1 = applyLateVerdict(pending, mergeVerdictResponse(base0, { approved: true, pending: false, reason: 'All checks passed' }));
+  eq('a late approval makes the trade executable', ok1.outcome === 'approved' && ok1.risk.isApproved && !ok1.risk.isPending, true);
+  eq('on its own verdict', ok1.risk.rail, 'consensus');
+  eq('with the order the queue needs still attached', Boolean(ok1.risk.pendingOrder && ok1.risk.pendingProgram && ok1.risk.commitment), true);
+  eq('and the consensus check now passes', ok1.risk.checks.find((c) => c.name === 'GenVM AI Coherence Consensus').passed, true);
+
+  const no = applyLateVerdict(pending, { approved: false, pending: false, reason: 'price moved' });
+  eq('a late refusal is a rejection', no.outcome === 'rejected' && !no.risk.isApproved && !no.risk.isPending && !no.risk.rail, true);
+  const undecided = applyLateVerdict(pending, { approved: false, pending: false, retryable: true, reason: 'LEADER_TIMEOUT' });
+  eq('an undecided round is not called a rejection', undecided.outcome === 'undecided' && undecided.risk.isUndecided === true, true);
+  eq('and is not executable', undecided.risk.isApproved, false);
+  const watchedOut = applyLateVerdict(pending, { approved: false, timedOut: true, reason: 'No verdict after 30 minutes' });
+  eq('a round watched out is undecided, not rejected', watchedOut.outcome, 'undecided');
+  const overCap = applyLateVerdict({ ...pending, checks: [{ name: 'Slippage Cap Check', passed: false }] }, { approved: true, pending: false });
+  eq('the slippage cap still applies to a late approval', overCap.risk.isApproved, false);
+
+  const room = fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8');
+  eq('/a2a keeps watching a round the swarm stopped waiting for',
+     /checkTxHash:\s*txHash/.test(room) && /applyLateVerdict\(/.test(room), true);
+  eq('and queues a late approval through the same path as a prompt one',
+     /queueApprovedTrade\(r, rt\)/.test(room) && /queueApprovedTrade\(nextRisk, route\)/.test(room), true);
+  eq('the summary never labels an undecided round "Rejected"', /isUndecided \? 'No verdict/.test(room), true);
+} catch (e) { bad('late verdicts on /a2a', e.message); }
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

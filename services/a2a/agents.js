@@ -269,8 +269,8 @@ export class RiskValidatorAgent {
     // for another consensus round. See pages/api/agent-v2.js for the detail.
     const DEADLINE_BUCKET = 600;
     // Must clear the appeal window: the verdict is not delivered to the
-    // executor until the round finalizes, which on Bradbury has been observed
-    // at roughly 40 minutes. A 30-minute deadline expired before settlement was
+    // executor until the round finalizes, which on Bradbury is 30 minutes
+    // after the round's last vote. A 30-minute deadline expired before settlement was
     // possible at all.
     const deadline = Math.ceil((Math.floor(Date.now() / 1000) + 7200) / DEADLINE_BUCKET) * DEADLINE_BUCKET;
 
