@@ -879,6 +879,13 @@ try {
   eq('the keeper starts with the server', /ensureSettlementKeeper\(\)/.test(fs.readFileSync(base + 'instrumentation.js', 'utf8'))
      && /instrumentationHook: true/.test(fs.readFileSync(base + 'next.config.js', 'utf8')), true);
   eq('dismissing in the tracker cancels on the server', /cancel: e\.commitment/.test(fs.readFileSync(base + 'hooks/useSettlementQueue.js', 'utf8')), true);
+  const keeperSrc = fs.readFileSync(base + 'lib/settlementKeeper.js', 'utf8');
+  eq('the keeper reads no files at run time (a built image has no abi/ folder)', /readFileSync|from 'node:fs'/.test(keeperSrc), false);
+  const executorAbiJson = JSON.parse(fs.readFileSync(base + 'abi/AgentExecutor.json', 'utf8'));
+  eq('and its inline reads match the deployed executor', ['commitmentUsed', 'isVerdictLive', 'verdictExpiry'].every((n) => {
+    const f = executorAbiJson.find((x) => x.type === 'function' && x.name === n);
+    return f && new RegExp(`function ${n}\\(${f.inputs.map((i) => i.type).join(',')}\\) view returns \\(${f.outputs.map((o) => o.type).join(',')}\\)`).test(keeperSrc);
+  }), true);
   const copy = ['pages/docs.jsx', 'components/SettlementQueue.jsx', 'lib/notify.js', 'pages/ai.jsx', 'components/A2A/SwarmWarRoom.jsx']
     .map((f) => fs.readFileSync(base + f, 'utf8')).join('\n');
   eq('no line tells the user to keep a tab open', /Soyara tab|while Soyara is open|finishes when you come back/i.test(copy), false);
