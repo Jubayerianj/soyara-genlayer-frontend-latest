@@ -128,6 +128,14 @@ function useQueueState({ enabled = true } = {}) {
   }, []);
 
   const remove = useCallback((id) => {
+    // Dismissing a trade that has not settled cancels it on the server too, or
+    // the settlement keeper would still settle it after the user let it go.
+    const e = load().find((x) => x.id === id);
+    if (e?.commitment && !isTerminal(e.stage)) {
+      fetch('/api/settlements', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancel: e.commitment }),
+      }).catch(() => { /* best effort; the order deadline ends it anyway */ });
+    }
     setEntries((prev) => {
       const next = prev.filter((e) => e.id !== id);
       save(next);
@@ -261,6 +269,11 @@ function useQueueState({ enabled = true } = {}) {
             })
               .then((res) => res.json())
               .then((d) => {
+                // The server settled it itself (the keeper): say so, with the tx.
+                if (d?.settlement?.stage === 'settled') {
+                  update(entry.id, { stage: 'settled', execTxHash: d.settlement.execTxHash || null, error: null, needsApproval: false });
+                  return;
+                }
                 // Where the round stands in the chain's queue, so the tracker
                 // can say what it is waiting for. Stored only when it changed.
                 const r = d?.round;

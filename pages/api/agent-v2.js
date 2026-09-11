@@ -356,8 +356,14 @@ async function buildProposalObject(action, params) {
   // time. Rounding UP to the next boundary keeps the deadline at least as far
   // out as before while letting identical trades in the same window reuse a
   // verdict that already exists.
+  //
+  // And it must outlive the finality window. A trade on the consensus rail
+  // settles only once its round finalizes, 30 minutes after the last vote on
+  // Bradbury, so the old 20-minute deadline (20 to 30 after rounding) expired
+  // every such trade before the executor could accept it. Two hours, the same
+  // as the swarm and the order builder's default.
   const DEADLINE_BUCKET = 600;
-  const deadline = Math.ceil((Math.floor(Date.now() / 1000) + 1200) / DEADLINE_BUCKET) * DEADLINE_BUCKET;
+  const deadline = Math.ceil((Math.floor(Date.now() / 1000) + 7200) / DEADLINE_BUCKET) * DEADLINE_BUCKET;
 
   if (action === 'SWAP') {
     const tokenInSym = normalizeToken(params.tokenIn || params.fromToken) || 'USDC';

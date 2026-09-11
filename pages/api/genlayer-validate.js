@@ -42,6 +42,12 @@ import { buildSwapOrder, serialiseOrder, normaliseSwapIntent } from '../../lib/s
 import { buildLiquidityV2AddOrder, serialiseLiquidityOrder } from '../../lib/liquidityOrder.js';
 import { findCoveringMandate, isMandateEligibleRoute } from '../../lib/mandateCoverage.js';
 import { POOLS_URL } from '../../lib/pools.js';
+import { registerSettlement } from '../../lib/settlementStore.js';
+import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
+
+// With no wallet connected the swarm runs for this placeholder, so the page can
+// still show a whole run. A trade for it can never settle, so it is not kept.
+const PLACEHOLDER_RECIPIENT = '0x3333333333333333333333333333333333333333';
 
 /** A mandate as the UI shows it: decimal strings, nothing the wire cannot carry. */
 function describeMandate(id, m) {
@@ -470,6 +476,28 @@ export default async function handler(req, res) {
     // finished round still sitting at the head (an undecided run, one nobody
     // settled) would hold this one's verdict back 30 minutes from now.
     if (agentAccount) drainFinalizationQueue({ account: agentAccount }).catch(() => {});
+
+    // The server keeps the order it just put to consensus, and settles the
+    // trade itself when the verdict lands - with every browser tab closed.
+    // The browser queue still settles it if it gets there first; the executor
+    // consumes a verdict once, so there is never a second settlement.
+    if (action === 'SWAP' && swapOrder && validationResult.txHash && (approved || validationResult.pending)
+        && String(swapOrder.user).toLowerCase() !== PLACEHOLDER_RECIPIENT) {
+      try {
+        registerSettlement({
+          commitment: swapCommitment,
+          order: serialiseOrder(swapOrder),
+          program: swapProgram,
+          validationTxHash: validationResult.txHash,
+          user: swapOrder.user,
+          deadline: Number(swapOrder.deadline),
+          label: `${proposal.amountIn} ${proposal.tokenIn} → ${proposal.tokenOut}`,
+        });
+        ensureSettlementKeeper();
+      } catch (err) {
+        console.warn('[genlayer-validate] could not record the trade for server settlement:', err?.message);
+      }
+    }
 
     return res.status(200).json({
       approved,

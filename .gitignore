@@ -30,3 +30,6 @@ __*.mjs
 
 # rails-e2e saves an approved round here so a cut-short wait can resume
 rails-e2e.consensus.*.json
+
+# The server's record of queued trades (lib/settlementStore.js)
+.soyara/

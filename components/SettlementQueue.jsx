@@ -200,7 +200,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
               padding: '9px 14px', borderTop: `1px solid ${boxBorder}`,
               fontSize: '0.66rem', color: textMuted, lineHeight: 1.5,
             }}>
-              Runs by itself while any Soyara tab is open.
+              Settles by itself, even with Soyara closed.
             </div>
           </motion.div>
         )}

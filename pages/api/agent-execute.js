@@ -67,6 +67,17 @@ import { leaseAgent } from '../../lib/agentPool.js';
 import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swapOrder.js';
 import { obtainVerdict, isVerdictLive, readVerdictState, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
 import { findCoveringMandate, expectedOutUnderMandate, mandateMinAmountOut } from '../../lib/mandateCoverage.js';
+import { updateSettlement } from '../../lib/settlementStore.js';
+import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
+
+// Commitments this server is sending a settlement for right now. The browser
+// queue and the settlement keeper can ask for the same trade at once.
+const SETTLING = new Set();
+
+// The server's own record learns the outcome, whoever asked for the settlement.
+function recordServerSettlement(commitment, patch) {
+  try { updateSettlement(commitment, patch); } catch { /* the record is a convenience, never a blocker */ }
+}
 
 const V2_PAIR_ABI = [
   { name: 'getReserves', type: 'function', stateMutability: 'view', inputs: [],
@@ -172,6 +183,7 @@ export default async function handler(req, res) {
     mandateId,
   } = req.body;
 
+  ensureSettlementKeeper();
   const resuming = Boolean(pendingOrder && pendingProgram);
   const onMandateRail = requestedRail === 'mandate';
 
@@ -536,6 +548,24 @@ export default async function handler(req, res) {
 
     console.log(`[agent-execute] verdict live on executor for ${commitment.slice(0, 10)}...`);
 
+    // ── One settlement per trade ─────────────────────────────────────────────
+    // The browser queue and the server keeper can both ask to settle the same
+    // trade. The executor would refuse the second (CommitmentAlreadyUsed), but
+    // that is a wasted, failed transaction. So: spent already means settled,
+    // and a settlement already being sent from this server is not sent twice.
+    const spent = await publicClient.readContract({
+      address: agentExecutorAddress, abi: AGENT_EXECUTOR_ABI, functionName: 'commitmentUsed', args: [commitment],
+    }).catch(() => false);
+    if (spent) {
+      return res.status(200).json({ success: true, alreadySettled: true, commitment, error: null });
+    }
+    const lockKey = String(commitment).toLowerCase();
+    if (SETTLING.has(lockKey)) {
+      return res.status(202).json({ success: false, pending: true, inFlight: true, commitment, error: 'This trade is being settled right now.' });
+    }
+    SETTLING.add(lockKey);
+    try {
+
     // ── STEP 4: Settle ───────────────────────────────────────────────────────
     // AgentExecutor internally:
     //   1. Validates all params, including that keccak256(aggProgram) matches the
@@ -569,6 +599,7 @@ export default async function handler(req, res) {
     }
 
     console.log(`[agent-execute] Swap executed successfully in block ${execReceipt.blockNumber}`);
+    recordServerSettlement(commitment, { stage: 'settled', execTxHash, settledAt: Date.now() });
 
     return res.status(200).json({
       success: true,
@@ -584,6 +615,9 @@ export default async function handler(req, res) {
       // verdict. The mandate rail returns earlier with rail 'mandate'.
       rail: settlementRail,
     });
+    } finally {
+      SETTLING.delete(lockKey);
+    }
 
   } catch (err) {
     console.error('[agent-execute] Settlement error (fail-closed):', err);

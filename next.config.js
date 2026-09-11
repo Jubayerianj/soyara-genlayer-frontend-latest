@@ -47,6 +47,8 @@ const nextConfig = {
   // Optimize bundle size
   experimental: {
     esmExternals: 'loose',
+    // Starts the settlement keeper when the server boots (instrumentation.js).
+    instrumentationHook: true,
   },
 };
 

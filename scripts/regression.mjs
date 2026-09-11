@@ -436,13 +436,14 @@ try {
      waitProgress({ validatedAt: t0, round: { readyAt: now + 20 * 60_000 } }, now) === 0.5
      && waitProgress({ validatedAt: now - 90 * 60_000 }, now) === 0.99, true);
   eq('the tracker shows that line', /describeWait\(e\)/.test(fs.readFileSync(base + 'components/SettlementQueue.jsx', 'utf8')), true);
-  eq('and the settlement route returns where the round stands', /round\s*}\);/.test(fs.readFileSync(base + 'pages/api/finalize-round.js', 'utf8')), true);
+  eq('and the settlement route returns where the round stands', /json\(\{ finalized, txHash, round, settlement \}\)/.test(fs.readFileSync(base + 'pages/api/finalize-round.js', 'utf8')), true);
 
   const src = fs.readFileSync(base + 'lib/genlayer.js', 'utf8');
   const fr = src.slice(src.indexOf('export async function finalizeRound'));
   eq('finalizeRound drains the queue instead of nudging one round', /drainFinalizationQueue\(/.test(fr.slice(0, 900)) && !/finalizeIdlenessTxs\(\{ account, txIds: \[txHash\] \}\)/.test(fr.slice(0, 900)), true);
   eq('every new round drains the queue first', /drainFinalizationQueue\(\{ account: agentAccount \}\)/.test(fs.readFileSync(base + 'pages/api/genlayer-validate.js', 'utf8')), true);
-  eq('the background job keeps it moving on any page', /drain: true/.test(fs.readFileSync(base + 'components/BackgroundJobs.jsx', 'utf8')), true);
+  eq('the background job keeps it moving on any page', /fetch\('\/api\/keeper', \{ method: 'POST' \}\)/.test(fs.readFileSync(base + 'components/BackgroundJobs.jsx', 'utf8'))
+     && /drain: account \? \(\) => drainFinalizationQueue\(\{ account \}\)/.test(fs.readFileSync(base + 'lib/settlementKeeper.js', 'utf8')), true);
 } catch (e) { bad('finalization keeper', e.message); }
 
 // ---------------------------------------------------------------------------
@@ -751,6 +752,137 @@ try {
      /queueApprovedTrade\(r, rt\)/.test(room) && /queueApprovedTrade\(nextRisk, route\)/.test(room), true);
   eq('the summary never labels an undecided round "Rejected"', /isUndecided \? 'No verdict/.test(room), true);
 } catch (e) { bad('late verdicts on /a2a', e.message); }
+
+// Shipped: genlayer-js signs consensus writes with exactly the gas estimate,
+// and addTransaction needs more in some blocks than others, so submissions
+// reverted and no round started ("GenLayer did not accept the proposal").
+console.log('\nconsensus gas headroom');
+try {
+  const { withGasHeadroom, GAS_HEADROOM_PCT } = await import(base + 'lib/genlayer.js');
+  const signed = [];
+  const acct = { address: '0x1', type: 'local', signTransaction: async (tx) => { signed.push(tx); return '0xsigned'; } };
+  const w = withGasHeadroom(acct);
+  eq('the signature is still the account\'s own', await w.signTransaction({ gas: 1_176_262n, to: '0x2' }), '0xsigned');
+  eq('a consensus write is signed with headroom over the estimate', signed[0].gas, (1_176_262n * GAS_HEADROOM_PCT) / 100n);
+  eq('which covers the costliest block measured', signed[0].gas > 1_187_109n, true);
+  eq('and changes nothing else in the transaction', signed[0].to, '0x2');
+  eq('wrapping twice does not compound', withGasHeadroom(w), w);
+  eq('an address-only account is left alone', withGasHeadroom('0xabc'), '0xabc');
+  const src = fs.readFileSync(base + 'lib/genlayer.js', 'utf8');
+  eq('every consensus write signs with it', /account: withGasHeadroom\(options\.account\)/.test(src)
+     && /finalizeTransaction\(\{ account: signer/.test(src) && /finalizeIdlenessTxs\(\{ account: signer/.test(src)
+     && /finalizeIdlenessTxs\(\{ account: withGasHeadroom\(account\)/.test(src), true);
+  eq('and nothing else in the app writes to GenLayer', [...src.matchAll(/client\.(writeContract|finalizeTransaction|finalizeIdlenessTxs)\(\{ account: (\w+)/g)]
+     .every((m) => m[2] === 'withGasHeadroom' || m[2] === 'signer'), true);
+} catch (e) { bad('consensus gas headroom', e.message); }
+
+// Shipped: /ai proposals carried a 20-minute deadline, and a consensus-rail
+// verdict reaches the executor 30 minutes after the vote, so every such trade
+// expired before it could settle.
+console.log('\nproposal deadlines');
+try {
+  const FINALITY_S = 30 * 60;
+  for (const f of ['pages/api/agent-v2.js', 'services/a2a/agents.js']) {
+    const src = fs.readFileSync(base + f, 'utf8');
+    const m = src.match(/const deadline = Math\.ceil\(\(Math\.floor\(Date\.now\(\) \/ 1000\) \+ (\d+)\) \/ DEADLINE_BUCKET\)/);
+    eq(`${f} gives a trade time to clear the finality window`, Boolean(m) && Number(m[1]) >= FINALITY_S * 2, true);
+  }
+} catch (e) { bad('proposal deadlines', e.message); }
+
+// Shipped: an approved trade could only settle while a Soyara tab was open,
+// because only the browser held its order. The server now keeps the order and
+// settles it itself when the verdict lands.
+console.log('\nserver settlement');
+try {
+  const os = await import('node:os');
+  const path = await import('node:path');
+  process.env.SOYARA_SETTLEMENT_STORE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'soyara-store-')), 'settlements.json');
+  const store = await import(base + 'lib/settlementStore.js');
+  const { settlementKeeperPass, NEEDS_APPROVAL_RETRY_MS } = await import(base + 'lib/settlementKeeper.js');
+  const c = (n) => `0x${String(n).repeat(64).slice(0, 64)}`;
+  const t0 = 1_800_000_000_000;
+  const entry = (n, extra = {}) => ({ commitment: c(n), order: { user: '0x1' }, program: '0x02', validationTxHash: c(`f${n}`), deadline: Math.floor(t0 / 1000) + 7200, label: 'x', ...extra });
+
+  store.registerSettlement(entry('a'), t0);
+  eq('a trade put to consensus is recorded on the server', store.getSettlement(c('a'))?.stage, 'waiting');
+  eq('and found by its round', store.findSettlementByRound(c('fa'))?.commitment, c('a'));
+  eq('an entry without an order is not recorded', store.registerSettlement({ commitment: c('b') }), null);
+  store.updateSettlement(c('a'), { stage: 'settled' }, t0);
+  store.registerSettlement(entry('a'), t0 + 1000);
+  eq('re-registering never revives a finished trade', store.getSettlement(c('a')).stage, 'settled');
+  store.registerSettlement(entry('d'), t0);
+  eq('dismissing a trade cancels it on the server', store.cancelSettlement(c('d'), t0).stage, 'cancelled');
+  store.registerSettlement(entry('e'), t0 + 25 * 60 * 60 * 1000);
+  eq('finished trades older than a day are pruned', store.getSettlement(c('a')), null);
+
+  // Keeper decisions, against a fake chain.
+  const sent = [];
+  const chain = { used: new Set(), live: new Set(), expiry: new Map() };
+  const deps = (overrides = {}) => ({
+    list: store.listSettlements, update: store.updateSettlement,
+    readUsed: async (x) => chain.used.has(x), readLive: async (x) => chain.live.has(x),
+    readExpiry: async (x) => chain.expiry.get(x) || 0,
+    settle: async (e) => { sent.push(e.commitment); return { success: true, execTxHash: c('9') }; },
+    ...overrides,
+  });
+  store.registerSettlement(entry('1'), t0);
+  let s = await settlementKeeperPass({ ...deps(), now: t0 + 1000 });
+  eq('no verdict yet: it waits and sends nothing', s.waiting >= 1 && !sent.includes(c('1')), true);
+  chain.live.add(c('1'));
+  s = await settlementKeeperPass({ ...deps(), now: t0 + 2000 });
+  eq('verdict live: the server settles it', sent.includes(c('1')) && store.getSettlement(c('1')).stage === 'settled', true);
+  eq('and records the transaction and who settled it', store.getSettlement(c('1')).execTxHash === c('9') && store.getSettlement(c('1')).settledBy === 'server', true);
+
+  store.registerSettlement(entry('2'), t0); chain.used.add(c('2'));
+  sent.length = 0;
+  await settlementKeeperPass({ ...deps(), now: t0 + 3000 });
+  eq('settled by the browser first: no second settlement', !sent.includes(c('2')) && store.getSettlement(c('2')).stage === 'settled', true);
+
+  store.registerSettlement(entry('3', { deadline: Math.floor(t0 / 1000) - 1 }), t0);
+  await settlementKeeperPass({ ...deps(), now: t0 + 4000 });
+  eq('past its deadline it expires, unsent', store.getSettlement(c('3')).stage, 'expired');
+  store.registerSettlement(entry('4'), t0); chain.expiry.set(c('4'), Math.floor(t0 / 1000) - 5);
+  await settlementKeeperPass({ ...deps(), now: t0 + 5000 });
+  eq('a lapsed verdict expires it', store.getSettlement(c('4')).stage, 'expired');
+
+  store.registerSettlement(entry('5'), t0); chain.live.add(c('5'));
+  const needs = deps({ settle: async (e) => { sent.push(e.commitment); return { success: false, needsApproval: true, error: 'approval missing' }; } });
+  sent.length = 0;
+  await settlementKeeperPass({ ...needs, now: t0 + 6000 });
+  eq('a missing token approval parks it for the user', store.getSettlement(c('5')).stage, 'needs-approval');
+  await settlementKeeperPass({ ...needs, now: t0 + 6000 + 60_000 });
+  eq('and does not hammer the chain retrying', sent.filter((x) => x === c('5')).length, 1);
+  await settlementKeeperPass({ ...deps(), now: t0 + 6000 + NEEDS_APPROVAL_RETRY_MS + 1 });
+  eq('once approved, a later pass settles it', store.getSettlement(c('5')).stage, 'settled');
+
+  store.registerSettlement(entry('6'), t0); chain.live.add(c('6'));
+  const flaky = deps({ settle: async (e) => { sent.push(e.commitment); return { success: false, error: 'node busy' }; } });
+  sent.length = 0;
+  await settlementKeeperPass({ ...flaky, now: t0 + 7000 });
+  await settlementKeeperPass({ ...flaky, now: t0 + 7000 + 1000 });
+  eq('a failure backs off instead of retrying every pass', sent.filter((x) => x === c('6')).length, 1);
+
+  store.registerSettlement(entry('8'), t0); chain.live.add(c('8'));
+  await settlementKeeperPass({ ...deps({ settle: async () => ({ pending: true, inFlight: true }) }), now: t0 + 7500 });
+  eq('a settlement already in flight is waited on, not counted as a failure', (store.getSettlement(c('8')).attempts || 0) === 0 && store.getSettlement(c('8')).stage === 'waiting', true);
+
+  store.registerSettlement(entry('7'), t0); chain.live.add(c('7')); store.cancelSettlement(c('7'), t0);
+  sent.length = 0;
+  await settlementKeeperPass({ ...deps(), now: t0 + 8000 });
+  eq('a cancelled trade is never settled', !sent.includes(c('7')) && store.getSettlement(c('7')).stage === 'cancelled', true);
+
+  const validate = fs.readFileSync(base + 'pages/api/genlayer-validate.js', 'utf8');
+  eq('the validate route records swaps for server settlement', /registerSettlement\(\{/.test(validate), true);
+  eq('but never the no-wallet placeholder', /PLACEHOLDER_RECIPIENT/.test(validate) && /!== PLACEHOLDER_RECIPIENT/.test(validate), true);
+  const exec = fs.readFileSync(base + 'pages/api/agent-execute.js', 'utf8');
+  eq('the settlement route sends once per trade', /SETTLING\.has\(lockKey\)/.test(exec) && /functionName: 'commitmentUsed'/.test(exec), true);
+  eq('the keeper starts with the server', /ensureSettlementKeeper\(\)/.test(fs.readFileSync(base + 'instrumentation.js', 'utf8'))
+     && /instrumentationHook: true/.test(fs.readFileSync(base + 'next.config.js', 'utf8')), true);
+  eq('dismissing in the tracker cancels on the server', /cancel: e\.commitment/.test(fs.readFileSync(base + 'hooks/useSettlementQueue.js', 'utf8')), true);
+  const copy = ['pages/docs.jsx', 'components/SettlementQueue.jsx', 'lib/notify.js', 'pages/ai.jsx', 'components/A2A/SwarmWarRoom.jsx']
+    .map((f) => fs.readFileSync(base + f, 'utf8')).join('\n');
+  eq('no line tells the user to keep a tab open', /Soyara tab|while Soyara is open|finishes when you come back/i.test(copy), false);
+} catch (e) { bad('server settlement', e.message); }
 
 // Shipped: the agent pages wrote every background event as a paragraph, one
 // line per consensus poll, and nothing ever said when a fast lane was ready.

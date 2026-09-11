@@ -8,11 +8,11 @@
 // user was never told their next trades would be fast. Each check also nudges
 // the round toward finalization (the route does that on every call).
 //
-// And the finalization keeper. GenLayer finalizes a contract's rounds in order
-// and nothing finalizes an idle queue, so one round nobody was waiting for (an
-// undecided run, a preview) used to hold every trade behind it. A ping every
-// minute drains the AgentValidator queue from its oldest round; the server
-// gates it and only sends finalizes the chain says will succeed.
+// And a ping to the server's settlement keeper (lib/settlementKeeper.js). The
+// server runs it on its own every 30 seconds; the ping keeps it moving on a
+// deployment that cannot hold a timer. Each pass drains the finalization queue
+// (rounds finalize in order, and an idle queue never finalizes itself) and
+// settles every queued trade whose verdict has landed.
 //
 // The settlement queue runs app-wide too; it lives in SettlementQueueProvider.
 
@@ -26,9 +26,7 @@ export default function BackgroundJobs() {
   useEffect(() => {
     let stopped = false;
     const tick = async () => {
-      fetch('/api/finalize-round', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ drain: true }),
-      }).catch(() => { /* the next tick drains again */ });
+      fetch('/api/keeper', { method: 'POST' }).catch(() => { /* the next tick tries again */ });
       for (const m of listUnconfirmedMandates()) {
         if (stopped) return;
         try {

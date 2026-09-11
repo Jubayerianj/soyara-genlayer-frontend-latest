@@ -535,7 +535,7 @@ export default function DocsPage() {
                   <ul className={styles.ul}>
                     <li className={styles.li}><strong>The fast lane sets itself up.</strong> After your first trade on a pair, the swarm asks consensus for a mandate: up to 2x that trade each time and 20x in total, for 24 hours. Consensus can set tighter limits. Trades inside it open no new round.</li>
                     <li className={styles.li}><strong>No waiting around.</strong> The validator vote starts while the pools are read, and the last checks run in parallel.</li>
-                    <li className={styles.li}><strong>It finishes on its own.</strong> An approved trade settles by itself while Soyara is open in any tab. Close it and it finishes when you come back. Notifications tell you when it is done and when your fast lane is ready.</li>
+                    <li className={styles.li}><strong>It finishes on its own.</strong> An approved trade settles by itself, even with Soyara closed. Notifications tell you when it is done and when your fast lane is ready.</li>
                   </ul>
                 </div>
 

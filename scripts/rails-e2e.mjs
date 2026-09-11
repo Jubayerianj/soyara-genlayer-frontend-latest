@@ -2,7 +2,7 @@
 //
 // Both settlement rails, end to end, through the running app's own API routes.
 //
-//   node scripts/rails-e2e.mjs --user 0x... [--base http://localhost:3000] [--rail both|mandate|consensus]
+//   node scripts/rails-e2e.mjs --user 0x... [--base http://localhost:3000] [--rail both|mandate|consensus|server]
 //
 // The user must hold the input tokens and have approved AgentExecutor once.
 // The server holds the lane and relayer keys; this script holds none.
@@ -15,6 +15,11 @@
 //   consensus  validate a trade with NO mandate: its own validate_swap round.
 //              Wait for the verdict to reach the executor, then settle it with
 //              executeSwap, which consumes the verdict.
+//   server     the same trade, then hands off, as if every Soyara tab were
+//              closed: no settlement call, no finalization call. The app
+//              server's own keeper must finalize the round and settle it. The
+//              script only reads the chain and the server's record of the trade.
+//              Not part of 'both'.
 //
 // Each rail waits out one appeal window (30 minutes after the last vote on Bradbury). They
 // run concurrently. Every step is logged with its transaction hash.
@@ -135,7 +140,7 @@ async function consensusRail() {
         action: 'SWAP', user: USER, tokenIn: 'USDC', tokenOut: 'USDT', amountIn: '2', slippageBps: 30,
       });
       if (v.approved || !v.retryable) break;
-      log(R, `  round undecided (${v.reason?.slice(0, 60)}...), fresh round ${attempt + 1}/3`);
+      if (attempt < 3) log(R, `  round undecided (${v.reason?.slice(0, 60)}...), fresh round ${attempt + 1}/3`);
     }
     if (v.rail !== 'consensus' || !v.approved) throw new Error(`expected an approved consensus round, got ${v.rail}/${v.approved}: ${v.reason}`);
     log(R, `approved by consensus, commitment ${v.commitment}`);
@@ -181,9 +186,53 @@ async function consensusRail() {
   throw new Error('verdict never reached the executor');
 }
 
+async function serverRail() {
+  const R = 'server';
+  let v;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    v = await validateUntilDecided(R, {
+      action: 'SWAP', user: USER, tokenIn: 'USDC', tokenOut: 'USDT', amountIn: '1', slippageBps: 30,
+    });
+    if (v.approved || !v.retryable) break;
+    if (attempt < 3) log(R, `  round undecided (${v.reason?.slice(0, 60)}...), fresh round ${attempt + 1}/3`);
+  }
+  if (v.rail !== 'consensus' || !v.approved) throw new Error(`expected an approved consensus round, got ${v.rail}/${v.approved}: ${v.reason}`);
+  const record = async () => {
+    const res = await fetch(`${BASE}/api/settlements?commitment=${v.commitment}`).catch(() => null);
+    return res ? res.json().catch(() => ({})) : {};
+  };
+  const first = await record();
+  if (first.stage !== 'waiting') throw new Error(`the server did not record the trade: ${JSON.stringify(first)}`);
+  log(R, `approved, commitment ${v.commitment}; the server holds it (${first.stage}). Hands off from here.`);
+
+  for (let i = 0; i < 100; i += 1) {
+    await sleep(60_000);
+    let used = false;
+    try {
+      used = await client.readContract({ address: EXECUTOR, abi: ABI, functionName: 'commitmentUsed', args: [v.commitment] });
+    } catch (e) {
+      log(R, `  read failed (${e.shortMessage || e.message}), retrying`);
+      continue;
+    }
+    const r = await record();
+    if (!used) {
+      if (r.stage !== 'waiting') throw new Error(`the server gave up on the trade: ${JSON.stringify(r)}`);
+      if (i % 5 === 0) log(R, `  not settled yet, server record: ${r.stage}`);
+      continue;
+    }
+    if (r.stage !== 'settled' || r.settledBy !== 'server' || !r.execTxHash) throw new Error(`settled, but not by the server: ${JSON.stringify(r)}`);
+    const ev = await executorEvents(r.execTxHash);
+    log(R, `SETTLED BY THE SERVER ${r.execTxHash} block ${ev.block} status ${ev.status} events [${ev.names.join(', ')}]`);
+    if (!ev.names.includes('VerdictConsumed') || !ev.names.includes('SwapExecuted')) throw new Error('expected VerdictConsumed and SwapExecuted');
+    return { rail: R, hash: r.execTxHash, commitment: v.commitment };
+  }
+  throw new Error('the server never settled the trade');
+}
+
 const jobs = [];
 if (RAIL === 'both' || RAIL === 'mandate') jobs.push(mandateRail());
 if (RAIL === 'both' || RAIL === 'consensus') jobs.push(consensusRail());
+if (RAIL === 'server') jobs.push(serverRail());
 const results = await Promise.allSettled(jobs);
 let failed = 0;
 for (const r of results) {
