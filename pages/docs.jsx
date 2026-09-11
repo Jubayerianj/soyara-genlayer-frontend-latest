@@ -55,60 +55,72 @@ const DOC_TOPICS = [
     items: [
       { id: 'overview', title: '1. Overview & Architecture', icon: <Boxes size={16} /> },
       { id: 'user-guide', title: '2. User & Agent Quickstart', icon: <Zap size={16} /> },
+      { id: 'swarm', title: '3. Swarm', icon: <Users size={16} /> },
     ]
   },
   {
     category: 'WHY AI & GENLAYER CONSENSUS',
     items: [
-      { id: 'why-ai', title: '3. The Agentic DeFi Revolution', icon: <Sparkles size={16} /> },
-      { id: 'genlayer-genvm', title: '4. GenLayer & GenVM Deep Dive', icon: <Cpu size={16} /> },
-      { id: 'comparison', title: '5. Comparison: AMMs vs. IMMs', icon: <Activity size={16} /> },
+      { id: 'why-ai', title: '4. The Agentic DeFi Revolution', icon: <Sparkles size={16} /> },
+      { id: 'genlayer-genvm', title: '5. GenLayer & GenVM Deep Dive', icon: <Cpu size={16} /> },
+      { id: 'comparison', title: '6. Comparison: AMMs vs. IMMs', icon: <Activity size={16} /> },
     ]
   },
   {
     category: 'AGENT-TO-AGENT (A2A) & EXECUTION',
     items: [
-      { id: 'agent-protocols', title: '6. Agent-to-Agent (A2A) Protocols', icon: <Network size={16} /> },
-      { id: 'agent-execution-guide', title: '7. Autonomous Agent Execution Tutorial', icon: <Bot size={16} /> },
-      { id: 'agent-session-keys', title: '8. Delegated Execution: Mandates', icon: <Key size={16} /> },
+      { id: 'agent-protocols', title: '7. Agent-to-Agent (A2A) Protocols', icon: <Network size={16} /> },
+      { id: 'agent-execution-guide', title: '8. Autonomous Agent Execution Tutorial', icon: <Bot size={16} /> },
+      { id: 'agent-session-keys', title: '9. Delegated Execution: Mandates', icon: <Key size={16} /> },
     ]
   },
   {
     category: 'OUR INTELLIGENT CONTRACTS',
     items: [
-      { id: 'agent-validator', title: '9. AgentValidator.py (Specification)', icon: <ShieldCheck size={16} /> },
-      { id: 'liquidity-validator', title: '10. Liquidity: V2 Validation, V3 on Pools', icon: <ShieldCheck size={16} /> },
-      { id: 'agent-executor', title: '11. AgentExecutor.sol & Settlement', icon: <Lock size={16} /> },
+      { id: 'agent-validator', title: '10. AgentValidator.py (Specification)', icon: <ShieldCheck size={16} /> },
+      { id: 'liquidity-validator', title: '11. Liquidity: V2 Validation, V3 on Pools', icon: <ShieldCheck size={16} /> },
+      { id: 'agent-executor', title: '12. AgentExecutor.sol & Settlement', icon: <Lock size={16} /> },
     ]
   },
   {
     category: 'DEX & AGGREGATION ENGINE',
     items: [
-      { id: 'core-dex', title: '12. AGGFlow DEX Aggregator & Bytecode VM', icon: <ArrowRightLeft size={16} /> },
-      { id: 'wrap-unwrap', title: '13. Native GEN & WGEN 1:1 Wrap Mechanics', icon: <Layers size={16} /> },
-      { id: 'tokenomics', title: '14. Supported Assets & Price Oracles', icon: <Scale size={16} /> },
+      { id: 'core-dex', title: '13. AGGFlow DEX Aggregator & Bytecode VM', icon: <ArrowRightLeft size={16} /> },
+      { id: 'wrap-unwrap', title: '14. Native GEN & WGEN 1:1 Wrap Mechanics', icon: <Layers size={16} /> },
+      { id: 'tokenomics', title: '15. Supported Assets & Price Oracles', icon: <Scale size={16} /> },
     ]
   },
   {
     category: 'DEVELOPER SDKS & INTEGRATION',
     items: [
-      { id: 'build-with-sdk', title: '15. Build With @soyaradex/sdk', icon: <Package size={16} /> },
-      { id: 'developer-sdk', title: '16. JavaScript SDK (genlayer-js & Viem)', icon: <Code2 size={16} /> },
-      { id: 'python-sdk', title: '17. Python SDK & Agent Integration', icon: <FileCode2 size={16} /> },
-      { id: 'contracts', title: '18. Verified Contract Directory & ABIs', icon: <Terminal size={16} /> },
+      { id: 'build-with-sdk', title: '16. Build With @soyaradex/sdk', icon: <Package size={16} /> },
+      { id: 'developer-sdk', title: '17. JavaScript SDK (genlayer-js & Viem)', icon: <Code2 size={16} /> },
+      { id: 'python-sdk', title: '18. Python SDK & Agent Integration', icon: <FileCode2 size={16} /> },
+      { id: 'contracts', title: '19. Verified Contract Directory & ABIs', icon: <Terminal size={16} /> },
     ]
   },
   {
     category: 'SECURITY & FUTURE OF AGENTIC FINANCE',
     items: [
-      { id: 'security-roadmap', title: '19. Security Threat Model & Defense Matrix', icon: <Shield size={16} /> },
-      { id: 'future-vision', title: '20. Future: Autonomous Intelligent Finance', icon: <Compass size={16} /> },
+      { id: 'security-roadmap', title: '20. Security Threat Model & Defense Matrix', icon: <Shield size={16} /> },
+      { id: 'future-vision', title: '21. Future: Autonomous Intelligent Finance', icon: <Compass size={16} /> },
     ]
   }
 ];
 
 // Flat list for Next / Previous pagination
 const FLAT_TOPICS = DOC_TOPICS.flatMap(cat => cat.items);
+
+// The swarm's seven agents, in the order they speak.
+const SWARM_AGENTS = [
+  { name: 'Intent Copilot', role: 'Understands you', desc: 'Reads your request. If a detail is missing it asks instead of guessing, because a wrong guess spends real money.' },
+  { name: 'Routing & Math Quant', role: 'Best route', desc: 'Compares every pool, V2 and V3, direct and multi-hop, and takes the best fill. You never have to pick a venue.' },
+  { name: 'Market Analyst', role: 'Real price', desc: 'Reads the live reserves behind the quote and objects when a pool is thin or the pools disagree on price.' },
+  { name: 'Risk & GenVM Consensus', role: 'Independent vote', desc: 'Sends the trade to GenLayer, where validators re-check the route and the price on their own and vote.' },
+  { name: 'Settlement Strategist', role: 'Fastest valid rail', desc: 'Picks how the trade settles: your fast lane in about 5 seconds, or its own verdict in about 30 minutes.' },
+  { name: 'Post-Trade Auditor', role: 'On-chain proof', desc: 'Proves on chain that the approval covers exactly this order: route, fee, recipient, quote and deadline.' },
+  { name: 'Dev Inspector & Debugger', role: 'Tamper check', desc: 'Checks the calldata. Change any field and settlement reverts on chain.' },
+];
 
 function CodeSnippet({ code, language = 'python' }) {
   const [copied, setCopied] = useState(false);
@@ -446,11 +458,185 @@ export default function DocsPage() {
             )}
 
             {/* ========================================================== */}
+            {/* TOPIC 3: SWARM */}
+            {/* ========================================================== */}
+            {activeTopic === 'swarm' && (
+              <article className={styles.article}>
+                <h1 className={styles.h1}>3. Swarm</h1>
+                <p className={styles.lead}>
+                  Seven AI agents check every trade before any money moves. GenLayer consensus approves it, and AgentExecutor settles it. You get the best route, a price you can trust, and a trade nobody can change on the way.
+                </p>
+
+                <div className={styles.callout}>
+                  <div className={styles.calloutIcon}>
+                    <Users size={22} />
+                  </div>
+                  <div>
+                    <div className={styles.calloutTitle}>In one line</div>
+                    <div className={styles.calloutBody}>
+                      The swarm is the safety check an agent needs before it trades for you. The fast lane makes repeat trades settle in about 5 seconds.
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>The seven agents</h2>
+                  <div className={styles.grid3}>
+                    {SWARM_AGENTS.map((a) => (
+                      <div key={a.name} className={styles.card}>
+                        <div className={styles.cardBadge}>{a.role}</div>
+                        <h3 className={styles.cardTitle}>{a.name}</h3>
+                        <p className={styles.cardDesc}>{a.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Why it makes trades safe</h2>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}><strong>It never guesses.</strong> An unclear request gets a question, not a trade.</li>
+                    <li className={styles.li}><strong>Best route, always.</strong> Every venue is compared and the best fill wins.</li>
+                    <li className={styles.li}><strong>A price you can trust.</strong> When pools disagree, for example by 5.7x on one route, the Market Analyst objects on screen and the choice is yours.</li>
+                    <li className={styles.li}><strong>Consensus, not one server.</strong> GenLayer validators re-check the trade independently before anything is approved.</li>
+                    <li className={styles.li}><strong>Tamper-proof.</strong> The approval covers the whole order: route, fee, fee collector, recipient, quote, deadline. Change anything and settlement reverts. Each approval works once.</li>
+                    <li className={styles.li}><strong>Your money stays yours.</strong> Funds stay in your wallet until settlement, and the output goes only to your address. The settlement agent cannot approve a trade, only relay one consensus approved.</li>
+                    <li className={styles.li}><strong>Fails closed.</strong> A rejected trade stops the run and nothing moves. A round without a verdict is reported as exactly that, never as a rejection.</li>
+                    <li className={styles.li}><strong>Your limits.</strong> In the <Link href="/a2a/dev" className={styles.link}>developer studio</Link> you set slippage and a price-impact ceiling. Above it, the swarm stops before anything is sent.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Why it is fast</h2>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>Step</th>
+                          <th>Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>The swarm checks the trade (route, pools, validator vote, proof)</td>
+                          <td>About a minute</td>
+                        </tr>
+                        <tr>
+                          <td>First trade on a pair: the verdict reaches the executor</td>
+                          <td>About 30 minutes, once</td>
+                        </tr>
+                        <tr>
+                          <td>Fast lane: later trades on that pair and direction</td>
+                          <td><strong>About 5 seconds</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}><strong>The fast lane sets itself up.</strong> After your first trade on a pair, the swarm asks consensus for a mandate: up to 2x that trade each time and 20x in total, for 24 hours. Consensus can set tighter limits. Trades inside it open no new round.</li>
+                    <li className={styles.li}><strong>No waiting around.</strong> The validator vote starts while the pools are read, and the last checks run in parallel.</li>
+                    <li className={styles.li}><strong>It finishes on its own.</strong> An approved trade settles by itself, even if you close the page. Notifications tell you when it is done and when your fast lane is ready.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>How a trade moves</h2>
+                  <div className={styles.stepCard}>
+                    <div className={styles.stepNum}>1</div>
+                    <div>
+                      <h3 className={styles.stepTitle}>Ask</h3>
+                      <p className={styles.stepDesc}>Type a trade, like &ldquo;swap 50 USDC to USDT&rdquo;.</p>
+                    </div>
+                  </div>
+                  <div className={styles.stepCard}>
+                    <div className={styles.stepNum}>2</div>
+                    <div>
+                      <h3 className={styles.stepTitle}>Check</h3>
+                      <p className={styles.stepDesc}>The agents route it, read the pools and debate anything that looks wrong, one line each.</p>
+                    </div>
+                  </div>
+                  <div className={styles.stepCard}>
+                    <div className={styles.stepNum}>3</div>
+                    <div>
+                      <h3 className={styles.stepTitle}>Approve</h3>
+                      <p className={styles.stepDesc}>GenLayer validators vote. With a live fast lane, no new vote is needed.</p>
+                    </div>
+                  </div>
+                  <div className={styles.stepCard}>
+                    <div className={styles.stepNum}>4</div>
+                    <div>
+                      <h3 className={styles.stepTitle}>Settle</h3>
+                      <p className={styles.stepDesc}>AgentExecutor checks the approval on chain and settles, in about 5 seconds on the fast lane.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Honest limits</h2>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}>The first trade on a pair and direction waits about 30 minutes. That is GenLayer&apos;s finality window, measured at 30 minutes after the vote, not the swarm.</li>
+                    <li className={styles.li}>A fast lane covers one pair and direction, within its limits, on the one V2 pool it pins. When the best route is somewhere else, that trade gets its own round, because the best route always wins.</li>
+                    <li className={styles.li}>Want an instant swap you sign yourself? Use <Link href="/swap" className={styles.link}>Swap</Link>: seconds, no consensus.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>More good things</h2>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}><strong>You see everything.</strong> Every agent&apos;s finding is on screen, and the full on-chain proof is one tap away under Details.</li>
+                    <li className={styles.li}><strong>Smart notifications.</strong> One-line notices and a bell with history, saved in your browser.</li>
+                    <li className={styles.li}><strong>Built for builders.</strong> The same flow is in <code className={styles.inlineCode}>@soyaradex/sdk</code> (<code className={styles.inlineCode}>validate</code>, <code className={styles.inlineCode}>requestMandate</code>, <code className={styles.inlineCode}>settleSwap</code>) and in the developer studio.</li>
+                    <li className={styles.li}><strong>Proven on chain.</strong> Both rails settled for real on Bradbury: the trade&apos;s own verdict in <code className={styles.inlineCode}>0x939d5212…</code> and the fast lane in <code className={styles.inlineCode}>0x5049aad7…</code>. See the <a href="https://github.com/Jubayerianj/soyara-genlayer-contracts/blob/main/DEPLOYMENTS.md" target="_blank" rel="noopener noreferrer" className={styles.link}>deployment record <ExternalLink size={12} /></a>.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Which page to use</h2>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>Page</th>
+                          <th>Who signs</th>
+                          <th>Speed</th>
+                          <th>Checks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><Link href="/swap" className={styles.link}>Swap</Link></td>
+                          <td>You</td>
+                          <td>Seconds</td>
+                          <td>Best route</td>
+                        </tr>
+                        <tr>
+                          <td><Link href="/ai" className={styles.link}>AI Trading</Link></td>
+                          <td>The agent, after your one-time approval</td>
+                          <td>About 30 min first, then about 5s</td>
+                          <td>Consensus and on-chain proof</td>
+                        </tr>
+                        <tr>
+                          <td><Link href="/a2a/user" className={styles.link}>Swarm</Link></td>
+                          <td>The agent, after your one-time approval</td>
+                          <td>About 30 min first, then about 5s</td>
+                          <td>Seven agents, consensus and on-chain proof</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className={styles.p}>
+                    <Link href="/a2a/user" className={styles.link}>Open the Swarm</Link> and run a trade.
+                  </p>
+                </div>
+              </article>
+            )}
+
+            {/* ========================================================== */}
             {/* TOPIC 3: THE AGENTIC DEFI REVOLUTION */}
             {/* ========================================================== */}
             {activeTopic === 'why-ai' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>3. The Agentic DeFi Revolution</h1>
+                <h1 className={styles.h1}>4. The Agentic DeFi Revolution</h1>
                 <p className={styles.lead}>
                   Why the transition from human-driven Web3 to autonomous multi-agent economies requires an on-chain cognitive validation layer like GenLayer.
                 </p>
@@ -481,7 +667,7 @@ export default function DocsPage() {
             {/* ========================================================== */}
             {activeTopic === 'genlayer-genvm' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>4. GenLayer & GenVM Deep Dive</h1>
+                <h1 className={styles.h1}>5. GenLayer & GenVM Deep Dive</h1>
                 <p className={styles.lead}>
                   A comprehensive breakdown of GenLayer's architecture, the GenVM Python runtime, Optimistic Democracy, and the Equivalence Principle.
                 </p>
@@ -550,7 +736,7 @@ Reply with ONLY: {{"approved": true|false, "reason": "..."}}"""
             {/* ========================================================== */}
             {activeTopic === 'comparison' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>5. Comparison: Passive AMMs vs. Agentic IMMs</h1>
+                <h1 className={styles.h1}>6. Comparison: Passive AMMs vs. Agentic IMMs</h1>
                 <p className={styles.lead}>
                   Detailed technical comparison showing why Soyara DEX on GenLayer outperforms traditional DEXes and Web2 AI bots across every operational dimension:
                 </p>
@@ -613,7 +799,7 @@ Reply with ONLY: {{"approved": true|false, "reason": "..."}}"""
             {/* ========================================================== */}
             {activeTopic === 'agent-protocols' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>6. Agent-to-Agent (A2A) Protocols</h1>
+                <h1 className={styles.h1}>7. Agent-to-Agent (A2A) Protocols</h1>
                 <p className={styles.lead}>
                   How autonomous AI agents, automated trading algorithms, and multi-agent DAOs communicate and coordinate on Soyara DEX.
                 </p>
@@ -662,7 +848,7 @@ Reply with ONLY: {{"approved": true|false, "reason": "..."}}"""
             {/* ========================================================== */}
             {activeTopic === 'agent-execution-guide' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>7. Autonomous Agent Execution Tutorial</h1>
+                <h1 className={styles.h1}>8. Autonomous Agent Execution Tutorial</h1>
                 <p className={styles.lead}>
                   Complete end-to-end implementation tutorials showing how to build an autonomous trading agent in Node.js / TypeScript and Python that validates and executes trades on GenLayer.
                 </p>
@@ -776,7 +962,7 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'agent-session-keys' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>8. Delegated Execution: Consensus Mandates</h1>
+                <h1 className={styles.h1}>9. Delegated Execution: Consensus Mandates</h1>
                 <p className={styles.lead}>
                   How an agent gets bounded authority to trade for a user without a consensus round per trade, and what it still cannot do.
                 </p>
@@ -813,7 +999,7 @@ if __name__ == "__main__":
             {activeTopic === 'agent-validator' && (
               <article className={styles.article}>
                 <div className={styles.contractBadge}>Intelligent Contract 1</div>
-                <h1 className={styles.h1}>9. AgentValidator.py (Deep Dive & Specification)</h1>
+                <h1 className={styles.h1}>10. AgentValidator.py (Deep Dive & Specification)</h1>
                 <p className={styles.lead}>
                   Complete technical specification of <code className={styles.inlineCode}>AgentValidator.py</code> deployed on GenLayer Bradbury Testnet at <code className={styles.code}>{INTELLIGENT_CONTRACTS.agentValidator}</code>.
                 </p>
@@ -876,7 +1062,7 @@ if __name__ == "__main__":
                     </table>
                   </div>
                   <p className={styles.p}>
-                    There is no V3 liquidity method. It was removed when the deployable build hit GenVM&apos;s per-block pubdata limit; see section 10.
+                    There is no V3 liquidity method. It was removed when the deployable build hit GenVM&apos;s per-block pubdata limit; see section 11.
                   </p>
                 </div>
               </article>
@@ -888,7 +1074,7 @@ if __name__ == "__main__":
             {activeTopic === 'liquidity-validator' && (
               <article className={styles.article}>
                 <div className={styles.contractBadge}>Liquidity</div>
-                <h1 className={styles.h1}>10. Liquidity: V2 Validation, V3 on the Pools App</h1>
+                <h1 className={styles.h1}>11. Liquidity: V2 Validation, V3 on the Pools App</h1>
                 <p className={styles.lead}>
                   What the settlement path does and does not do with liquidity, stated against the contracts as deployed.
                 </p>
@@ -932,7 +1118,7 @@ if __name__ == "__main__":
             {activeTopic === 'agent-executor' && (
               <article className={styles.article}>
                 <div className={styles.contractBadge}>EVM Settlement</div>
-                <h1 className={styles.h1}>11. AgentExecutor.sol & Settlement Pipeline</h1>
+                <h1 className={styles.h1}>12. AgentExecutor.sol & Settlement Pipeline</h1>
                 <p className={styles.lead}>
                   <code className={styles.inlineCode}>AgentExecutor</code> (<code className={styles.code}>{CONTRACT_ADDRESSES[4221].agentExecutor}</code>) is the only way an agent trade moves funds, and it refuses anything the AgentValidator Intelligent Contract did not authorise.
                 </p>
@@ -987,7 +1173,7 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'core-dex' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>12. AGGFlow DEX Aggregator & Bytecode VM</h1>
+                <h1 className={styles.h1}>13. AGGFlow DEX Aggregator & Bytecode VM</h1>
                 <p className={styles.lead}>
                   Technical specification of Soyara DEX's multi-pool aggregator engine and compact bytecode virtual machine.
                 </p>
@@ -1035,7 +1221,7 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'wrap-unwrap' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>13. Native GEN & WGEN 1:1 Wrap Mechanics</h1>
+                <h1 className={styles.h1}>14. Native GEN & WGEN 1:1 Wrap Mechanics</h1>
                 <p className={styles.lead}>
                   Architectural separation between native GEN gas tokens and standard ERC20 wrapped WGEN tokens:
                 </p>
@@ -1071,7 +1257,7 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'tokenomics' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>14. Supported Assets & Price Oracles</h1>
+                <h1 className={styles.h1}>15. Supported Assets & Price Oracles</h1>
                 <p className={styles.lead}>
                   Verified tokens, reference pricing, and active liquidity pools on GenLayer Bradbury Testnet:
                 </p>
@@ -1148,7 +1334,7 @@ if __name__ == "__main__":
             {/* ========================================================== */}
             {activeTopic === 'build-with-sdk' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>15. Build With @soyaradex/sdk</h1>
+                <h1 className={styles.h1}>16. Build With @soyaradex/sdk</h1>
                 <p className={styles.lead}>
                   Everything an agent needs to think - understand a request, find the best route across
                   every venue, judge whether the price is sound, and <strong>prove the authorisation
@@ -1369,7 +1555,7 @@ SDK matches the deployed architecture.  (72 passed)`}
             {/* ========================================================== */}
             {activeTopic === 'developer-sdk' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>16. JavaScript SDK (genlayer-js & Viem)</h1>
+                <h1 className={styles.h1}>17. JavaScript SDK (genlayer-js & Viem)</h1>
                 <p className={styles.lead}>
                   Integration guide for JavaScript and TypeScript developers using <code className={styles.inlineCode}>genlayer-js</code> and <code className={styles.inlineCode}>viem</code>.
                 </p>
@@ -1397,7 +1583,7 @@ const client = createClient({ chain: chains.testnetBradbury, account: createAcco
 const AGENT_VALIDATOR = '${INTELLIGENT_CONTRACTS.agentValidator}';
 const AGENT_EXECUTOR  = '${CONTRACT_ADDRESSES[4221].agentExecutor}';
 
-// \`order\` and \`aggProgram\` come from the aggregator quote (see section 15:
+// \`order\` and \`aggProgram\` come from the aggregator quote (see section 16:
 // quoteBestRouteMultiHop + buildMultiHopProgram), with routeHash = keccak256(aggProgram).
 async function openRound(order, aggProgram) {
   const txHash = await client.writeContract({
@@ -1452,7 +1638,7 @@ async function openRound(order, aggProgram) {
             {/* ========================================================== */}
             {activeTopic === 'python-sdk' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>17. Python SDK &amp; Agent Integration</h1>
+                <h1 className={styles.h1}>18. Python SDK &amp; Agent Integration</h1>
                 <p className={styles.lead}>
                   Guide for Python developers building autonomous AI agents, algorithmic market makers, and backend trading bots.
                 </p>
@@ -1503,7 +1689,7 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
             {/* ========================================================== */}
             {activeTopic === 'contracts' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>18. Verified Contract Directory & ABIs</h1>
+                <h1 className={styles.h1}>19. Verified Contract Directory & ABIs</h1>
                 <p className={styles.lead}>
                   Complete directory of all deployed, verified protocol contracts on GenLayer Bradbury Testnet (Chain ID 4221):
                 </p>
@@ -1597,7 +1783,7 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
             {/* ========================================================== */}
             {activeTopic === 'security-roadmap' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>19. Security Threat Model & Defense Matrix</h1>
+                <h1 className={styles.h1}>20. Security Threat Model & Defense Matrix</h1>
                 <p className={styles.lead}>
                   Comprehensive technical analysis of DeFi threat vectors and Soyara DEX's multi-layered defense architecture:
                 </p>
@@ -1646,7 +1832,7 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
             {/* ========================================================== */}
             {activeTopic === 'future-vision' && (
               <article className={styles.article}>
-                <h1 className={styles.h1}>20. The Future of Autonomous Intelligent Finance</h1>
+                <h1 className={styles.h1}>21. The Future of Autonomous Intelligent Finance</h1>
                 <p className={styles.lead}>
                   Looking ahead: how GenLayer Intelligent Contracts and Soyara DEX will power the next era of fully autonomous on-chain financial coordination.
                 </p>

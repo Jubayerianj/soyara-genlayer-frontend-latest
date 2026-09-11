@@ -20,7 +20,10 @@ export default function A2AUserPage() {
           eyebrow="Agent to agent"
           title="Trader Swarm"
           actions={
-            <Link href="/a2a/dev" className={styles.chip}>Developer studio</Link>
+            <>
+              <Link href="/docs?topic=swarm" className={styles.chip}>How it works</Link>
+              <Link href="/a2a/dev" className={styles.chip}>Developer studio</Link>
+            </>
           }
         />
 
