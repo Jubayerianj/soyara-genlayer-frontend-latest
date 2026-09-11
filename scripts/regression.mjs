@@ -841,6 +841,9 @@ try {
   store.registerSettlement(entry('3', { deadline: Math.floor(t0 / 1000) - 1 }), t0);
   await settlementKeeperPass({ ...deps(), now: t0 + 4000 });
   eq('past its deadline it expires, unsent', store.getSettlement(c('3')).stage, 'expired');
+  store.registerSettlement(entry('s', { deadline: Math.floor(t0 / 1000) - 60 }), t0); chain.used.add(c('s'));
+  await settlementKeeperPass({ ...deps(), now: t0 + 4500 });
+  eq('a trade settled in time reads settled, even when a pass first looks after its deadline', store.getSettlement(c('s')).stage, 'settled');
   store.registerSettlement(entry('4'), t0); chain.expiry.set(c('4'), Math.floor(t0 / 1000) - 5);
   await settlementKeeperPass({ ...deps(), now: t0 + 5000 });
   eq('a lapsed verdict expires it', store.getSettlement(c('4')).stage, 'expired');
@@ -872,7 +875,7 @@ try {
   eq('a cancelled trade is never settled', !sent.includes(c('7')) && store.getSettlement(c('7')).stage === 'cancelled', true);
 
   const validate = fs.readFileSync(base + 'pages/api/genlayer-validate.js', 'utf8');
-  eq('the validate route records swaps for server settlement', /registerSettlement\(\{/.test(validate), true);
+  eq('the validate route records swaps for server settlement', /await registerTrade\(\{/.test(validate), true);
   eq('but never the no-wallet placeholder', /PLACEHOLDER_RECIPIENT/.test(validate) && /!== PLACEHOLDER_RECIPIENT/.test(validate), true);
   const exec = fs.readFileSync(base + 'pages/api/agent-execute.js', 'utf8');
   eq('the settlement route sends once per trade', /SETTLING\.has\(lockKey\)/.test(exec) && /functionName: 'commitmentUsed'/.test(exec), true);
@@ -890,6 +893,58 @@ try {
     .map((f) => fs.readFileSync(base + f, 'utf8')).join('\n');
   eq('no line tells the user to keep a tab open', /Soyara tab|while Soyara is open|finishes when you come back/i.test(copy), false);
 } catch (e) { bad('server settlement', e.message); }
+
+// A separate always-on settlement server (soyaradex-server) can hold the
+// trades instead, for hosts that cannot keep a timer running. The app hands
+// each trade over, asks it where trades stand, and runs no keeper of its own.
+console.log('\nsettlement server');
+{
+  const http = await import('node:http');
+  const seen = [];
+  const fake = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => { body += d; });
+    req.on('end', () => {
+      seen.push({ method: req.method, url: req.url, auth: req.headers.authorization, body: body ? JSON.parse(body) : null });
+      const known = req.url.includes('ccc');
+      res.writeHead(req.url.startsWith('/v1/settlements') && req.method === 'GET' && !known ? 404 : 200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(req.method === 'GET' && !known ? { stage: null } : { stage: req.url.endsWith('/cancel') ? 'cancelled' : 'waiting', commitment: '0x' + 'c'.repeat(64) }));
+    });
+  });
+  await new Promise((r) => fake.listen(0, r));
+  try {
+    process.env.SETTLEMENT_SERVER_URL = `http://127.0.0.1:${fake.address().port}/`;
+    process.env.SETTLEMENT_SERVER_KEY = 'k-123';
+    const backend = await import(base + 'lib/settlementBackend.js');
+    const cc = '0x' + 'c'.repeat(64);
+    await backend.registerTrade({ commitment: cc, order: { user: '0x1' }, program: '0x02', validationTxHash: '0x' + 'f'.repeat(64), label: '1 USDC', user: '0x1', deadline: 1 });
+    const put = seen.at(-1);
+    eq('a trade is handed to the settlement server, with its key', put.method === 'POST' && put.url === '/v1/settlements' && put.auth === 'Bearer k-123', true);
+    eq('carrying the exact order and route consensus judges', put.body.commitment === cc && put.body.order.user === '0x1' && put.body.program === '0x02', true);
+    eq('the server says where a held trade stands', (await backend.getTrade(cc))?.stage, 'waiting');
+    eq('and is asked by round for the tracker', (await backend.findTradeByRound('0x' + 'ccc'.padEnd(64, 'c')))?.stage, 'waiting');
+    eq('an unknown trade is nobody\'s', await backend.getTrade('0x' + 'd'.repeat(64)), null);
+    eq('dismissing cancels on the settlement server', (await backend.cancelTrade(cc))?.stage === 'cancelled' && seen.at(-1).url === `/v1/settlements/${cc}/cancel`, true);
+    eq('the app does not keep its own record alongside', await backend.recordSettled(cc, { stage: 'settled' }), null);
+    const { ensureSettlementKeeper } = await import(base + 'lib/settlementKeeper.js');
+    ensureSettlementKeeper();
+    eq('and runs no keeper of its own to race the server', Boolean(globalThis.__soyaraSettlementKeeper), false);
+    process.env.SETTLEMENT_SERVER_URL = 'http://127.0.0.1:9/';
+    eq('a server that cannot be reached is nobody holding the trade, so the tab settles it', await backend.getTrade(cc), null);
+  } catch (e) {
+    bad('settlement server', e.message);
+  } finally {
+    delete process.env.SETTLEMENT_SERVER_URL;
+    delete process.env.SETTLEMENT_SERVER_KEY;
+    await new Promise((r) => fake.close(r));
+  }
+  const q = fs.readFileSync(base + 'hooks/useSettlementQueue.js', 'utf8');
+  eq('the tab leaves a held trade to the server, then steps in after a grace period', /entry\.serverHeld && Date\.now\(\) - liveSince < SERVER_GRACE_MS/.test(q), true);
+  eq('but not one that is waiting on the user\'s token approval', /const held = d\?\.settlement\?\.stage === 'waiting';/.test(q), true);
+  eq('the tracker and the test harness read the server through the app', /await findTradeByRound\(txHash\)/.test(fs.readFileSync(base + 'pages/api/finalize-round.js', 'utf8'))
+     && /await getTrade\(commitment\)/.test(fs.readFileSync(base + 'pages/api/settlements.js', 'utf8')), true);
+  eq('open tabs do not ping a keeper the server already runs', /usesSettlementServer\(\)\) return res\.status\(200\)\.json\(\{ skipped/.test(fs.readFileSync(base + 'pages/api/keeper.js', 'utf8')), true);
+}
 
 // Shipped: the agent pages wrote every background event as a paragraph, one
 // line per consensus poll, and nothing ever said when a fast lane was ready.

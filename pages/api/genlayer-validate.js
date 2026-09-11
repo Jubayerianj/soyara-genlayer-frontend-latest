@@ -42,7 +42,7 @@ import { buildSwapOrder, serialiseOrder, normaliseSwapIntent } from '../../lib/s
 import { buildLiquidityV2AddOrder, serialiseLiquidityOrder } from '../../lib/liquidityOrder.js';
 import { findCoveringMandate, isMandateEligibleRoute } from '../../lib/mandateCoverage.js';
 import { POOLS_URL } from '../../lib/pools.js';
-import { registerSettlement } from '../../lib/settlementStore.js';
+import { registerTrade } from '../../lib/settlementBackend.js';
 import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
 
 // With no wallet connected the swarm runs for this placeholder, so the page can
@@ -479,12 +479,15 @@ export default async function handler(req, res) {
 
     // The server keeps the order it just put to consensus, and settles the
     // trade itself when the verdict lands - with every browser tab closed.
-    // The browser queue still settles it if it gets there first; the executor
+    // That is this server's own keeper, or the separate settlement server when
+    // SETTLEMENT_SERVER_URL is set (lib/settlementBackend.js). Awaited, because
+    // a serverless host may freeze anything left running after the response.
+    // The browser queue still settles it if nobody else does; the executor
     // consumes a verdict once, so there is never a second settlement.
     if (action === 'SWAP' && swapOrder && validationResult.txHash && (approved || validationResult.pending)
         && String(swapOrder.user).toLowerCase() !== PLACEHOLDER_RECIPIENT) {
       try {
-        registerSettlement({
+        await registerTrade({
           commitment: swapCommitment,
           order: serialiseOrder(swapOrder),
           program: swapProgram,

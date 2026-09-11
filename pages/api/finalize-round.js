@@ -36,7 +36,7 @@
 
 import { privateKeyToAccount } from 'viem/accounts';
 import { finalizeRound, drainFinalizationQueue, roundQueueStatus } from '../../lib/genlayer.js';
-import { findSettlementByRound } from '../../lib/settlementStore.js';
+import { findTradeByRound } from '../../lib/settlementBackend.js';
 import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
 
 // The tracker asks on every tick; the queue position only changes when a round
@@ -79,8 +79,9 @@ export default async function handler(req, res) {
     // Where this round stands, so the tracker can say what it is waiting for
     // instead of showing an overdue timer.
     const round = finalized ? { inQueue: false, ahead: 0, status: 'FINALIZED', readyAt: null } : await cachedRoundStatus(txHash);
-    // If the server already settled this trade, say so, with the transaction.
-    const kept = findSettlementByRound(txHash);
+    // Whether a server holds this trade, and if it already settled it, the
+    // transaction. The tracker leaves a held trade to the server.
+    const kept = await findTradeByRound(txHash);
     const settlement = kept ? { stage: kept.stage, execTxHash: kept.execTxHash || null } : null;
     return res.status(200).json({ finalized, txHash, round, settlement });
   } catch (err) {

@@ -67,7 +67,7 @@ import { leaseAgent } from '../../lib/agentPool.js';
 import { buildSwapOrder, serialiseOrder, deserialiseOrder } from '../../lib/swapOrder.js';
 import { obtainVerdict, isVerdictLive, readVerdictState, VERDICT_POLL_MS, VERDICT_WAIT_MS } from '../../lib/verdict.js';
 import { findCoveringMandate, expectedOutUnderMandate, mandateMinAmountOut } from '../../lib/mandateCoverage.js';
-import { updateSettlement } from '../../lib/settlementStore.js';
+import { recordSettled } from '../../lib/settlementBackend.js';
 import { ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
 
 // Commitments this server is sending a settlement for right now. The browser
@@ -76,7 +76,7 @@ const SETTLING = new Set();
 
 // The server's own record learns the outcome, whoever asked for the settlement.
 function recordServerSettlement(commitment, patch) {
-  try { updateSettlement(commitment, patch); } catch { /* the record is a convenience, never a blocker */ }
+  recordSettled(commitment, patch).catch(() => { /* the record is a convenience, never a blocker */ });
 }
 
 const V2_PAIR_ABI = [

@@ -54,6 +54,10 @@ function announce(entry, patch) {
 
 const STORAGE_KEY = 'soyara.settlementQueue.v1';
 const POLL_MS = 20000;
+// A settlement server that holds a trade settles it within one keeper pass of
+// its verdict landing (30 seconds). This tab steps in only if it has not after
+// this long: the server is down, or out of gas. Two senders at once would race.
+const SERVER_GRACE_MS = 2 * 60 * 1000;
 
 const chain = {
   id: 4221,
@@ -243,8 +247,11 @@ function useQueueState({ enabled = true } = {}) {
             continue;
           }
           if (live) {
-            update(entry.id, { stage: 'ready', verdictExpiry: Number(expiry) });
-            if (!entry.needsApproval) await settle(entry);
+            const liveSince = entry.liveSince || Date.now();
+            update(entry.id, { stage: 'ready', verdictExpiry: Number(expiry), liveSince });
+            // A server holding this trade settles it; this tab is the fallback.
+            const leaveToServer = entry.serverHeld && Date.now() - liveSince < SERVER_GRACE_MS;
+            if (!entry.needsApproval && !leaveToServer) await settle(entry);
             continue;
           }
 
@@ -274,6 +281,11 @@ function useQueueState({ enabled = true } = {}) {
                   update(entry.id, { stage: 'settled', execTxHash: d.settlement.execTxHash || null, error: null, needsApproval: false });
                   return;
                 }
+                // A server is holding it and will settle it. Anything else (it
+                // needs the user's token approval, or nobody holds it) is this
+                // tab's to finish.
+                const held = d?.settlement?.stage === 'waiting';
+                if (held !== Boolean(entry.serverHeld)) update(entry.id, { serverHeld: held });
                 // Where the round stands in the chain's queue, so the tracker
                 // can say what it is waiting for. Stored only when it changed.
                 const r = d?.round;

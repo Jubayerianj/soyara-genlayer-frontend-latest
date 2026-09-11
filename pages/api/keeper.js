@@ -6,9 +6,13 @@
 // it once a minute, and a serverless deployment would call it on a schedule.
 
 import { runKeeperOnce, ensureSettlementKeeper } from '../../lib/settlementKeeper.js';
+import { usesSettlementServer } from '../../lib/settlementBackend.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // The settlement server runs its own keeper; a second one here would only
+  // race it for the same trades.
+  if (usesSettlementServer()) return res.status(200).json({ skipped: 'settlement server' });
   ensureSettlementKeeper();
   try {
     const summary = await runKeeperOnce();
