@@ -33,7 +33,7 @@
 // response also carries `mandate_eligible`, telling the client whether asking
 // for a mandate would make the NEXT trade like this one settle in seconds.
 
-import { validateSwapOrder, validateLiquidityV2Add, validateLiquidityProposal, checkSwapValidationStatus, finalizeStuckValidation, GENLAYER_CONFIG } from '../../lib/genlayer.js';
+import { validateSwapOrder, validateLiquidityV2Add, validateLiquidityProposal, checkSwapValidationStatus, finalizeStuckValidation, drainFinalizationQueue, GENLAYER_CONFIG } from '../../lib/genlayer.js';
 import { leaseAgent, getKeeperAccount, poolStatus } from '../../lib/agentPool.js';
 import { createPublicClient, http } from 'viem';
 import AGENT_EXECUTOR_ABI from '../../abi/AgentExecutor.json';
@@ -465,6 +465,11 @@ export default async function handler(req, res) {
 
     // FAIL CLOSED: if consensus fails, approved must be false
     const approved = Boolean(validationResult.approved);
+
+    // Keep the AgentValidator queue moving. Rounds finalize in order, so any
+    // finished round still sitting at the head (an undecided run, one nobody
+    // settled) would hold this one's verdict back 30 minutes from now.
+    if (agentAccount) drainFinalizationQueue({ account: agentAccount }).catch(() => {});
 
     return res.status(200).json({
       approved,

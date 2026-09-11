@@ -720,7 +720,7 @@ export function buildDebate({ analysis, route, intent, strategy, phase = 'market
   }
 
   if (strategy?.rail === 'consensus') {
-    turns.push({ from: 'settlement', to: 'intent', text: `Own verdict: settles by itself in ~30 min. You can leave.` });
+    turns.push({ from: 'settlement', to: 'intent', text: `Own verdict: settles by itself in ~30 min.` });
   } else if (strategy?.rail === 'mandate') {
     turns.push({ from: 'settlement', to: 'risk', text: `Fast lane: one call, and the executor prices the trade from the pool itself.` });
   } else if (strategy?.rail === 'reuse') {

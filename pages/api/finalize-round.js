@@ -25,20 +25,25 @@
 // these rounds, and it survives the page being closed - it is the natural
 // keeper. This route is what it calls.
 //
-// finalizeRound applies its own gating (nothing before the appeal window could
-// have closed, and at most one attempt a minute per round), so calling this on
-// every poll tick is cheap and safe.
+// GenLayer finalizes a contract's rounds in order, so this does not finalize
+// one round: it drains the AgentValidator's queue from the oldest round (see
+// drainFinalizationQueue). It gates itself and only broadcasts a finalize the
+// chain has just said will succeed, so calling it on every tick is cheap.
+//
+//   { txHash }       drain, and report whether that round was finalized
+//   { drain: true }  just drain; the background job pings this every minute so
+//                    the queue keeps moving whichever page a user has open
 
 import { privateKeyToAccount } from 'viem/accounts';
-import { finalizeRound } from '../../lib/genlayer.js';
+import { finalizeRound, drainFinalizationQueue } from '../../lib/genlayer.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { txHash, submittedAt } = req.body || {};
-  if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+  const { txHash, submittedAt, drain } = req.body || {};
+  if (!drain && (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash))) {
     return res.status(400).json({ error: 'A validation transaction hash is required.' });
   }
 
@@ -49,9 +54,12 @@ export default async function handler(req, res) {
 
   try {
     const account = privateKeyToAccount(key.startsWith('0x') ? key : `0x${key}`);
-    // Returns false when the round is too young, when one was attempted within
-    // the last minute, or when the appeal window is still open. None of those
-    // are errors - they are the gate doing its job.
+    if (drain) {
+      const r = await drainFinalizationQueue({ account });
+      return res.status(200).json({ finalized: r.finalized.length, waitingOn: r.stoppedAt, reason: r.reason });
+    }
+    // False while an older round or this one's own appeal window is still in
+    // the way. Not an error: the next tick drains again.
     const finalized = await finalizeRound(txHash, account, submittedAt);
     return res.status(200).json({ finalized, txHash });
   } catch (err) {

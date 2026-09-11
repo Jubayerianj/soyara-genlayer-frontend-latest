@@ -136,7 +136,7 @@ export default function ConsensusProgress({
             : statusName
             ? `Still at ${String(statusName).toLowerCase()}.`
             : 'Still waiting for a status.'}{' '}
-          Nothing moved, and you can leave: it keeps checking.
+          Nothing moved. It keeps checking.
         </div>
       )}
 

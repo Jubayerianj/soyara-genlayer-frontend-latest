@@ -240,11 +240,11 @@ function useQueueState({ enabled = true } = {}) {
           // verdict that never reaches the executor and a trade that waits on
           // an approval consensus already granted.
           //
-          // This queue is the only thing that outlives a single request and
-          // keeps polling these rounds, so it is the keeper. The server gates
-          // the attempt (nothing before the appeal window could have closed, at
-          // most once a minute per round), which is why calling it on every
-          // tick is cheap.
+          // This queue outlives a single request and keeps polling these
+          // rounds, so it drives the keeper. Rounds finalize in queue order, so
+          // the server drains the AgentValidator queue from its oldest round
+          // rather than nudging only this one, and it only sends a finalize the
+          // chain has just said will succeed, which is why every tick is cheap.
           if (entry.validationTxHash) {
             fetch('/api/finalize-round', {
               method: 'POST',

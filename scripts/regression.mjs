@@ -328,56 +328,85 @@ try {
 } catch (e) { bad('send pacing', e.message); }
 
 // ---------------------------------------------------------------------------
-// Shipped bug: we rate-limited ourselves and blamed the network.
+// Shipped bugs: finalization.
 //
-// finalizeIdlenessTxs is not a read - it BROADCASTS from the agent account, and
-// it cannot succeed until the appeal window has closed. It was called on every
-// poll tick, once every 4 seconds, and its failure was swallowed as "expected
-// while the window is open". A single pending settlement therefore fired a
-// stream of doomed transactions from the agent account.
+// 1. We rate-limited ourselves and blamed the network: a finalize nudge fired
+//    every poll tick, each one a doomed transaction from the agent account,
+//    and the user's own swap then failed with "node is at capacity".
+// 2. A trade approved by consensus never settled. GenLayer finalizes a
+//    contract's rounds IN ORDER, and the app only nudged the round it was
+//    waiting for - with the wrong call - so one undecided test round at the head
+//    of the AgentValidator queue held every round behind it for six hours.
 //
-// On this deployment the agent key IS the operator's wallet address, so those
-// nudges consumed the very gas-rate budget the user's own swap needed, and the
-// swap failed with "node is at capacity".
+// The keeper drains the queue from its head, uses the call each state needs,
+// stops at the first round that cannot be finalized yet, and simulates before
+// it broadcasts, so it never sends a finalize that would fail.
 // ---------------------------------------------------------------------------
+console.log('\nfinalization keeper');
 try {
-  const { shouldNudgeFinalize, _resetNudgeState } = await import(base + 'lib/genlayer.js');
+  const { finalizationStep, drainFinalizationQueue, GL_STATUS, IDLE_AFTER_MS, _resetNudgeState } = await import(base + 'lib/genlayer.js');
+  const S = GL_STATUS;
+  const now = 1_800_000_000_000;
+  const fresh = Math.floor(now / 1000) - 60;
+  const old = Math.floor((now - IDLE_AFTER_MS - 60_000) / 1000);
+  eq('a finished round is finalized', finalizationStep(S.READY_TO_FINALIZE, fresh, now), 'finalize');
+  eq('so is an undecided one, or it blocks the queue', finalizationStep(S.UNDETERMINED, fresh, now), 'finalize');
+  eq('and a timed-out one', finalizationStep(S.VALIDATORS_TIMEOUT, fresh, now), 'finalize');
+  eq('a round in its appeal window waits', finalizationStep(S.ACCEPTED, fresh, now), 'wait');
+  eq('a round still voting waits', finalizationStep(S.PROPOSING, fresh, now), 'wait');
+  eq('a round stuck mid-vote gets the idleness call', finalizationStep(S.PROPOSING, old, now), 'finalize-idle');
+
+  const fake = (queue, { refuse = false } = {}) => {
+    const st = { done: 0, sent: [] };
+    const pc = {
+      readContract: async ({ functionName, args }) => {
+        if (functionName === 'getLatestFinalizedTxCount') return BigInt(st.done);
+        if (functionName === 'getLatestAcceptedTxCount') return BigInt(queue.length);
+        if (functionName === 'getLatestAcceptedTransactions') return queue.slice(Number(args[1]), Number(args[1]) + Number(args[2]));
+        throw new Error(`unexpected read ${functionName}`);
+      },
+      call: async () => { if (refuse) throw new Error('FinalizationNotAllowed'); return { data: '0x' }; },
+    };
+    const client = {
+      finalizeTransaction: async ({ txId }) => { st.sent.push(`tx:${txId}`); st.done += 1; },
+      finalizeIdlenessTxs: async ({ txIds }) => { st.sent.push(`idle:${txIds[0]}`); st.done += 1; },
+    };
+    return { st, pc, client };
+  };
+  const account = { address: '0x0000000000000000000000000000000000000001' };
+  // Real-shaped ids: the keeper encodes each one into the finalize call it simulates.
+  const id = (c) => `0x${c.replace('0x', '').repeat(64).slice(0, 64)}`;
+  const round = (txId, status, createdTimestamp = BigInt(fresh)) => ({ txId: id(txId), status, createdTimestamp });
+  const tag = (list) => list.map((x) => x.replace(/^(\w+):0x(\w)\w+$/, '$1:0x$2')).join(',');
+
   _resetNudgeState();
+  const a = fake([round('0xa', S.UNDETERMINED), round('0xb', S.READY_TO_FINALIZE), round('0xc', S.ACCEPTED), round('0xd', S.READY_TO_FINALIZE)]);
+  const ra = await drainFinalizationQueue({ account, recipient: '0x01', now: () => now, _pc: a.pc, _client: a.client });
+  eq('drains from the head, in order', tag(a.st.sent), 'tx:0xa,tx:0xb');
+  eq('and stops at a round whose window is open', ra.stoppedAt, id('0xc'));
+  eq('nothing behind it is touched', a.st.sent.includes(`tx:${id('0xd')}`), false);
 
-  const tx = '0xround';
-  const t0 = 1_800_000_000_000;
-
-  eq('a brand new round is never nudged', shouldNudgeFinalize(tx, t0), false);
-  eq('nor four seconds later, the old poll cadence', shouldNudgeFinalize(tx, t0 + 4_000), false);
-  eq('nor after five minutes', shouldNudgeFinalize(tx, t0 + 5 * 60_000), false);
-
-  // Past the point where the window could have closed, one nudge is allowed.
-  eq('after ten minutes a nudge is allowed', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 1), true);
-  eq('but not again immediately', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 2_000), false);
-  eq('and not again within the minute', shouldNudgeFinalize(tx, t0 + 10 * 60_000 + 59_000), false);
-  eq('a minute later, once more', shouldNudgeFinalize(tx, t0 + 11 * 60_000 + 2), true);
-
-  // The old behaviour would have sent ~150 transactions in the first ten
-  // minutes; the gate sends none.
   _resetNudgeState();
-  let sent = 0;
-  for (let ms = 0; ms < 10 * 60_000; ms += 4_000) {
-    if (shouldNudgeFinalize('0xb', t0 + ms)) sent += 1;
-  }
-  eq('no transactions at all during the window', sent, 0, 'was 150 before');
+  const b = fake([round('0xe', S.PROPOSING, BigInt(old)), round('0xf', S.READY_TO_FINALIZE)]);
+  await drainFinalizationQueue({ account, recipient: '0x02', now: () => now, _pc: b.pc, _client: b.client });
+  eq('a stuck round is cleared, then the queue moves on', tag(b.st.sent), 'idle:0xe,tx:0xf');
 
-  // And once past it, the cadence is per-minute rather than per-4-seconds.
-  let after = 0;
-  for (let ms = 10 * 60_000; ms < 20 * 60_000; ms += 4_000) {
-    if (shouldNudgeFinalize('0xb', t0 + ms)) after += 1;
-  }
-  eq('roughly one nudge a minute afterwards', after <= 11, true, `${after} in ten minutes`);
-
-  // Rounds are tracked independently.
   _resetNudgeState();
-  shouldNudgeFinalize('0xc', t0);
-  eq('a second round has its own clock', shouldNudgeFinalize('0xd', t0), false);
-} catch (e) { bad('finalize nudge gating', e.message); }
+  const c = fake([round('0x9', S.READY_TO_FINALIZE)], { refuse: true });
+  const rc = await drainFinalizationQueue({ account, recipient: '0x03', now: () => now, _pc: c.pc, _client: c.client });
+  eq('a finalize the chain would refuse is never broadcast', c.st.sent.length, 0);
+  eq('and the reason is reported', /not finalizable yet/.test(rc.reason), true);
+
+  const d = fake([round('0x8', S.READY_TO_FINALIZE)]);
+  const rd = await drainFinalizationQueue({ account, recipient: '0x03', now: () => now + 5_000, _pc: d.pc, _client: d.client });
+  eq('a second drain moments later is skipped, not repeated', rd.skipped === true && d.st.sent.length === 0, true);
+
+  const src = fs.readFileSync(base + 'lib/genlayer.js', 'utf8');
+  const fr = src.slice(src.indexOf('export async function finalizeRound'));
+  eq('finalizeRound drains the queue instead of nudging one round', /drainFinalizationQueue\(/.test(fr.slice(0, 900)) && !/finalizeIdlenessTxs\(\{ account, txIds: \[txHash\] \}\)/.test(fr.slice(0, 900)), true);
+  eq('every new round drains the queue first', /drainFinalizationQueue\(\{ account: agentAccount \}\)/.test(fs.readFileSync(base + 'pages/api/genlayer-validate.js', 'utf8')), true);
+  eq('the background job keeps it moving on any page', /drain: true/.test(fs.readFileSync(base + 'components/BackgroundJobs.jsx', 'utf8')), true);
+} catch (e) { bad('finalization keeper', e.message); }
 
 // ---------------------------------------------------------------------------
 // Wallet writes: exactly one retry, never more.

@@ -324,7 +324,7 @@ export default function AIPage() {
         notices.roundApproved(txHash, label, data.rail);
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min. You can leave.' : '✓ Approved. Execute when ready.' }
+          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min.' : '✓ Approved. Execute when ready.' }
         ]);
       } else {
         if (data.retryable) notices.roundUndecided(txHash, label);
@@ -491,7 +491,7 @@ export default function AIPage() {
       if (data.approved) {
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min. You can leave.' : '✓ Approved. Execute when ready.' }
+          { role: 'assistant', content: queued ? '✓ Approved · settles by itself in ~30 min.' : '✓ Approved. Execute when ready.' }
         ]);
       } else {
         setMessages((prev) => [
@@ -703,7 +703,7 @@ export default function AIPage() {
           ...prev,
           {
             role: 'assistant',
-            content: '⏳ Queued · settles by itself in ~30 min. You can leave.',
+            content: '⏳ Queued · settles by itself in ~30 min.',
           },
         ]);
         return;
