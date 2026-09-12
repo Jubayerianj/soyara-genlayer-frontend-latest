@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { BarChart3, Gauge, ShieldCheck, AlertTriangle, Check, X, ExternalLink } from 'lucide-react';
+import { TONE } from '../../lib/tone';
 
 const card = (accent) => ({
   padding: '0.65rem 0.75rem',
@@ -31,7 +32,7 @@ const DEPTH_TONE = {
   deep: { tone: '#10b981', words: 'Deep' },
   comfortable: { tone: '#38bdf8', words: 'Comfortable' },
   thin: { tone: '#f59e0b', words: 'Thin, this order moves the price' },
-  dominant: { tone: '#ef4444', words: 'Dominant, a large share of the pool' },
+  dominant: { tone: TONE.attention.color, words: 'Dominant, a large share of the pool' },
   unknown: { tone: '#94a3b8', words: 'Unverified, no pool could be read' },
 };
 
@@ -71,7 +72,7 @@ export function MarketReadPanel({ analysis, route }) {
       </div>
 
       {analysis.venueSpreadPct != null && analysis.venueSpreadPct > 25 && (
-        <div style={{ ...body, color: '#ef4444' }}>
+        <div style={{ ...body, color: TONE.attention.color }}>
           V2 and V3 disagree by <strong>{analysis.venueSpreadPct.toFixed(1)}%</strong>. A mispricing, not a better route.
         </div>
       )}
@@ -90,7 +91,7 @@ const RAIL = {
   mandate: { tone: '#10b981', label: 'Consensus mandate' },
   reuse: { tone: '#10b981', label: 'Verdict reuse' },
   consensus: { tone: '#f59e0b', label: 'Appeal window' },
-  blocked: { tone: '#ef4444', label: 'Blocked' },
+  blocked: { tone: TONE.attention.color, label: 'Blocked' },
   unknown: { tone: '#94a3b8', label: 'Unknown' },
 };
 
@@ -122,7 +123,7 @@ export function SettlementRailPanel({ strategy }) {
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '0.66rem', color: 'var(--text-muted, #94a3b8)' }}>
         {mins != null && <span>{validLabel} {mins > 180 ? `${Math.round(mins / 60)} h` : `${mins} min`}</span>}
         {strategy.secondsToDeadline > 0 && <span>Order valid {Math.round(strategy.secondsToDeadline / 60)} min</span>}
-        {strategy.paused && <span style={{ color: '#ef4444' }}>Executor paused</span>}
+        {strategy.paused && <span style={{ color: TONE.attention.color }}>Executor paused</span>}
       </div>
     </div>
   );
@@ -141,7 +142,7 @@ export function SettlementRailPanel({ strategy }) {
 export function BindingsPanel({ audit }) {
   if (!audit?.checks?.length) return null;
   const allPass = audit.passed;
-  const tone = allPass ? '#10b981' : audit.allBound ? '#f59e0b' : '#ef4444';
+  const tone = allPass ? '#10b981' : audit.allBound ? '#f59e0b' : TONE.attention.color;
 
   return (
     <div style={card(tone)}>
@@ -153,7 +154,7 @@ export function BindingsPanel({ audit }) {
           <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', fontSize: '0.7rem', lineHeight: 1.45 }}>
             {c.passed
               ? <Check size={12} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
-              : <X size={12} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />}
+              : <X size={12} color={TONE.attention.color} style={{ flexShrink: 0, marginTop: '2px' }} />}
             <span style={{ color: 'var(--text-sub, #cbd5e1)' }}>
               <strong style={{ color: c.passed ? 'var(--text-main, #fff)' : '#fca5a5' }}>{c.name}</strong>
               {' - '}{c.detail}
@@ -186,13 +187,13 @@ export function OutcomePanel({ outcome, route }) {
   if (!outcome) return null;
   if (!outcome.ok) {
     return (
-      <div style={card('#ef4444')}>
-        <div style={title('#ef4444')}><AlertTriangle size={12} /> Settlement failed</div>
+      <div style={card(TONE.attention.color)}>
+        <div style={title(TONE.attention.color)}><AlertTriangle size={12} /> Settlement failed</div>
         <div style={body}>{outcome.reason || 'The settlement transaction did not succeed.'}</div>
       </div>
     );
   }
-  const tone = outcome.honouredMinimum === false ? '#ef4444' : '#10b981';
+  const tone = outcome.honouredMinimum === false ? TONE.attention.color : '#10b981';
   return (
     <div style={card(tone)}>
       <div style={title(tone)}><ShieldCheck size={12} /> Delivered</div>

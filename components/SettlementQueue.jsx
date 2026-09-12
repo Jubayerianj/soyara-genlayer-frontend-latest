@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from './contexts/ThemeContext';
 import { STAGES, isTerminal, describeWait, waitProgress } from '../lib/settlement';
+import { TONE } from '../lib/tone';
 
 const EXPLORER = 'https://explorer-bradbury.genlayer.com/tx/';
 const short = (v, a = 8, b = 6) => (!v ? '' : v.length <= a + b + 2 ? v : `${v.slice(0, a)}…${v.slice(-b)}`);
@@ -24,7 +25,7 @@ const short = (v, a = 8, b = 6) => (!v ? '' : v.length <= a + b + 2 ? v : `${v.s
 function StageBadge({ stage, queued = false, isDark }) {
   const map = {
     settled:    { c: '#10b981', Icon: CheckCircle2 },
-    rejected:   { c: '#ef4444', Icon: AlertTriangle },
+    rejected:   { c: TONE.attention.color, Icon: AlertTriangle },
     expired:    { c: '#f59e0b', Icon: AlertTriangle },
     ready:      { c: '#10b981', Icon: ShieldCheck },
     settling:   { c: '#0284c7', Icon: Loader2 },
@@ -177,7 +178,7 @@ const SettlementQueue = ({ queue, onApprove, compact = false }) => {
                     )}
 
                     {e.error && !e.needsApproval && (
-                      <div style={{ marginTop: '6px', fontSize: '0.66rem', color: '#ef4444', lineHeight: 1.45 }}>
+                      <div style={{ marginTop: '6px', fontSize: '0.66rem', color: TONE.attention.color, lineHeight: 1.45 }}>
                         {e.error}
                       </div>
                     )}

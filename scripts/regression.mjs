@@ -789,6 +789,34 @@ try {
   }
 } catch (e) { bad('proposal deadlines', e.message); }
 
+// Shipped: the trade surfaces painted everything that was not a success red:
+// a round the validator set did not decide, a quote with no pool, a token
+// awaiting one approval, a balance that went down because you paid. A working
+// system read as a broken one. Nothing there is red now, and each of those
+// states says in words what it is and what to do.
+console.log('\nno alarm colours on the trade surfaces');
+{
+  const surfaces = [
+    'pages/ai.jsx', 'components/AIAgent/ProposalPanel.jsx', 'components/AIAgent/SettlementBinding.jsx',
+    'components/A2A/SwarmWarRoom.jsx', 'components/A2A/SwarmPanels.jsx', 'components/SettlementQueue.jsx',
+    'components/NotificationCenter.jsx', 'components/BalanceStrip.jsx', 'components/ActivityPanel.jsx',
+    'components/ConsensusProgress.jsx', 'styles/A2A.module.css', 'components/common/Header.module.css',
+  ];
+  const red = /#(ef4444|f43f5e|dc2626|f87171|b91c1c|e11d48)\b|rgba\(\s*23[0-9],\s*6[0-9],|rgba\(\s*244,\s*63,/i;
+  const offenders = surfaces.filter((f) => red.test(fs.readFileSync(base + f, 'utf8')));
+  eq('no red on any trade surface', offenders.join(', ') || 'none', 'none');
+  const { TONE } = await import(base + 'lib/tone.js');
+  eq('one palette says it instead', Boolean(TONE.attention.color && TONE.ok.color && TONE.running.color && TONE.muted.color), true);
+  const panel = fs.readFileSync(base + 'components/AIAgent/ProposalPanel.jsx', 'utf8');
+  eq('/ai leads with the trade, one status line and the action', /Ask GenLayer consensus/.test(panel)
+     && /Approved · settles by itself in about 30 minutes/.test(panel) && /showDetails/.test(panel), true);
+  const room = fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8');
+  eq('/a2a says the trade, then one status line', /At least \$\{payload\.route\.minAmountOutNum/.test(room)
+     && /<span>Status<\/span>/.test(room), true);
+  const words = [panel, room, fs.readFileSync(base + 'components/ActivityPanel.jsx', 'utf8')].join('\n');
+  eq('and no state is announced with a cross or a stop sign', /✗|⛔|❌/.test(words), false);
+}
+
 // Shipped: the swarm polled a consensus round for up to five minutes before
 // finishing, so a slow round (or one the validator set never decided) read as
 // a hang. An unfinished round is queued, watched and reported by the bell, so

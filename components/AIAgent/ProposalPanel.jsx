@@ -1,11 +1,12 @@
 // components/AIAgent/ProposalPanel.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import ConsensusProgress from '../ConsensusProgress';
 import SettlementBinding from './SettlementBinding';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, ShieldAlert, Cpu, ExternalLink, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { ShieldCheck, Cpu, ExternalLink, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { INTELLIGENT_CONTRACTS, CONTRACT_ADDRESSES } from '../../constants/addresses';
 import { useTheme } from '../contexts/ThemeContext';
+import { TONE } from '../../lib/tone';
 
 const ProposalPanel = ({
   proposal,
@@ -27,13 +28,17 @@ const ProposalPanel = ({
 }) => {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
+  // The panel showed every fact at once: the rate breakdown, the contract, the
+  // proposal id and the settlement bindings, stacked above the button. What a
+  // trader decides on is the trade, one status line and one action; the proof
+  // is one tap away.
+  const [showDetails, setShowDetails] = useState(false);
 
   const textMain = isDark ? '#f8fafc' : '#0f172a';
   const textSub = isDark ? '#cbd5e1' : '#334155';
   const textMuted = isDark ? '#94a3b8' : '#64748b';
   const boxBg = isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc';
   const boxBorder = isDark ? 'rgba(255, 255, 255, 0.07)' : '#e2e8f0';
-  const divider = isDark ? 'rgba(255, 255, 255, 0.06)' : '#e2e8f0';
 
   if (!proposal) {
     return (
@@ -133,7 +138,7 @@ const ProposalPanel = ({
           gap: '16px',
         }}
       >
-        {/* Header Badge */}
+        {/* What the trade is */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{
             display: 'inline-flex',
@@ -148,20 +153,21 @@ const ProposalPanel = ({
             letterSpacing: '0.5px',
             border: `1px solid ${actionColor}33`,
           }}>
-            <span style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: actionColor,
-            }} />
-            {action} PROPOSAL
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: actionColor }} />
+            {action}
           </div>
-          <span style={{ fontSize: '0.75rem', color: textMuted }}>
-            Chain ID: 4221 (Bradbury)
-          </span>
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              color: textMuted, fontSize: '0.75rem', fontWeight: 600,
+            }}
+          >
+            {showDetails ? 'Hide details' : 'Details'}
+          </button>
         </div>
 
-        {/* Trade Summary Box */}
         <div style={{
           background: boxBg,
           border: `1px solid ${boxBorder}`,
@@ -202,253 +208,121 @@ const ProposalPanel = ({
             </div>
           )}
 
-          <div style={{ height: '1px', background: divider }} />
-
-          {/* Details breakdown */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: textMuted }}>Route</span>
-              <span style={{ color: textMain, fontWeight: 600 }}>{proposal.route || 'AGGFlow Entrypoint'}</span>
-            </div>
-            {isSwap && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: textMuted }}>Min. Received</span>
-                <span style={{ color: textMain, fontWeight: 600 }}>{proposal.minAmountOut} {proposal.tokenOut}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: textMuted }}>Price Impact</span>
-              <span style={{ color: textMain, fontWeight: 600 }}>{proposal.priceImpact || '<0.01%'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: textMuted }}>Max Slippage</span>
-              <span style={{ color: textMain, fontWeight: 600 }}>
-                {(() => {
-                  // Derive both halves from one number. The bps used to be the
-                  // literal "(30 bps)" next to a variable percentage, so the
-                  // panel showed "0.50% (30 bps)" and neither half could be
-                  // trusted.
-                  const bps = Number(proposal.slippageBps ?? 30);
-                  return `${(bps / 100).toFixed(2)}% (${bps} bps)`;
-                })()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* GenLayer Intelligent Contract Validation Card */}
-        <div style={{
-          background: boxBg,
-          border: `1px solid ${boxBorder}`,
-          borderRadius: '14px',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Cpu size={18} style={{ color: '#0284c7' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: textMain }}>
-                GenLayer IC Consensus
-              </span>
-            </div>
-            <a
-              href={`https://explorer-bradbury.genlayer.com/address/${icAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                color: '#0284c7',
-                fontSize: '0.75rem',
-                textDecoration: 'none',
-                fontFamily: 'monospace',
-                background: 'rgba(2, 132, 199, 0.1)',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                fontWeight: 600,
-              }}
-            >
-              {icAddress.substring(0, 6)}...{icAddress.substring(38)}
-              <ExternalLink size={12} />
-            </a>
-          </div>
-
-          {!validationResult ? (
-            <button
-              type="button"
-              onClick={onValidate}
-              disabled={isValidating}
-              style={{
-                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '12px',
-                color: '#ffffff',
-                fontWeight: 650,
-                fontSize: '0.9rem',
-                cursor: isValidating ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.25)',
-              }}
-            >
-              {isValidating ? (
-                <>
-                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                  Validating with GenVM Consensus...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} />
-                  Validate with GenLayer IC
-                </>
-              )}
-            </button>
-          ) : validationResult.pending ? (
-            // A live round: show the real GenVM phase and elapsed time rather
-            // than a flat "please wait", which read as a hang.
-            <ConsensusProgress
-              statusName={validationResult.statusName}
-              txHash={validationResult.tx_hash || validationResult.txHash}
-              startedAt={validationStartedAt}
-              isDark={isDark}
-            />
-          ) : validationResult.retryable ? (
-            <div style={{
-              borderRadius: '10px',
-              padding: '12px',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#f59e0b',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-              }}>
-                {validationResult.pending
-                  ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                  : <ShieldAlert size={16} />}
-                {validationResult.pending
-                  ? 'Still Awaiting GenVM Consensus'
-                  : 'Consensus Did Not Reach a Verdict'}
-              </div>
-              <div style={{ fontSize: '0.82rem', color: textSub }}>
-                {validationResult.reason || 'Not rejected - the validator round is still in progress. Checking automatically.'}
-              </div>
-              {validationResult.tx_hash && (
-                <a
-                  href={`https://explorer-bradbury.genlayer.com/tx/${validationResult.tx_hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: '0.72rem', color: '#f59e0b', fontFamily: 'monospace', marginTop: '2px' }}
-                >
-                  Tx: {validationResult.tx_hash.slice(0, 10)}...{validationResult.tx_hash.slice(-6)}
-                </a>
-              )}
-              {!validationResult.pending && validationResult.retryable && (
-                <button
-                  type="button"
-                  onClick={onValidate}
-                  disabled={isValidating}
-                  style={{
-                    marginTop: '6px',
-                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    color: '#ffffff',
-                    fontWeight: 650,
-                    fontSize: '0.85rem',
-                    cursor: isValidating ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  {isValidating ? (
-                    <>
-                      <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                      Running another round...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={15} />
-                      Run Another Consensus Round
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={{
-              borderRadius: '10px',
-              padding: '12px',
-              background: validationResult.approved ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-              border: `1px solid ${validationResult.approved ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: validationResult.approved ? '#10b981' : '#ef4444',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-              }}>
-                {validationResult.approved ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                {!validationResult.approved
-                  ? 'Rejected by Validator'
-                  : validationResult.rail === 'mandate'
-                    ? 'Covered by a GenLayer consensus mandate'
-                    : 'Approved by GenLayer Consensus'}
-              </div>
-              <div style={{ fontSize: '0.82rem', color: textSub }}>
-                {validationResult.reason}
-              </div>
-              {validationResult.approved && (
-                <div style={{ fontSize: '0.72rem', color: textMuted, lineHeight: 1.45 }}>
-                  {validationResult.rail === 'mandate'
-                    ? 'Fast lane: settles in ~5s.'
-                    : 'Settles by itself in ~30 min.'}
-                </div>
-              )}
-              {validationResult.proposal_id && !validationResult.commitment && (
-                <div style={{ fontSize: '0.72rem', color: textMuted, fontFamily: 'monospace', marginTop: '2px' }}>
-                  ID: {validationResult.proposal_id}
-                </div>
-              )}
+          {isSwap && (
+            <div style={{ fontSize: '0.75rem', color: textMuted }}>
+              At least {proposal.minAmountOut} {proposal.tokenOut} · impact {proposal.priceImpact || '<0.01%'} · via {proposal.route || 'AGGFlow'}
             </div>
           )}
         </div>
 
-        {/* What consensus approved, and what the agent can no longer change.
-            Only rendered for swaps, which are the flow that carries a route and
-            a fee: the parameters that used to be free. */}
-        {isSwap && (validationResult?.commitment || validationResult?.pendingOrder) && (
-          <SettlementBinding
-            commitment={validationResult.commitment}
-            order={validationResult.pendingOrder}
-            rail={validationResult.rail}
-            mandate={validationResult.mandate}
-            stage={settlementStage}
-            validatorAddress={icAddress}
-            executorAddress={CONTRACT_ADDRESSES[4221]?.agentExecutor}
-            txHash={validationResult.tx_hash}
+        {/* Where it stands, in one line */}
+        {!validationResult ? (
+          <button
+            type="button"
+            onClick={onValidate}
+            disabled={isValidating}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '12px',
+              color: '#ffffff',
+              fontWeight: 650,
+              fontSize: '0.9rem',
+              cursor: isValidating ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.25)',
+            }}
+          >
+            {isValidating ? (
+              <>
+                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                Asking GenLayer consensus
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} />
+                Ask GenLayer consensus
+              </>
+            )}
+          </button>
+        ) : validationResult.pending ? (
+          <ConsensusProgress
+            statusName={validationResult.statusName}
+            txHash={validationResult.tx_hash || validationResult.txHash}
+            startedAt={validationStartedAt}
+            isDark={isDark}
           />
+        ) : (
+          <div style={{
+            borderRadius: '12px',
+            padding: '12px 14px',
+            background: validationResult.approved ? 'rgba(16, 185, 129, 0.08)' : TONE.attention.bg,
+            border: `1px solid ${validationResult.approved ? 'rgba(16, 185, 129, 0.25)' : TONE.attention.border}`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: validationResult.approved ? '#10b981' : TONE.attention.color,
+              fontWeight: 700,
+              fontSize: '0.85rem',
+            }}>
+              {validationResult.approved ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+              {validationResult.approved
+                ? (validationResult.rail === 'mandate'
+                  ? 'Approved · fast lane, settles in about 5 seconds'
+                  : 'Approved · settles by itself in about 30 minutes')
+                : validationResult.retryable
+                  ? 'No verdict this round · not a rejection'
+                  : 'Not approved by consensus'}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: textSub, lineHeight: 1.45 }}>
+              {validationResult.retryable && !validationResult.reason
+                ? 'The validator set did not reach a majority. Running it again usually settles it.'
+                : validationResult.reason}
+            </div>
+            {!validationResult.approved && validationResult.retryable && (
+              <button
+                type="button"
+                onClick={onValidate}
+                disabled={isValidating}
+                style={{
+                  marginTop: '4px',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  color: '#ffffff',
+                  fontWeight: 650,
+                  fontSize: '0.85rem',
+                  cursor: isValidating ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                {isValidating ? (
+                  <>
+                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    Running another round
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={15} />
+                    Run another round
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Execution Section */}
@@ -556,9 +430,9 @@ const ProposalPanel = ({
             {proposal.highImpact && !isNotExecutable && (
               <div style={{
                 fontSize: '0.78rem',
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.28)',
+                color: TONE.attention.color,
+                background: TONE.attention.bg,
+                border: `1px solid ${TONE.attention.border}`,
                 borderRadius: '8px',
                 padding: '10px',
                 lineHeight: 1.45,
@@ -584,9 +458,9 @@ const ProposalPanel = ({
             {proposal.priceWarning && (
               <div style={{
                 fontSize: '0.78rem',
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.10)',
-                border: '1px solid rgba(239, 68, 68, 0.45)',
+                color: TONE.attention.color,
+                background: TONE.attention.bg,
+                border: `1px solid ${TONE.attention.border}`,
                 borderRadius: '8px',
                 padding: '10px',
                 lineHeight: 1.5,
@@ -643,15 +517,97 @@ const ProposalPanel = ({
             {executionError && (
               <div style={{
                 fontSize: '0.8rem',
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: TONE.attention.color,
+                background: TONE.attention.bg,
+                border: `1px solid ${TONE.attention.border}`,
                 borderRadius: '8px',
                 padding: '10px',
                 lineHeight: 1.4,
               }}>
-                <strong>Execution Error:</strong> {executionError}
+                <strong>Could not settle:</strong> {executionError}
               </div>
+            )}
+          </div>
+        )}
+
+        {showDetails && (
+          <div style={{
+            background: boxBg,
+            border: `1px solid ${boxBorder}`,
+            borderRadius: '14px',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            fontSize: '0.8rem',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>Route</span>
+              <span style={{ color: textMain, fontWeight: 600 }}>{proposal.route || 'AGGFlow Entrypoint'}</span>
+            </div>
+            {isSwap && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: textMuted }}>Minimum received</span>
+                <span style={{ color: textMain, fontWeight: 600 }}>{proposal.minAmountOut} {proposal.tokenOut}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>Price impact</span>
+              <span style={{ color: textMain, fontWeight: 600 }}>{proposal.priceImpact || '<0.01%'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>Max slippage</span>
+              <span style={{ color: textMain, fontWeight: 600 }}>
+                {(() => {
+                  // Both halves from one number: the panel once showed
+                  // "0.50% (30 bps)" with neither half trustworthy.
+                  const bps = Number(proposal.slippageBps ?? 30);
+                  return `${(bps / 100).toFixed(2)}% (${bps} bps)`;
+                })()}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>Judged by</span>
+              <a
+                href={`https://explorer-bradbury.genlayer.com/address/${icAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#0284c7', fontFamily: 'monospace', textDecoration: 'none', fontWeight: 600 }}
+              >
+                {icAddress.substring(0, 6)}...{icAddress.substring(38)}
+                <ExternalLink size={12} />
+              </a>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>Chain</span>
+              <span style={{ color: textMain, fontWeight: 600 }}>GenLayer Bradbury (4221)</span>
+            </div>
+            {validationResult?.tx_hash && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: textMuted }}>Round</span>
+                <a
+                  href={`https://explorer-bradbury.genlayer.com/tx/${validationResult.tx_hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#0284c7', fontFamily: 'monospace', textDecoration: 'none', fontWeight: 600 }}
+                >
+                  {validationResult.tx_hash.slice(0, 10)}...{validationResult.tx_hash.slice(-6)}
+                </a>
+              </div>
+            )}
+
+            {/* What consensus approved, and what the agent can no longer change. */}
+            {isSwap && (validationResult?.commitment || validationResult?.pendingOrder) && (
+              <SettlementBinding
+                commitment={validationResult.commitment}
+                order={validationResult.pendingOrder}
+                rail={validationResult.rail}
+                mandate={validationResult.mandate}
+                stage={settlementStage}
+                validatorAddress={icAddress}
+                executorAddress={CONTRACT_ADDRESSES[4221]?.agentExecutor}
+                txHash={validationResult.tx_hash}
+              />
             )}
           </div>
         )}

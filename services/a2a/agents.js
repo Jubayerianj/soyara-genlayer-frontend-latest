@@ -669,7 +669,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
       agent: A.router,
       type: 'ROUTE_REJECTED',
       data: { route, maxImpact, routedImpact },
-      text: `⛔ Stopped: ${routedImpact.toFixed(2)}% price impact is over your ${maxImpact}% limit. Nothing was sent.`,
+      text: `Stopped: ${routedImpact.toFixed(2)}% price impact is over your ${maxImpact}% limit. Nothing was sent.`,
       status: 'error'
     };
     return;
@@ -790,7 +790,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
         // never reported as a rejection.
         : risk.isPending
           ? '⏳ Validators still voting · watching the round'
-          : `✗ Rejected · ${String(risk.reason || 'consensus did not approve').split('. ')[0]}`,
+          : `Not approved · ${String(risk.reason || 'consensus did not approve').split('. ')[0]}`,
     status: risk.isApproved ? 'complete' : risk.isPending ? 'working' : 'error'
   };
 
@@ -801,7 +801,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
       agent: A.intent,
       type: 'SWARM_HALTED',
       payload: { intent, route, risk, analysis },
-      text: '⛔ Stopped. Nothing will execute and nothing moved.',
+      text: 'Stopped here. Nothing was sent, and nothing moved.',
       status: 'error',
     };
     return;
@@ -844,7 +844,7 @@ export async function* orchestrateSwarm(userPrompt, userAddress, config = {}) {
     type: 'SETTLEMENT_PLAN',
     data: strategy,
     text: strategy.rail === 'blocked'
-      ? `⛔ ${String(strategy.blockers?.[0] || strategy.rationale).split('. ')[0]}`
+      ? `${String(strategy.blockers?.[0] || strategy.rationale).split('. ')[0]}`
       : (RAIL_LINE[strategy.rail] || `Couldn't read the executor`),
     status: strategy.rail === 'blocked' ? 'error' : 'complete',
   };

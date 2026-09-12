@@ -6,14 +6,15 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, Info, Loader2, X } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, Info, Loader2, X } from 'lucide-react';
 import { useTheme } from './contexts/ThemeContext';
 import { listNotices, subscribeNotices, dismissNotice, markAllRead, clearNotices } from '../lib/notify';
+import { TONE } from '../lib/tone';
 
 const KIND = {
   pending: { color: '#8b5cf6', Icon: Loader2, spin: true },
   success: { color: '#10b981', Icon: CheckCircle2 },
-  error:   { color: '#ef4444', Icon: XCircle },
+  error:   { color: TONE.attention.color, Icon: AlertTriangle },
   warning: { color: '#f59e0b', Icon: AlertTriangle },
   info:    { color: '#0284c7', Icon: Info },
 };
@@ -163,7 +164,9 @@ export function NotificationBell({ className }) {
           <span style={{
             position: 'absolute', top: 3, right: 3, minWidth: 15, height: 15, padding: '0 4px',
             borderRadius: 999, fontSize: '0.6rem', fontWeight: 800, lineHeight: '15px', textAlign: 'center',
-            color: '#fff', background: unread > 0 ? '#ef4444' : '#8b5cf6',
+            // The count is not a warning: unread notices are brand-coloured,
+            // and only the notice itself carries a tone.
+            color: '#fff', background: '#8b5cf6',
             animation: running && !unread ? 'pulse 1.6s ease-in-out infinite' : undefined,
           }}>
             {unread > 0 ? (unread > 9 ? '9+' : unread) : ''}

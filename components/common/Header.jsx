@@ -233,7 +233,7 @@ export default function Header() {
                             type="button"
                             className={styles.unsupportedChainBtn}
                           >
-                            Wrong Network
+                            Switch to Bradbury
                           </button>
                         );
                       }

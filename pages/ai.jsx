@@ -339,7 +339,7 @@ export default function AIPage() {
               ? '⏳ Still waiting for validators. I will keep checking.'
               : data.retryable
                 ? '↻ No verdict this round, not a rejection. Press **Validate** to run it again.'
-                : `✗ Rejected · ${String(data.reason || '').split('. ')[0]}`,
+                : `Not approved · ${String(data.reason || '').split('. ')[0]}`,
           }
         ]);
       }
@@ -502,7 +502,7 @@ export default function AIPage() {
             role: 'assistant',
             content: data.retryable
               ? '↻ No verdict this round, not a rejection. Press **Validate** to run it again.'
-              : `✗ Rejected · ${String(data.reason || '').split('. ')[0]}`,
+              : `Not approved · ${String(data.reason || '').split('. ')[0]}`,
           }
         ]);
       }

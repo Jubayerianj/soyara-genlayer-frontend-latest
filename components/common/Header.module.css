@@ -222,11 +222,13 @@
   transform: translateY(-1px);
 }
 
+/* Being on the wrong network is not an error: it is one tap to fix, and the
+   label says which network. Amber asks; red accuses. */
 .unsupportedChainBtn {
   height: 38px;
   padding: 0 0.85rem;
   border-radius: 12px;
-  background: #ef4444;
+  background: #f59e0b;
   color: #ffffff;
   font-size: 0.82rem;
   font-weight: 700;

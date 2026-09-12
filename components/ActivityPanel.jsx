@@ -11,14 +11,15 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { ExternalLink, Loader2, CheckCircle2, XCircle, AlertTriangle, Trash2, History } from 'lucide-react';
 import { listActivity, resumePending, clearActivity } from '../lib/txStore';
+import { TONE } from '../lib/tone';
 
 const STATUS = {
   pending: { icon: Loader2, color: '#38bdf8', label: 'Awaiting consensus', spin: true },
   approved: { icon: CheckCircle2, color: '#34d399', label: 'Approved' },
   settled: { icon: CheckCircle2, color: '#34d399', label: 'Settled' },
-  rejected: { icon: XCircle, color: '#ef4444', label: 'Rejected' },
+  rejected: { icon: AlertTriangle, color: TONE.attention.color, label: 'Not approved' },
   undecided: { icon: AlertTriangle, color: '#f59e0b', label: 'No majority - retryable' },
-  failed: { icon: XCircle, color: '#ef4444', label: 'Failed' },
+  failed: { icon: AlertTriangle, color: TONE.attention.color, label: 'Did not settle' },
 };
 
 function ago(ts) {

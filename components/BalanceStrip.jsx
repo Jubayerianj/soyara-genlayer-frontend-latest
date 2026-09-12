@@ -12,6 +12,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { formatUnits, zeroAddress } from 'viem';
 import { ArrowRight, Wallet } from 'lucide-react';
+import { TONE } from '../lib/tone';
 
 const ERC20_ABI = [
   { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }] },
@@ -90,7 +91,7 @@ export default function BalanceStrip({ tokens = [], snapshot = null, refreshKey 
                   <ArrowRight size={11} style={{ opacity: 0.4 }} />
                   <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(now, decimals)}</strong>
                   {hasDelta && (
-                    <span style={{ color: up ? '#34d399' : '#f87171', fontSize: '0.72rem', fontWeight: 600 }}>
+                    <span style={{ color: up ? '#34d399' : TONE.muted.color, fontSize: '0.72rem', fontWeight: 600 }}>
                       {up ? '+' : '−'}{fmt(delta, decimals)}
                     </span>
                   )}

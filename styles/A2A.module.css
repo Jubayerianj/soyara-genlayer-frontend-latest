@@ -429,9 +429,9 @@
 }
 
 .tamperBtn {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #ef4444;
+  background: rgba(245, 158, 11, 0.09);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #f59e0b;
   padding: 0.3rem 0.55rem;
   border-radius: 0.45rem;
   font-size: 0.725rem;
@@ -440,7 +440,7 @@
 }
 
 .tamperBtn:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(245, 158, 11, 0.16);
 }
 
 .statusBadgeGood {
@@ -462,9 +462,9 @@
   gap: 0.3rem;
   padding: 0.25rem 0.55rem;
   border-radius: 0.45rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #ef4444;
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #f59e0b;
   font-size: 0.75rem;
   font-weight: 600;
 }

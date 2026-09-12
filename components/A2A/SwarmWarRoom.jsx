@@ -18,6 +18,7 @@ import { notices } from '../../lib/notify';
 import { isNativeGen, nativeInputReason } from '../../lib/nativeInput';
 import styles from '../../styles/A2A.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../../lib/nodeRetry';
+import { TONE } from '../../lib/tone';
 
 const PRESET_CHIPS = [
   { label: '100 USDC to WGEN', query: 'Swap 100 USDC to WGEN with 0.3% slippage' },
@@ -267,7 +268,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
         text = '↻ No verdict from the network, not a rejection. Run it again.';
       } else {
         notices.roundRejected(txHash, label, reason);
-        text = `✗ Rejected · ${String(reason || 'consensus did not approve').split('. ')[0]}`;
+        text = `Not approved · ${String(reason || 'consensus did not approve').split('. ')[0]}`;
       }
       setTimeline((prev) => [...prev, { agent: AGENT_REGISTRY.risk, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
     };
@@ -412,7 +413,7 @@ export default function SwarmWarRoom({ mode = 'user' }) {
     } catch (err) {
       setTimeline(prev => [
         ...prev,
-        { agent: AGENT_REGISTRY.risk, text: `Error: ${err.message}`, time: 'Alert' }
+        { agent: AGENT_REGISTRY.risk, text: `Could not finish: ${err.message}`, time: 'Note' }
       ]);
     } finally {
       setConsensus(null);
@@ -690,77 +691,53 @@ export default function SwarmWarRoom({ mode = 'user' }) {
 
         {payload ? (
           <div className={styles.summaryBox}>
-            {/* "Optimal" is a claim, and it is only true when the pools on the
-                path agree about the price. When they do not, the highest-paying
-                route is a reading off a mispriced pool, and labelling it optimal
-                is how a 20x-wrong number reached the user looking authoritative. */}
+            {/* The trade, as one line. "Optimal" was a claim: it is only true
+                when the pools on the path agree about the price, and when they
+                do not, the highest-paying route is a reading off a mispriced
+                pool. The route is named below the numbers, not sold above them. */}
             <div style={{
-              padding: '0.6rem 0.75rem',
-              background: payload.route.priceWarning
-                ? 'rgba(239, 68, 68, 0.10)'
-                : 'var(--blue-glow, rgba(2, 132, 199, 0.08))',
+              padding: '0.65rem 0.75rem',
+              background: 'var(--blue-glow, rgba(2, 132, 199, 0.08))',
               borderRadius: '0.5rem',
-              border: payload.route.priceWarning
-                ? '1px solid rgba(239, 68, 68, 0.45)'
-                : '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
+              border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
             }}>
-              <div style={{ fontSize: '0.7rem', color: payload.route.priceWarning ? '#ef4444' : 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>
-                {payload.route.priceWarning ? 'UNRELIABLE PRICE' : 'BEST FILL'}
+              <div style={{ fontSize: '0.98rem', fontWeight: 750, color: 'var(--text-main, #ffffff)' }}>
+                {`${payload.route.amountInNum} ${payload.route.tokenIn.symbol} → ~${payload.route.expectedOutNum.toFixed(4)} ${payload.route.tokenOut.symbol}`}
               </div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main, #ffffff)' }}>
-                {payload.route.chosenRoute}
+              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted, #94a3b8)', marginTop: '3px', lineHeight: 1.5 }}>
+                {`At least ${payload.route.minAmountOutNum.toFixed(4)} ${payload.route.tokenOut.symbol} · slippage ${(payload.intent.slippageBps / 100).toFixed(2)}% · via ${payload.route.chosenRoute}`}
               </div>
             </div>
 
             {payload.route.priceWarning && (
               <div style={{
                 padding: '0.6rem 0.75rem', borderRadius: '0.5rem',
-                background: 'rgba(239, 68, 68, 0.07)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                background: TONE.attention.bg,
+                border: `1px solid ${TONE.attention.border}`,
                 fontSize: '0.72rem', lineHeight: 1.55, color: 'var(--text-sub, #cbd5e1)',
               }}>
-Pools disagree <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> on this route. The minimum below is not reliable.
+                Pools disagree <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> on this route, so the minimum above is not reliable.
               </div>
             )}
 
+            {/* Consensus and settlement were two rows saying one thing. */}
             <div className={styles.statRow}>
-              <span>You get</span>
-              <span className={styles.statVal}>
-                {`~${payload.route.expectedOutNum.toFixed(4)} ${payload.route.tokenOut.symbol} for ${payload.route.amountInNum} ${payload.route.tokenIn.symbol}`}
-              </span>
-            </div>
-
-            <div className={styles.statRow}>
-              <span>{payload.route.priceWarning ? 'Minimum (unreliable)' : 'Minimum'}</span>
-              <span className={styles.statVal}>
-                {`${payload.route.minAmountOutNum.toFixed(4)} ${payload.route.tokenOut.symbol} (${(payload.intent.slippageBps / 100).toFixed(2)}%)`}
-              </span>
-            </div>
-
-            <div className={styles.statRow}>
-              <span>Consensus</span>
+              <span>Status</span>
               <span
                 className={styles.statVal}
-                style={{ color: payload.risk.isApproved ? '#10b981' : (payload.risk.isPending || payload.risk.isUndecided) ? '#f59e0b' : '#f43f5e' }}
+                style={{ color: payload.risk.isApproved ? '#10b981' : (payload.risk.isPending || payload.risk.isUndecided) ? TONE.attention.color : TONE.attention.color }}
               >
-                {payload.risk.isApproved
-                  ? (payload.risk.rail === 'mandate' ? '⚡ Fast lane' : '✓ Approved')
-                  : payload.risk.isPending
-                    ? '⏳ Waiting for validators'
-                    : payload.risk.isUndecided ? 'No verdict - run again' : '✗ Rejected'}
-              </span>
-            </div>
-
-            <div className={styles.statRow}>
-              <span>Settles</span>
-              <span className={styles.statVal}>
                 {(() => {
-                  // The live answer for this trade once it is queued: what it is
-                  // waiting for and when, not a fixed "~30 min".
+                  if (!payload.risk.isApproved) {
+                    if (payload.risk.isPending) return 'Validators still voting';
+                    return payload.risk.isUndecided ? 'No verdict · run it again' : 'Not approved';
+                  }
+                  // The live answer once it is queued: what it waits for and
+                  // when, rather than a fixed "~30 min".
                   const queued = settlementQueue.entries.find((e) => e.commitment && e.commitment === payload.risk.commitment);
-                  if (queued?.stage === 'settled') return '✓ Settled';
+                  if (queued?.stage === 'settled') return 'Settled';
                   if (queued && queued.stage === 'finalising') return describeWait(queued);
-                  return payload.risk.rail === 'mandate' ? 'In ~5s' : 'By itself in ~30 min';
+                  return payload.risk.rail === 'mandate' ? 'Fast lane · settles in about 5s' : 'Approved · settles by itself in about 30 min';
                 })()}
               </span>
             </div>
@@ -830,7 +807,7 @@ Pools disagree <strong>{payload.route.dislocationFactor.toFixed(1)}x</strong> on
             {outcome && <OutcomePanel outcome={outcome} route={payload.route} />}
 
             {execState === 'error' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '0.5rem', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 0.75rem', background: TONE.attention.bg, border: `1px solid ${TONE.attention.border}`, borderRadius: '0.5rem', color: TONE.attention.color, fontSize: '0.8rem', fontWeight: 600 }}>
                 <XCircle size={16} /> {execErrorMsg || 'Execution failed'}
               </div>
             )}
