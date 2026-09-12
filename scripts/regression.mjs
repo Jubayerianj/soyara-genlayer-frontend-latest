@@ -1048,6 +1048,35 @@ try {
   m.rememberMandate('0xu', '0xa', '0xb', '0x' + 'cc'.repeat(32), '0x' + 'dd'.repeat(32));
   eq('a request past the watch window is dropped', m.listUnconfirmedMandates(Date.now() + m.MANDATE_WATCH_MS + 1).length, 0);
 
+  // Shipped: the fast lane was sized at twice the trade that created it, so a
+  // 100 USDC trade left a 200 ceiling and every larger trade took the
+  // 30-minute rail. The pool decides the size now: consensus refuses a
+  // per-trade cap above a tenth of the pinned pool's reserve.
+  const asked = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    asked.push(JSON.parse(opts?.body || '{}'));
+    return { ok: true, json: async () => ({ mandateId: '0x' + 'ee'.repeat(32), roundTxHash: '0x' + 'ff'.repeat(32), requested: { maxAmountIn: '270', totalBudgetIn: '2700' } }) };
+  };
+  try {
+    const U = '0xlane';
+    const A = '0x58B6CD7891cd0A682226E25607b958a6479195A6';
+    const B = '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc';
+    const stored = () => Object.values(JSON.parse(globalThis.localStorage.getItem('soyara.mandates.v1') || '{}')).find((e) => e.maxAmountIn);
+    const first = await m.ensureMandateRequested({ user: U, tokenIn: A, tokenOut: B, amountIn: '100' });
+    eq('a fast lane is requested without naming its own size', first.status === 'requested' && asked[0].maxAmountIn === undefined, true);
+    eq('and it remembers the size the round carries', stored()?.maxAmountIn, '270');
+    eq('a trade inside the lane asks for nothing more', (await m.ensureMandateRequested({ user: U, tokenIn: A, tokenOut: B, amountIn: '200' })).status, 'pending');
+    eq('a trade the lane cannot carry asks for a bigger one', (await m.ensureMandateRequested({ user: U, tokenIn: A, tokenOut: B, amountIn: '300' })).status, 'requested');
+    eq('but not once per trade', (await m.ensureMandateRequested({ user: U, tokenIn: A, tokenOut: B, amountIn: '400' })).status, 'backoff');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  const mandateRoute = fs.readFileSync(base + 'pages/api/agent-mandate.js', 'utf8');
+  eq('the route sizes the lane from the pool it pins, under the contract limit',
+     /const LANE_PCT_OF_RESERVE = 9n;/.test(mandateRoute) && /laneMax = String\(\(reserveIn \* LANE_PCT_OF_RESERVE\) \/ 100n\)/.test(mandateRoute)
+     && /maxAmountIn: laneMax/.test(mandateRoute), true);
+
   const room = fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8');
   eq('/a2a shows status frames in one live line', /step\.type === 'MESSAGE'[\s\S]{0,80}setLiveStatus/.test(room), true);
   eq('/a2a writes no timeline line per consensus poll', /const onProgress = [\s\S]{0,700}?setTimeline/.test(room), false);

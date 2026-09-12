@@ -38,6 +38,36 @@ import { issueTradingMandate, finalizeRound } from '../../lib/genlayer.js';
 import { leaseAgent, getKeeperAccount } from '../../lib/agentPool.js';
 import { decodeMandate, isMandateId } from '../../lib/mandateCoverage.js';
 
+// ── How big a fast lane to ask for ──────────────────────────────────────────
+//
+// The Intelligent Contract refuses a per-trade cap above a tenth of the pinned
+// pool's input reserve: a mandate that could drain the pool is not a bounded
+// authority. So the lane is sized from that same reserve, one notch below the
+// limit, rather than from whatever trade happened to create it. A lane sized
+// at twice a small first trade left every larger trade on the 30-minute rail
+// for no reason.
+const LANE_PCT_OF_RESERVE = 9n;   // the contract's own limit is 10
+const LANE_BUDGET_MULTIPLE = 10n; // a day's worth of trades at the ceiling
+
+const V2_FACTORY_ABI = [{ name: 'getPair', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'address' }] }];
+const V2_PAIR_ABI = [
+  { name: 'getReserves', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint112' }, { type: 'uint112' }, { type: 'uint32' }] },
+  { name: 'token0', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+];
+
+/** The pool's input-side reserve, or null when the pair has no V2 pool. */
+async function poolReserveIn(publicClient, factory, tokenIn, tokenOut) {
+  if (!factory) return null;
+  const pool = await publicClient.readContract({ address: factory, abi: V2_FACTORY_ABI, functionName: 'getPair', args: [tokenIn, tokenOut] });
+  if (!pool || /^0x0+$/.test(pool)) return null;
+  const [[r0, r1], t0] = await Promise.all([
+    publicClient.readContract({ address: pool, abi: V2_PAIR_ABI, functionName: 'getReserves' }),
+    publicClient.readContract({ address: pool, abi: V2_PAIR_ABI, functionName: 'token0' }),
+  ]);
+  const reserveIn = String(t0).toLowerCase() === String(tokenIn).toLowerCase() ? r0 : r1;
+  return BigInt(reserveIn);
+}
+
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 const RPC = 'https://rpc-bradbury.genlayer.com';
@@ -59,7 +89,7 @@ export default async function handler(req, res) {
 
   const {
     user, tokenIn, tokenOut,
-    maxAmountIn, totalBudgetIn,
+    maxAmountIn, totalBudgetIn, dryRun = false,
     maxSlippageBps = DEFAULT_MAX_SLIPPAGE,
     ttlSeconds = DEFAULT_TTL_SECONDS,
     nonce = Math.floor(Date.now() / 1000),
@@ -121,8 +151,8 @@ export default async function handler(req, res) {
 
   if (checkOnly) return res.status(400).json({ error: 'checkOnly requires a mandateId.' });
 
-  if (!user || !tokenIn || !tokenOut || !maxAmountIn || !totalBudgetIn) {
-    return res.status(400).json({ error: 'user, tokenIn, tokenOut, maxAmountIn and totalBudgetIn are required.' });
+  if (!user || !tokenIn || !tokenOut) {
+    return res.status(400).json({ error: 'user, tokenIn and tokenOut are required.' });
   }
 
   // A mandate pins one single-hop V2 route that pulls an ERC-20 from the user,
@@ -130,6 +160,30 @@ export default async function handler(req, res) {
   // request anyway; refusing here saves a consensus round that cannot pass.
   if (String(tokenIn).toLowerCase() === ZERO || String(tokenOut).toLowerCase() === ZERO) {
     return res.status(400).json({ error: 'Mandates cover ERC-20 pairs only. Trades with native GEN settle against their own consensus verdict.' });
+  }
+
+  // Sized from the pool unless the caller named its own bounds (the SDK and
+  // partners still may; the IC checks either against the same reserve).
+  let laneMax = maxAmountIn;
+  let laneBudget = totalBudgetIn;
+  if (!laneMax || !laneBudget) {
+    let reserveIn;
+    try {
+      reserveIn = await poolReserveIn(publicClient, addresses.factory, tokenIn, tokenOut);
+    } catch (err) {
+      return res.status(503).json({ error: `Could not read the pool to size the fast lane: ${err?.shortMessage || err?.message}` });
+    }
+    if (!reserveIn || reserveIn <= 0n) {
+      return res.status(400).json({ error: 'This pair has no V2 pool with liquidity, so no fast lane can be pinned to one.' });
+    }
+    laneMax = String((reserveIn * LANE_PCT_OF_RESERVE) / 100n);
+    laneBudget = String((BigInt(laneMax) * LANE_BUDGET_MULTIPLE));
+  }
+
+  // What the lane would be, without paying for a round. The UI uses it to say
+  // the ceiling before asking, and it makes the size checkable.
+  if (dryRun) {
+    return res.status(200).json({ dryRun: true, requested: { maxAmountIn: String(laneMax), totalBudgetIn: String(laneBudget), maxSlippageBps: Number(maxSlippageBps), ttlSeconds: Number(ttlSeconds) } });
   }
 
   // A sender lane, like every other consensus write. GenLayer queues rounds
@@ -172,8 +226,8 @@ export default async function handler(req, res) {
       user,
       tokenIn,
       tokenOut,
-      maxAmountIn,
-      totalBudgetIn,
+      maxAmountIn: laneMax,
+      totalBudgetIn: laneBudget,
       maxSlippageBps,
       maxFeeBps: DEFAULT_FEE_BPS,
       feeCollector: addresses.dexFeeVault,
@@ -219,8 +273,8 @@ export default async function handler(req, res) {
       // What was asked for, so the UI can say it plainly. Consensus enforces
       // its own ceilings on top of these.
       requested: {
-        maxAmountIn: String(maxAmountIn),
-        totalBudgetIn: String(totalBudgetIn),
+        maxAmountIn: String(laneMax),
+        totalBudgetIn: String(laneBudget),
         maxSlippageBps: Number(maxSlippageBps),
         ttlSeconds: Number(ttlSeconds),
       },
