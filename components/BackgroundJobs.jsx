@@ -17,7 +17,10 @@
 // The settlement queue runs app-wide too; it lives in SettlementQueueProvider.
 
 import { useEffect } from 'react';
-import { listUnconfirmedMandates, markMandateLive, pairLabel } from '../lib/mandate';
+import {
+  listUnconfirmedMandates, markMandateLive, pairLabel,
+  listLiveMandates, laneIsRunningOut, forgetMandate, ensureMandateRequested,
+} from '../lib/mandate';
 import { notices } from '../lib/notify';
 
 const CHECK_MS = 60 * 1000;
@@ -27,6 +30,29 @@ export default function BackgroundJobs() {
     let stopped = false;
     const tick = async () => {
       fetch('/api/keeper', { method: 'POST' }).catch(() => { /* the next tick tries again */ });
+      // A lane about to expire or run out of budget is replaced now, while the
+      // 30 minutes a new one costs can still be paid in the background.
+      for (const m of listLiveMandates()) {
+        if (stopped) return;
+        try {
+          const res = await fetch('/api/agent-mandate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mandateId: m.mandateId, checkOnly: true }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!d?.recorded || laneIsRunningOut(d)) {
+            forgetMandate(m.user, m.tokenIn, m.tokenOut);
+            await ensureMandateRequested({
+              user: m.user, tokenIn: m.tokenIn, tokenOut: m.tokenOut,
+              amountIn: d?.maxAmountIn || m.maxAmountIn || '1',
+            });
+          }
+        } catch {
+          // Offline or the server is restarting. The next tick tries again.
+        }
+      }
+
       for (const m of listUnconfirmedMandates()) {
         if (stopped) return;
         try {

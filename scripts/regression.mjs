@@ -1072,6 +1072,14 @@ try {
   } finally {
     globalThis.fetch = realFetch;
   }
+  const day = 24 * 60 * 60;
+  const soon = Math.floor(Date.now() / 1000) + 60 * 60;
+  eq('a lane with a day and a full budget left is kept', m.laneIsRunningOut({ expiry: Math.floor(Date.now() / 1000) + day, remainingBudget: '2700', maxAmountIn: '270' }), false);
+  eq('a lane expiring within two hours is replaced first', m.laneIsRunningOut({ expiry: soon, remainingBudget: '2700', maxAmountIn: '270' }), true);
+  eq('so is one whose budget no longer covers a trade', m.laneIsRunningOut({ expiry: Math.floor(Date.now() / 1000) + day, remainingBudget: '100', maxAmountIn: '270' }), true);
+  eq('the background job keeps lanes fresh', /listLiveMandates\(\)/.test(fs.readFileSync(base + 'components/BackgroundJobs.jsx', 'utf8'))
+     && /laneIsRunningOut\(d\)/.test(fs.readFileSync(base + 'components/BackgroundJobs.jsx', 'utf8')), true);
+
   const mandateRoute = fs.readFileSync(base + 'pages/api/agent-mandate.js', 'utf8');
   eq('the route sizes the lane from the pool it pins, under the contract limit',
      /const LANE_PCT_OF_RESERVE = 9n;/.test(mandateRoute) && /laneMax = String\(\(reserveIn \* LANE_PCT_OF_RESERVE\) \/ 100n\)/.test(mandateRoute)
