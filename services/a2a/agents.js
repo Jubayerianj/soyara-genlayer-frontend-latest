@@ -25,6 +25,18 @@ export { POOLS_URL, isLiquidityIntent, liquidityRedirectMessage };
 
 // ── Agent Metadata ─────────────────────────────────────────────────────────
 
+/**
+ * How long the swarm itself waits on a round before handing it over.
+ *
+ * A round that is still running is not a hang, but blocking the dialogue for
+ * minutes reads as one, and it no longer has to: an unfinished round is queued
+ * for settlement, watched for its late verdict, and reported by the bell. So
+ * the swarm waits about as long as a round normally takes, then finishes and
+ * lets the tracker follow the rest.
+ */
+const POLL_BUDGET_MS = 90 * 1000;
+const RETRY_POLL_BUDGET_MS = 60 * 1000;
+
 export const AGENT_REGISTRY = {
   intent: {
     id: 'agent_intent',
@@ -376,11 +388,12 @@ export class RiskValidatorAgent {
     // Bradbury testnet can occasionally take a while under load.
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let pollAttempts = 0;
+    const waitUntil = Date.now() + POLL_BUDGET_MS;
     // Keep going past the fast budget rather than reporting an unresolved
     // round as the final answer. A decided round's verdict is a plain read; it
     // arrives. Stopping early is what left the swarm sitting on "Consensus
     // Pending" with nothing still running.
-    while (genlayerResult?.pending && genlayerResult?.tx_hash && pollAttempts < 40) {
+    while (genlayerResult?.pending && genlayerResult?.tx_hash && Date.now() < waitUntil) {
       // Fast-poll the first few attempts (common case resolves quickly), then back off.
       await sleep(pollAttempts < 12 ? 1200 : pollAttempts < 20 ? 4000 : 12000);
       pollAttempts++;
@@ -388,7 +401,8 @@ export class RiskValidatorAgent {
         // Name the phase the round is actually in. "Pending" for 25 seconds
         // reads as broken; "Leader executing (3/5)" reads as working.
         onProgress(
-          `⏳ ${describeRoundPhase(genlayerResult?.statusName)} - GenVM consensus in progress, usually 20 to 30 seconds (check ${pollAttempts}).`,
+          `⏳ ${describeRoundPhase(genlayerResult?.statusName)} - GenVM consensus in progress, usually 20 to 30 seconds (check ${pollAttempts}).`
+          + (pollAttempts >= 20 ? ' Taking longer than usual. You can leave this page: the bell follows the round.' : ''),
           { statusName: genlayerResult?.statusName || null, txHash: genlayerResult?.tx_hash || null, retry: false }
         );
       }
@@ -429,12 +443,13 @@ export class RiskValidatorAgent {
         if (retryRes.ok) genlayerResult = await retryRes.json();
 
         let retryPolls = 0;
-        while (genlayerResult?.pending && genlayerResult?.tx_hash && retryPolls < 12) {
+        const retryUntil = Date.now() + RETRY_POLL_BUDGET_MS;
+        while (genlayerResult?.pending && genlayerResult?.tx_hash && Date.now() < retryUntil) {
           await sleep(retryPolls < 6 ? 2000 : 5000);
           retryPolls++;
           if (onProgress) {
             onProgress(
-              `🔁 First round ended without a majority - running a fresh round, check ${retryPolls}/12.`,
+              `🔁 First round ended without a majority - running a fresh round (check ${retryPolls}).`,
               { statusName: genlayerResult?.statusName || null, txHash: genlayerResult?.tx_hash || null, retry: true }
             );
           }

@@ -789,6 +789,24 @@ try {
   }
 } catch (e) { bad('proposal deadlines', e.message); }
 
+// Shipped: the swarm polled a consensus round for up to five minutes before
+// finishing, so a slow round (or one the validator set never decided) read as
+// a hang. An unfinished round is queued, watched and reported by the bell, so
+// the swarm hands it over instead of blocking the dialogue.
+console.log('\nswarm consensus wait');
+{
+  const src = fs.readFileSync(base + 'services/a2a/agents.js', 'utf8');
+  const budget = Number((src.match(/const POLL_BUDGET_MS = (\d+) \* 1000;/) || [])[1]);
+  const retry = Number((src.match(/const RETRY_POLL_BUDGET_MS = (\d+) \* 1000;/) || [])[1]);
+  eq('the swarm waits about as long as a round takes, not minutes', budget >= 60 && budget <= 120, true);
+  eq('and the one fresh round it runs is bounded too', retry >= 30 && retry <= 90, true);
+  eq('both waits are measured in time, not poll counts', /Date\.now\(\) < waitUntil/.test(src) && /Date\.now\(\) < retryUntil/.test(src), true);
+  eq('a round that outlives the wait is handed to the tracker and the bell',
+     /notices\.roundRunning\(/.test(fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8')), true);
+  eq('and a slow round tells the user they can leave the page',
+     /You can leave this page: the bell follows the round/.test(fs.readFileSync(base + 'components/ConsensusProgress.jsx', 'utf8')), true);
+}
+
 // Shipped: a trade from native GEN was settled with the relayer's own GEN.
 // AgentExecutor pulls ERC-20s from the user, but for native GEN it forwards
 // the settling transaction's value, and the relayer sends that transaction. So
