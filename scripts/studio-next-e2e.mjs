@@ -18,6 +18,8 @@ const base = fileURLToPath(new URL('../', import.meta.url));
 const { parseStudioIntent } = await import(base + 'lib/studioNext/intent.js');
 const { STUDIO_NEXT } = await import(base + 'constants/studioNext.js');
 const studio = await import(base + 'lib/studioNext/client.js');
+const market = await import(base + 'lib/studioNext/market.js');
+const { orchestrateStudioSwarm, executeStudioPlan } = await import(base + 'services/a2a/studioSwarm.js');
 
 const LIVE = process.argv.includes('--live');
 let failed = 0;
@@ -48,6 +50,14 @@ console.log('intent');
   const u = parseStudioIntent('swap 5 wbtc to usdc');
   check('a token with no Studio Next pool asks rather than guesses', u.needs.length > 0, JSON.stringify(u));
 
+  // Shipped: "two tokens and an amount" counted as a swap, so a deposit request
+  // was quoted as a trade with a Swap button under it.
+  for (const t of ['add 10 usdc and usdt liquidity', 'provide 10 usdc and 10 usdt', 'deposit 10 usdc and usdt on v2', 'remove 50% of my usdc usdt liquidity', 'let my agent add liquidity up to 60 usdc']) {
+    check(`"${t}" goes to the pools app, never a swap`, parseStudioIntent(t).kind === 'liquidity', JSON.stringify(parseStudioIntent(t)));
+  }
+  check('a wrap request routes nowhere', parseStudioIntent('wrap 1 gen').kind === 'wrap');
+  const w = parseStudioIntent('swap 5 wbtc to usdc');
+  check('a token with no pool is named, not asked about', w.unsupported?.[0] === 'WBTC' && w.needs.length > 0, JSON.stringify(w));
   check('faucet request', parseStudioIntent('get test funds').kind === 'faucet');
   check('revoke request', parseStudioIntent('revoke my mandate').kind === 'revoke');
   check('no amount asks', parseStudioIntent('swap usdc to usdt').needs.includes('how much to sell'));
@@ -92,6 +102,62 @@ const pools = desk.pools || [];
 check('get_desk answers in one read', Array.isArray(desk.pools) && !('balances' in desk), JSON.stringify(desk).slice(0, 200));
 check('every pool seeded', pools.length === 4 && pools.every((p) => BigInt(p.reserve_base) > 0n), JSON.stringify(pools).slice(0, 200));
 check('pool pairs match the app', pools.map((p) => p.pair).join() === STUDIO_NEXT.pairs.join());
+
+// The swarm predicts refusals with the contract's rules. If they drift from the
+// deployed contract, it would stop trades validators accept, or wave through
+// ones they refuse.
+console.log('contract rules the swarm uses');
+check('fee, trade share and drift limits match the contract',
+  config.swap_fee_bps === STUDIO_NEXT.swapFeeBps && config.max_trade_share_bps === STUDIO_NEXT.maxTradeShareBps && config.max_pool_drift_bps === STUDIO_NEXT.maxPoolDriftBps,
+  JSON.stringify({ fee: config.swap_fee_bps, share: config.max_trade_share_bps, drift: config.max_pool_drift_bps }));
+check('Bradbury token addresses match the contract',
+  Object.entries(STUDIO_NEXT.bradburyTokens).every(([k, v]) => String(config.bradbury_tokens[k]).toLowerCase() === v.toLowerCase()), JSON.stringify(config.bradbury_tokens));
+for (const p of pools) {
+  const canonical = await market.bradburyPairFor(p.base, p.quote);
+  check(`${p.pair} is priced from the canonical Bradbury pair`, canonical.toLowerCase() === p.market.toLowerCase(), `${canonical} vs ${p.market}`);
+  const sell = 10n ** 17n;
+  const q = await studio.view('quote', [p.base, p.quote, sell]);
+  const mine = market.amountOutFor(sell, BigInt(p.reserve_base), BigInt(p.reserve_quote));
+  check(`${p.pair} quote math matches the contract`, String(mine) === q.amount_out, `${mine} vs ${q.amount_out}`);
+}
+
+// ── the swarm, read-only ─────────────────────────────────────────────────────
+console.log('swarm (reads only)');
+async function runSwarm(text, ctx) {
+  const frames = [];
+  for await (const f of orchestrateStudioSwarm(text, ctx)) frames.push(f);
+  return frames;
+}
+const reader = '0x54BD3e64063420c933f566a5217C670563Dd1C07';
+{
+  const f = await runSwarm('Swap 25 USDC to USDT', { user: reader, agentAddress: null });
+  const shown = f.filter((x) => x.type !== 'MESSAGE');
+  const done = f.find((x) => x.type === 'SWARM_COMPLETE');
+  check('a clean trade reaches every agent in order',
+    ['agent_intent', 'agent_router', 'agent_market', 'agent_settlement', 'agent_risk', 'agent_auditor', 'agent_dev'].every((id) => shown.some((x) => x.agent.id === id)), shown.map((x) => x.type).join(' > '));
+  check('and ends ready on the consensus rail', done?.payload?.rail === 'consensus' && !done.payload.blocked, JSON.stringify(done?.payload?.blocked));
+  const longest = Math.max(...shown.map((x) => x.text.length));
+  check('every frame is one short line', longest <= 120 && !shown.some((x) => x.text.includes('\n')), `${longest} chars`);
+  check('no frame uses an em dash', !shown.some((x) => x.text.includes('\u2014')));
+  check('the floor sits below the expected fill', done.payload.minOut < done.payload.amountOut);
+}
+{
+  const f = await runSwarm('Swap 400 USDC to ETH', { user: reader, agentAddress: null });
+  const halt = f.find((x) => x.type === 'SWARM_HALTED');
+  check('an order over 10% of the live market stops before signing', Boolean(halt) && /most it takes/.test(halt.payload.blocked), JSON.stringify(halt?.payload?.blocked));
+}
+{
+  const f = await runSwarm('Let my agent swap up to 60 USDC into USDT, 20 per trade, for an hour', { user: reader, agentAddress: '0x' + 'b2'.repeat(20) });
+  const done = f.find((x) => x.type === 'SWARM_COMPLETE' || x.type === 'SWARM_HALTED');
+  check('a mandate request plans a grant, not a trade', done?.payload?.kind === 'mandate' && done.payload.rail === 'mandate-grant', JSON.stringify(done?.payload?.rail));
+}
+{
+  const f = await runSwarm('add 10 usdc and usdt liquidity', { user: reader });
+  check('a liquidity request is handed to the pools app', f.some((x) => x.type === 'REDIRECTED') && !f.some((x) => x.payload));
+  const g = await runSwarm('Swap 25 USDC to USDT', { user: null });
+  const halt = g.find((x) => x.type === 'SWARM_HALTED');
+  check('without a wallet the swarm stops at settlement', /Connect a wallet/.test(halt?.payload?.blocked || ''), JSON.stringify(halt?.payload?.blocked));
+}
 
 if (LIVE) {
   console.log('live (Studio Next)');
@@ -178,6 +244,31 @@ if (LIVE) {
     await studio.submitAsAgent(agent, 'swap_under_mandate', [r3, mid, studio.toRaw('11'), 0n]);
     const vr = await studio.readVerdict(r3);
     check('agent over the per-trade cap is refused', vr?.approved === false && /per-trade cap/.test(vr.reason), JSON.stringify(vr));
+  }
+
+  // ── the swarm's own plans, executed ────────────────────────────────────────
+  console.log('live swarm (Studio Next)');
+  const planFor = async (text) => {
+    let payload = null;
+    for await (const f of orchestrateStudioSwarm(text, { user, agentAddress: agent.address })) if (f.payload) payload = f.payload;
+    return payload;
+  };
+  // The mandate above has 10 of 30 USDC left after one trade, so 5 USDC rides it.
+  const lane = await planFor('Swap 5 USDC to USDT');
+  check('the swarm hands a covered trade to the agent', lane?.rail === 'mandate' && !lane.blocked, JSON.stringify({ rail: lane?.rail, blocked: lane?.blocked }));
+  if (lane?.rail === 'mandate') {
+    t = Date.now();
+    const r = await executeStudioPlan({ payload: lane, kit: null, agent, user });
+    check(`swarm agent trade settled (${((Date.now() - t) / 1000).toFixed(1)}s)`, r.verdict?.approved === true, JSON.stringify(r.verdict));
+    check('auditor: balances moved exactly as the verdict says', r.audit?.balancesMatch === true && r.audit?.honouredMinimum === true, JSON.stringify(r.audit, (k, v) => typeof v === 'bigint' ? v.toString() : v));
+  }
+  const own = await planFor('Swap 15 USDC to USDT');
+  check('a trade over the mandate cap takes a consensus round', own?.rail === 'consensus' && !own.blocked, JSON.stringify({ rail: own?.rail, blocked: own?.blocked }));
+  if (own?.rail === 'consensus') {
+    t = Date.now();
+    const r = await executeStudioPlan({ payload: own, kit, agent, user });
+    check(`swarm consensus trade signed and settled (${((Date.now() - t) / 1000).toFixed(1)}s)`, r.ok && r.verdict?.approved === true, JSON.stringify(r.verdict));
+    check('auditor: minimum honoured, balances exact', r.audit?.honouredMinimum === true && r.audit?.balancesMatch === true, JSON.stringify(r.audit, (k, v) => typeof v === 'bigint' ? v.toString() : v));
   }
 }
 

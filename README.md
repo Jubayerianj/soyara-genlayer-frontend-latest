@@ -47,6 +47,13 @@ Contract that judges and settles, SoyaraAgentDex
   which the contract lets spend only inside that mandate, so they settle in
   seconds with no popup
 
+`/a2a/user?net=studio-next` runs the swarm's seven agents against the same
+contract (`services/a2a/studioSwarm.js`): the Market Analyst reads the Bradbury
+pool validators will read and applies the contract's rules, so a trade they
+would refuse stops before signing; the Settlement Strategist picks the agent
+key or a consensus round; the Post-Trade Auditor checks the stored verdict
+against the balance change. `/ai` and the swarm share one network choice.
+
 Wallet writes go through `@genlayer/transaction-kit` with the measured fee
 profile; the RC SDK is installed as `genlayer-js-next` so the Bradbury pages keep
 `genlayer-js` 1.1.8. Code: `lib/studioNext/`, `components/StudioNext/StudioDesk.jsx`.
@@ -65,7 +72,7 @@ npm run test:settlement   # the app against the deployed contracts: IC methods i
 npm run test:regression   # every bug that reached a user
 npm run test:swarm        # the /a2a agents against live pools and the executor
 npm run test:studio       # the Studio Next desk: intents, amounts, the contract's methods and pools
-node scripts/studio-next-e2e.mjs --live               # both Studio Next rails through the desk's own code
+node scripts/studio-next-e2e.mjs --live               # both Studio Next rails through the desk's and the swarm's own code
 node scripts/swarm-e2e.mjs                           # the /a2a swarm end to end (opens rounds)
 node scripts/rails-e2e.mjs --user 0x... --rail both  # both rails end to end (opens rounds, settles)
 ```

@@ -1936,6 +1936,13 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
                 </div>
 
                 <div className={styles.subSection}>
+                  <h2 className={styles.h2}>The swarm on Studio Next</h2>
+                  <p className={styles.p}>
+                    <a href="/a2a/user?net=studio-next">Trader Swarm</a> runs the same seven agents against this contract. The Market Analyst reads the Bradbury pool validators will read and applies the contract&apos;s own rules, so a trade they would refuse (more than 10% of that market, or a fill beyond your slippage) stops before anything is signed. The Settlement Strategist gives a trade your mandate already covers to your agent key, and everything else to a consensus round you sign. After it settles, the Post-Trade Auditor checks the stored verdict and that your balances moved by exactly what it says.
+                  </p>
+                </div>
+
+                <div className={styles.subSection}>
                   <h2 className={styles.h2}>Fees</h2>
                   <p className={styles.p}>
                     Consensus v0.6 charges a refundable deposit on every write. Wallet writes are quoted by <code className={styles.inlineCode}>@genlayer/transaction-kit</code> from live prices and a fee profile measured against the contract; unused budget returns at finalization. Studio Next allows 30 contract reads a minute per client, so the desk refreshes with a single <code className={styles.inlineCode}>get_desk</code> read.

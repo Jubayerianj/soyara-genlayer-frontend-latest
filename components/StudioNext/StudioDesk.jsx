@@ -27,6 +27,7 @@ import { TONE } from '../../lib/tone';
 import { notify } from '../../lib/notify';
 import { STUDIO_NEXT } from '../../constants/studioNext';
 import { parseStudioIntent } from '../../lib/studioNext/intent';
+import { POOLS_URL } from '../../lib/pools';
 import * as studio from '../../lib/studioNext/client';
 
 const STARTERS = [
@@ -136,13 +137,7 @@ export default function StudioDesk({ isDark }) {
 
   // ── signing helpers ────────────────────────────────────────────────────────
 
-  const walletKit = useCallback(async () => {
-    const provider = await connector?.getProvider?.();
-    if (!provider) throw new Error('No wallet provider');
-    await studio.ensureWalletOnStudio(provider);
-    await studio.ensureGas(address);
-    return studio.userKit(provider, address);
-  }, [connector, address]);
+  const walletKit = useCallback(() => studio.userKitFromConnector(connector, address), [connector, address]);
 
   const needWallet = useCallback(() => {
     if (isConnected && address) return false;
@@ -194,8 +189,7 @@ export default function StudioDesk({ isDark }) {
     setBusy(true);
     show('running', 'Getting test funds');
     try {
-      await Promise.all([studio.ensureGas(address), studio.ensureGas(agent.address)]);
-      const res = await studio.submitAsAgent(agent, 'claim_test_tokens', [address]);
+      const res = await studio.claimTestFunds(address, agent);
       if (res.ok) {
         const text = 'Funded · 1,000 USDC · 1,000 USDT · 0.25 ETH · 2 WGEN';
         show('ok', text, studio.txUrl(res.txId));
@@ -360,6 +354,7 @@ export default function StudioDesk({ isDark }) {
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
     const intent = parseStudioIntent(text);
 
+    if (intent.unsupported?.length) { say(studio.unsupportedLine(intent.unsupported)); return; }
     if (intent.needs?.length) { say(`I need ${intent.needs.join(', ')}.`); return; }
 
     try {
@@ -389,6 +384,12 @@ export default function StudioDesk({ isDark }) {
         say(`Mandate · ${intent.budget} ${intent.tokenIn} → ${intent.tokenOut} · ${intent.cap} per trade · ${intent.minutes} min. Press **Grant** to sign.`);
         return;
       }
+      if (intent.kind === 'liquidity') {
+        setPlan(null);
+        say(`Liquidity is not offered on Studio Next. Pools are on Bradbury: ${POOLS_URL}`);
+        return;
+      }
+      if (intent.kind === 'wrap') { say('No wrapping here: WGEN trades directly on Studio Next.'); return; }
       if (intent.kind === 'swap') { await planSwap(intent); return; }
       say('I trade USDC, USDT, ETH and WGEN here. Try **swap 25 USDC to USDT** or **get test funds**.');
     } catch (err) {

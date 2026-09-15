@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Zap, Droplets, User, Sun, Moon, Bot, Sparkles, BookOpen, Terminal, Package } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import { STUDIO_NEXT, STUDIO_NEXT_PAGES } from '../../constants/studioNext'
 
 import styles from './Header.module.css'
 
@@ -226,10 +227,10 @@ export default function Header() {
                         );
                       }
 
-                      // Studio Next (61997) is not a wagmi chain: /ai trades there
-                      // through its own client. On /ai it is the right network, so
-                      // say so instead of asking to switch away.
-                      const onStudioNext = chain.id === 61997 && router.pathname === '/ai';
+                      // Studio Next (61997) is not a wagmi chain: /ai and the swarm
+                      // trade there through their own client. On those pages it is
+                      // the right network, so say so instead of asking to switch away.
+                      const onStudioNext = chain.id === STUDIO_NEXT.chainId && STUDIO_NEXT_PAGES.includes(router.pathname);
                       if (chain.unsupported && onStudioNext) {
                         return (
                           <div className={styles.connectedCluster}>

@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAccount, usePublicClient, useBalance, useSwitchChain } from 'wagmi';
+import { useAccount, usePublicClient, useBalance } from 'wagmi';
 import {
   Sparkles,
   Send,
@@ -42,13 +41,13 @@ import { useTheme } from '../components/contexts/ThemeContext';
 import aiStyles from '../styles/AIPage.module.css';
 import { describeTxError, explainThrottle, isNodeThrottle } from '../lib/nodeRetry';
 import { STUDIO_NEXT } from '../constants/studioNext';
+import { useNetworkChoice } from '../lib/studioNext/network';
 import deskStyles from '../styles/StudioDesk.module.css';
 
 // Studio Next has no EVM layer, so /ai trades there against one Intelligent
 // Contract that judges and settles. Loaded only when chosen, and never on the
 // server: it signs with the RC SDK in the browser.
 const StudioDesk = dynamic(() => import('../components/StudioNext/StudioDesk'), { ssr: false });
-const NETWORK_KEY = 'soyara.ai.network';
 
 const STARTER_PROMPTS = [
   'Swap 100 USDC to GEN with the best route',
@@ -70,29 +69,12 @@ const TOPIC_CHIPS = [
 export default function AIPage() {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
-  const { address: userAddress, isConnected, chainId: walletChainId } = useAccount();
+  const { address: userAddress, isConnected } = useAccount();
   const publicClient = usePublicClient();
-  const router = useRouter();
-  const { switchChain } = useSwitchChain();
 
-  // 'bradbury' (AgentValidator + AgentExecutor) or 'studio-next' (SoyaraAgentDex).
-  // ?net=studio-next links straight to Studio Next.
-  const [network, setNetwork] = useState('bradbury');
-  useEffect(() => {
-    if (!router.isReady) return;
-    let saved = null;
-    try { saved = window.localStorage.getItem(NETWORK_KEY); } catch { /* storage blocked */ }
-    const fromUrl = router.query.net === 'studio-next' ? 'studio-next' : router.query.net === 'bradbury' ? 'bradbury' : null;
-    setNetwork(fromUrl || (saved === 'studio-next' ? 'studio-next' : 'bradbury'));
-  }, [router.isReady, router.query.net]);
-
-  const chooseNetwork = (next) => {
-    setNetwork(next);
-    try { window.localStorage.setItem(NETWORK_KEY, next); } catch { /* storage blocked */ }
-    router.replace({ pathname: '/ai', query: { net: next } }, undefined, { shallow: true });
-    if (next === 'bradbury' && walletChainId === STUDIO_NEXT.chainId) switchChain?.({ chainId: 4221 });
-  };
-  const onStudio = network === 'studio-next';
+  // 'bradbury' (AgentValidator + AgentExecutor) or 'studio-next' (SoyaraAgentDex),
+  // shared with the swarm page. ?net=studio-next links straight to Studio Next.
+  const { onStudio, choose: chooseNetwork } = useNetworkChoice();
 
   const [mobileTab, setMobileTab] = useState('chat'); // 'chat' | 'proposal'
   const [messages, setMessages] = useState([

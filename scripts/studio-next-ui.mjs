@@ -208,6 +208,44 @@ try {
     /consensus · you sign/i.test(card) && !/agent · no popup/i.test(card), card.slice(0, 400));
 
   log('status line:', await statusLine());
+
+  // ── the swarm page on Studio Next ─────────────────────────────────────────
+  // Same wallet and the mandate granted above (60 USDC, 20 per trade, 10 spent).
+  await page.goto(`${BASE}/a2a/user?net=studio-next`, { waitUntil: 'networkidle2', timeout: 90_000 });
+  await waitText(/Swarm on Studio Next/, 60_000);
+  expect('the swarm page opens on Studio Next', /Studio Next/.test(await page.evaluate(() => document.body.innerText)));
+  const runSwarm = async (text) => {
+    await page.click('#studio-swarm-intent');
+    await page.type('#studio-swarm-intent', text);
+    await page.keyboard.press('Enter');
+  };
+
+  const sendsBeforeSwarm = walletCalls.filter((c) => c.startsWith('eth_sendTransaction')).length;
+  await runSwarm('Swap 5 USDC to USDT');
+  await waitText(/All agents agree\. Execute settles it with your agent/, 90_000);
+  await clickText('Execute with your agent');
+  const laneLine = await waitText(/(✓ Settled · 5 USDC → [^\n]*|Not settled · [^\n]*|Could not send · [^\n]*)/, 120_000);
+  await waitText(/Receipt: [^\n]*/, 30_000);
+  expect('swarm: the agent settles a covered trade', /^✓ Settled/.test(laneLine), laneLine);
+  expect('swarm: with no wallet signature', walletCalls.filter((c) => c.startsWith('eth_sendTransaction')).length === sendsBeforeSwarm);
+  const receipt = await waitText(/Receipt: [^\n]*/, 5_000);
+  expect('swarm: the auditor confirms the receipt', /minimum honoured/.test(receipt) && /balances moved exactly/.test(receipt), receipt);
+  await shot('8-swarm-agent');
+
+  await runSwarm('Swap 400 USDC to ETH');
+  await waitText(/Stopped here\. Nothing was sent/, 90_000);
+  const stopped = await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Stopped' && b.disabled));
+  expect('swarm: an order over 10% of the market stops before signing', stopped);
+
+  await runSwarm('Swap 25 USDC to USDT');
+  await waitText(/All agents agree\. Execute to sign/, 90_000);
+  await clickText('Execute');
+  const ownLine = await waitText(/(✓ Settled · 25 USDC → [^\n]*|Not settled · [^\n]*|Could not send · [^\n]*|Wallet request declined[^\n]*)/, 150_000);
+  expect('swarm: a trade over the mandate cap is signed and settled by consensus', /^✓ Settled/.test(ownLine), ownLine);
+  expect('swarm: that one was signed in the wallet', walletCalls.filter((c) => c.startsWith('eth_sendTransaction')).length > sendsBeforeSwarm);
+  const armed = await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => /^Execute/.test(b.textContent.trim())));
+  expect('swarm: nothing is left armed after it settles', !armed);
+  await shot('9-swarm-consensus');
   log('screenshots:', OUT);
 } catch (err) {
   failures += 1;

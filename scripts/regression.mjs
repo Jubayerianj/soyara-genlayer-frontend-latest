@@ -801,7 +801,7 @@ console.log('\nno alarm colours on the trade surfaces');
     'components/A2A/SwarmWarRoom.jsx', 'components/A2A/SwarmPanels.jsx', 'components/SettlementQueue.jsx',
     'components/NotificationCenter.jsx', 'components/BalanceStrip.jsx', 'components/ActivityPanel.jsx',
     'components/ConsensusProgress.jsx', 'styles/A2A.module.css', 'components/common/Header.module.css',
-    'components/StudioNext/StudioDesk.jsx', 'styles/StudioDesk.module.css',
+    'components/StudioNext/StudioDesk.jsx', 'styles/StudioDesk.module.css', 'components/A2A/StudioSwarmRoom.jsx',
   ];
   const red = /#(ef4444|f43f5e|dc2626|f87171|b91c1c|e11d48)\b|rgba\(\s*23[0-9],\s*6[0-9],|rgba\(\s*244,\s*63,/i;
   const offenders = surfaces.filter((f) => red.test(fs.readFileSync(base + f, 'utf8')));
@@ -1144,6 +1144,30 @@ console.log('\nStudio Next desk');
   eq('a rate-limited read is retried, not failed', /rateLimited\(err\)/.test(client) && /attempts = 4/.test(client), true);
   const finish = (desk.match(/const finish = useCallback\([\s\S]*?\n  \}, \[/) || [''])[0];
   eq('a settled trade clears the armed button', /if \(v\.approved\) \{[\s\S]{0,200}setPlan\(null\)/.test(finish), true);
+}
+
+// Shipped in the Studio Next desk: "add 10 USDC and USDT liquidity" named two
+// tokens and an amount, and the desk's parser counted that as a swap. The desk
+// quoted it and put a Swap button under a deposit request. The swarm page added
+// on 15 September uses the same parser, and both surfaces share the network
+// choice and the header's idea of where Studio Next is the right chain.
+console.log('\nStudio Next swarm and shared paths');
+{
+  const { parseStudioIntent } = await import(base + 'lib/studioNext/intent.js');
+  const deposits = ['add 10 usdc and usdt liquidity', 'provide 10 usdc and 10 usdt', 'deposit 10 usdc and usdt on v2'];
+  eq('a deposit request is never a Studio Next swap', deposits.map((t) => parseStudioIntent(t).kind).join(), 'liquidity,liquidity,liquidity');
+  const room = fs.readFileSync(base + 'components/A2A/StudioSwarmRoom.jsx', 'utf8');
+  eq('the swarm room renders frame text without innerHTML', /dangerouslySetInnerHTML/.test(room), false);
+  eq('a settled swarm trade leaves no Execute button behind', /\{!settled && \(/.test(room), true);
+  eq('a stopped plan cannot be executed', /disabled=\{Boolean\(payload\.blocked\)/.test(room), true);
+  const header = fs.readFileSync(base + 'components/common/Header.jsx', 'utf8');
+  eq('the header knows every Studio Next page', /STUDIO_NEXT_PAGES\.includes\(router\.pathname\)/.test(header), true);
+  const { STUDIO_NEXT_PAGES } = await import(base + 'constants/studioNext.js');
+  const pages = { '/ai': 'pages/ai.jsx', '/a2a/user': 'pages/a2a/user.jsx' };
+  eq('each Studio Next page is listed and uses the shared choice',
+     STUDIO_NEXT_PAGES.every((route) => pages[route] && /useNetworkChoice\(\)/.test(fs.readFileSync(base + pages[route], 'utf8'))), true);
+  eq('the desk and the swarm prepare the wallet the same way',
+     [fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8'), room].every((src) => /userKitFromConnector\(connector, address\)/.test(src)), true);
 }
 
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);

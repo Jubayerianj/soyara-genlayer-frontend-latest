@@ -24,7 +24,27 @@ export const STUDIO_NEXT = {
   maxSlippageBps: 300,
   defaultMandateMinutes: 60,
   maxMandateMinutes: 24 * 60,
+  // The contract's own rules, so the swarm can say what validators will do
+  // before anything is sent. scripts/studio-next-e2e.mjs fails if they drift
+  // from the deployed contract's get_config.
+  swapFeeBps: 30,
+  maxTradeShareBps: 1000,
+  maxPoolDriftBps: 150,
+  // The market validators read: the Bradbury V2 pair for the same tokens.
+  bradburyRpc: 'https://rpc-bradbury.genlayer.com',
+  bradburyV2Factory: '0x4680BCe1632824d30D2F53656dD610736c3e312e',
+  bradburyExplorer: 'https://explorer-bradbury.genlayer.com',
+  bradburyTokens: {
+    USDC: '0x58B6CD7891cd0A682226E25607b958a6479195A6',
+    USDT: '0x4B54235778c26Ee8ac27744A53d4c5BC4c9D46fc',
+    ETH: '0x0F56b4E7f4e2cf346a94aB9263Ed3F3644db7c0C',
+    WGEN: '0x315374AA9b5536037Cc1Efeea2439CCC0913A77e',
+  },
 };
+
+// Pages with a Studio Next mode. The header treats chain 61997 as the right
+// network on these, and nowhere else.
+export const STUDIO_NEXT_PAGES = ['/ai', '/a2a/user'];
 
 // Allocations measured against the deployed contract by
 // studio-next/profile.mjs, with extra time units on the methods that read the
