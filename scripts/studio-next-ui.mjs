@@ -168,7 +168,8 @@ try {
   await clickText('Get test funds');
   const funded = await waitText(/Funded · 1,000 USDC[^\n]*|Faucet already used this hour[^\n]*/, 120_000);
   expect('faucet through the session agent', /Funded/.test(funded), funded);
-  await new Promise((r) => setTimeout(r, 2500));
+  // No pause here on purpose: a swap asked for straight after funding once saw
+  // the pre-funding balance and said "You hold 0 USDC".
   await shot('3-funded');
 
   await send('Swap 25 USDC to USDT');

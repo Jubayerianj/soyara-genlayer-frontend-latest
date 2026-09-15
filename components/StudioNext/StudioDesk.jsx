@@ -312,16 +312,29 @@ export default function StudioDesk({ isDark }) {
     const amountRaw = studio.toRaw(intent.amount);
     if (!amountRaw) { say('Tell me an amount, like **swap 25 USDC to USDT**.'); return; }
     show('running', 'Quoting');
-    const quote = await studio.view('quote', [intent.tokenIn, intent.tokenOut, amountRaw]);
+    // Balances and mandates are read with the quote, never taken from the last
+    // refresh. Right after funding or granting, that refresh can still be in
+    // flight: a swap asked for straight after "Funded" said "You hold 0 USDC"
+    // beside a panel showing 1,000, and a trade a brand-new mandate covers
+    // would have gone to a consensus round instead of the agent.
+    const [quote, desk] = await Promise.all([
+      studio.view('quote', [intent.tokenIn, intent.tokenOut, amountRaw]),
+      address ? studio.view('get_desk', [address, 6]) : Promise.resolve(null),
+    ]);
+    if (desk) {
+      setPools(desk.pools || []);
+      setAcct((prev) => ({ ...prev, balances: desk.balances || null, mandates: desk.mandates || [], trades: desk.trades || [] }));
+    }
     if (!quote.ok) {
       setPlan(null);
       show('attention', quote.reason === 'No pool' ? `No ${intent.tokenIn}/${intent.tokenOut} pool on Studio Next` : 'That pool is not ready yet');
       say(`No ${intent.tokenIn}/${intent.tokenOut} pool here. Pools: ${STUDIO_NEXT.pairs.join(', ')}.`);
       return;
     }
-    const balance = acct.balances ? BigInt(acct.balances[intent.tokenIn] || 0) : null;
+    const balance = desk?.balances ? BigInt(desk.balances[intent.tokenIn] || 0) : null;
+    const liveMandates = (desk?.mandates || []).filter((m) => m.status === 'active');
     const now = Math.floor(Date.now() / 1000);
-    const mandate = agent && activeMandates.find((m) => m.token_in === intent.tokenIn && m.token_out === intent.tokenOut
+    const mandate = agent && liveMandates.find((m) => m.token_in === intent.tokenIn && m.token_out === intent.tokenOut
       && m.agent.toLowerCase() === agent.address.toLowerCase()
       && BigInt(m.per_trade_cap) >= amountRaw && BigInt(m.remaining) >= amountRaw
       && Number(m.expires_at) > now + 20
@@ -345,7 +358,7 @@ export default function StudioDesk({ isDark }) {
       show('muted', 'Ready · validators check this against the live Bradbury pool');
       say(`Quote · ${line}. Press **Swap** to sign.`);
     }
-  }, [acct.balances, activeMandates, agent, runAgentSwap, say, show]);
+  }, [address, agent, runAgentSwap, say, show]);
 
   const handleSend = useCallback(async (textArg) => {
     const text = (typeof textArg === 'string' ? textArg : input).trim();

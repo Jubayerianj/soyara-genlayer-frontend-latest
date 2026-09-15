@@ -1166,6 +1166,13 @@ console.log('\nStudio Next swarm and shared paths');
   const pages = { '/ai': 'pages/ai.jsx', '/a2a/user': 'pages/a2a/user.jsx' };
   eq('each Studio Next page is listed and uses the shared choice',
      STUDIO_NEXT_PAGES.every((route) => pages[route] && /useNetworkChoice\(\)/.test(fs.readFileSync(base + pages[route], 'utf8'))), true);
+  // Shipped: a swap asked for straight after "Funded" said "You hold 0 USDC"
+  // next to a balance panel showing 1,000, because the plan read balances from
+  // a refresh that was still in flight. Found while recording the demo.
+  const deskSrc = fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8');
+  const plan = (deskSrc.match(/const planSwap = useCallback\(async \(intent\) => \{[\s\S]*?\n  \}, \[/) || [''])[0];
+  eq('a swap plan reads balances and mandates with its quote, not from the last refresh',
+     /studio\.view\('get_desk'/.test(plan) && !/acct\.balances/.test(plan) && !/activeMandates/.test(plan), true);
   eq('the desk and the swarm prepare the wallet the same way',
      [fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8'), room].every((src) => /userKitFromConnector\(connector, address\)/.test(src)), true);
 }
