@@ -33,3 +33,7 @@ rails-e2e.consensus.*.json
 
 # The server's record of queued trades (lib/settlementStore.js)
 .soyara/
+
+# Demo video renders and voice lines
+scripts/demo-video/out/
+scripts/demo-video/lines/
