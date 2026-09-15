@@ -46,6 +46,7 @@ import {
   Gauge
 } from 'lucide-react';
 import { CONTRACT_ADDRESSES, INTELLIGENT_CONTRACTS, RETIRED_CONTRACTS } from '../constants/addresses';
+import { STUDIO_NEXT } from '../constants/studioNext';
 import { useTheme } from '../components/contexts/ThemeContext';
 import styles from '../styles/Docs.module.css';
 
@@ -104,6 +105,12 @@ const DOC_TOPICS = [
     items: [
       { id: 'security-roadmap', title: '20. Security Threat Model & Defense Matrix', icon: <Shield size={16} /> },
       { id: 'future-vision', title: '21. Future: Autonomous Intelligent Finance', icon: <Compass size={16} /> },
+    ]
+  },
+  {
+    category: 'NETWORKS',
+    items: [
+      { id: 'studio-next', title: '22. GenLayer Studio Next', icon: <Network size={16} /> },
     ]
   }
 ];
@@ -1853,6 +1860,86 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
                       <strong>Multi-Agent DAO Treasuries:</strong> Autonomous AI agents collaboratively managing liquidity, yield farming, and debt ratios with immutable on-chain risk parameters.
                     </li>
                   </ul>
+                </div>
+              </article>
+            )}
+
+            {activeTopic === 'studio-next' && (
+              <article className={styles.article}>
+                <div className={styles.contractBadge}>Studio Next</div>
+                <h1 className={styles.h1}>22. GenLayer Studio Next</h1>
+                <p className={styles.lead}>
+                  On Studio Next, one Intelligent Contract judges and settles every agent trade. Studio Next has no EVM layer, so the Bradbury pair (AgentValidator deciding, AgentExecutor settling through V2/V3 pools) cannot run there. SoyaraAgentDex does both jobs.
+                </p>
+
+                <div className={styles.callout}>
+                  <div className={styles.calloutIcon}>
+                    <Network size={22} />
+                  </div>
+                  <div>
+                    <div className={styles.calloutTitle}>In one line</div>
+                    <div className={styles.calloutBody}>
+                      Validators read the live Bradbury pool before a trade settles, and read your own words before an agent gets a mandate.
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.metaBox}>
+                  <div><strong>Contract:</strong> <code className={styles.code}>{STUDIO_NEXT.dex}</code></div>
+                  <div><strong>Network:</strong> {STUDIO_NEXT.name} (Consensus v0.6, chain ID {STUDIO_NEXT.chainId})</div>
+                  <div><strong>RPC:</strong> <code className={styles.inlineCode}>{STUDIO_NEXT.rpc}</code></div>
+                  <div><strong>Explorer:</strong> <a href={`${STUDIO_NEXT.explorer}/address/${STUDIO_NEXT.dex}`} target="_blank" rel="noreferrer">{STUDIO_NEXT.explorer.replace('https://', '')}</a></div>
+                  <div><strong>Source:</strong> <code className={styles.inlineCode}>studio-next/SoyaraAgentDex.py</code> in the contracts repository; <code className={styles.inlineCode}>npm run verify</code> there checks the deployed code byte for byte</div>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Two rails, the same two Bradbury has</h2>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>Call</th>
+                          <th>Signed by</th>
+                          <th>What validators check</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code className={styles.inlineCode}>swap</code></td>
+                          <td>Your wallet</td>
+                          <td>Each validator reads the Bradbury V2 pool for the same tokens over JSON-RPC. The trade settles only if the fill is within your slippage of that live price and is no more than 10% of that market. Judged and settled in one round.</td>
+                        </tr>
+                        <tr>
+                          <td><code className={styles.inlineCode}>issue_mandate</code></td>
+                          <td>Your wallet, once</td>
+                          <td>The live market, the per-trade cap against its depth, and each validator&apos;s model checks that the caps are no looser than your own instruction. The price at issue is recorded.</td>
+                        </tr>
+                        <tr>
+                          <td><code className={styles.inlineCode}>swap_under_mandate</code></td>
+                          <td>The agent key in your browser</td>
+                          <td>Deterministic: budget left, per-trade cap, expiry, and a fill inside the mandate&apos;s price band. No web read and no model, so it settles in seconds with no popup.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Try it</h2>
+                  <ul className={styles.ul}>
+                    <li className={styles.li}>Open <a href="/ai?net=studio-next">AI Trading on Studio Next</a> and connect a wallet. It adds the network.</li>
+                    <li className={styles.li}><strong>Get test funds.</strong> GEN for fees plus 1,000 USDC, 1,000 USDT, 0.25 ETH and 2 WGEN held by the contract.</li>
+                    <li className={styles.li}><strong>Swap 25 USDC to USDT.</strong> Sign once. The status line shows the fill against the live Bradbury price.</li>
+                    <li className={styles.li}><strong>Let my agent swap up to 60 USDC into USDT, 20 per trade.</strong> Grant it. Then <strong>swap 10 USDC to USDT</strong> settles with no popup, and a 30 USDC trade stays with you.</li>
+                    <li className={styles.li}>Every trade and refusal is stored with its reason. Open the Tx link to see the validators&apos; votes.</li>
+                  </ul>
+                </div>
+
+                <div className={styles.subSection}>
+                  <h2 className={styles.h2}>Fees</h2>
+                  <p className={styles.p}>
+                    Consensus v0.6 charges a refundable deposit on every write. Wallet writes are quoted by <code className={styles.inlineCode}>@genlayer/transaction-kit</code> from live prices and a fee profile measured against the contract; unused budget returns at finalization. Studio Next allows 30 contract reads a minute per client, so the desk refreshes with a single <code className={styles.inlineCode}>get_desk</code> read.
+                  </p>
                 </div>
               </article>
             )}

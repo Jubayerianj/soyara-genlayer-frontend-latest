@@ -801,6 +801,7 @@ console.log('\nno alarm colours on the trade surfaces');
     'components/A2A/SwarmWarRoom.jsx', 'components/A2A/SwarmPanels.jsx', 'components/SettlementQueue.jsx',
     'components/NotificationCenter.jsx', 'components/BalanceStrip.jsx', 'components/ActivityPanel.jsx',
     'components/ConsensusProgress.jsx', 'styles/A2A.module.css', 'components/common/Header.module.css',
+    'components/StudioNext/StudioDesk.jsx', 'styles/StudioDesk.module.css',
   ];
   const red = /#(ef4444|f43f5e|dc2626|f87171|b91c1c|e11d48)\b|rgba\(\s*23[0-9],\s*6[0-9],|rgba\(\s*244,\s*63,/i;
   const offenders = surfaces.filter((f) => red.test(fs.readFileSync(base + f, 'utf8')));
@@ -813,7 +814,7 @@ console.log('\nno alarm colours on the trade surfaces');
   const room = fs.readFileSync(base + 'components/A2A/SwarmWarRoom.jsx', 'utf8');
   eq('/a2a says the trade, then one status line', /At least \$\{payload\.route\.minAmountOutNum/.test(room)
      && /<span>Status<\/span>/.test(room), true);
-  const words = [panel, room, fs.readFileSync(base + 'components/ActivityPanel.jsx', 'utf8')].join('\n');
+  const words = [panel, room, fs.readFileSync(base + 'components/ActivityPanel.jsx', 'utf8'), fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8')].join('\n');
   eq('and no state is announced with a cross or a stop sign', /✗|⛔|❌/.test(words), false);
 }
 
@@ -1124,6 +1125,26 @@ try {
   const app = fs.readFileSync(base + 'pages/_app.jsx', 'utf8');
   eq('one settlement queue runs app-wide', /<SettlementQueueProvider>/.test(app) && /<BackgroundJobs \/>/.test(app), true);
 } catch (e) { bad('notices', e.message); }
+
+// Shipped in the Studio Next desk, found by driving the page:
+// 1. It refreshed pools, balances, mandates and trades as four contract reads
+//    every 20 seconds. Studio Next allows 30 contract reads a minute per
+//    client and fee quotes draw on the same allowance, so the user's own
+//    mandate failed with "An unknown RPC error occurred".
+// 2. After a trade settled, Swap stayed armed: a second press placed the same
+//    trade again.
+console.log('\nStudio Next desk');
+{
+  const desk = fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8');
+  const refresh = (desk.match(/const refresh = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[address\]\);/) || [''])[0];
+  eq('the desk refreshes with one contract read', (refresh.match(/studio\.view\(/g) || []).length === 1 && /'get_desk'/.test(refresh), true);
+  eq('and not faster than every 30 seconds, never while hidden or busy',
+     /setInterval\(\(\) => \{\s*if \(busyRef\.current \|\| document\.visibilityState !== 'visible'\) return;/.test(desk) && /\}, 30000\);/.test(desk), true);
+  const client = fs.readFileSync(base + 'lib/studioNext/client.js', 'utf8');
+  eq('a rate-limited read is retried, not failed', /rateLimited\(err\)/.test(client) && /attempts = 4/.test(client), true);
+  const finish = (desk.match(/const finish = useCallback\([\s\S]*?\n  \}, \[/) || [''])[0];
+  eq('a settled trade clears the armed button', /if \(v\.approved\) \{[\s\S]{0,200}setPlan\(null\)/.test(finish), true);
+}
 
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

@@ -12,12 +12,15 @@
     "create-indexes": "node scripts/create-indexes.js",
     "test:settlement": "node scripts/settlement-surface.mjs",
     "test:regression": "node scripts/regression.mjs",
-    "test:swarm": "node scripts/swarm-agents-test.mjs"
+    "test:swarm": "node scripts/swarm-agents-test.mjs",
+    "test:studio": "node scripts/studio-next-e2e.mjs"
   },
   "dependencies": {
     "@base-org/account": "^2.5.1",
     "@coinbase/wallet-sdk": "^4.3.7",
     "@gemini-wallet/core": "^0.3.2",
+    "@genlayer/transaction-kit": "0.1.0-rc.2",
+    "@genlayer/transaction-kit-react": "0.1.0-rc.2",
     "@metamask/sdk": "^0.34.0",
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -42,6 +45,7 @@
     "ethers": "^6.15.0",
     "framer-motion": "^12.23.26",
     "genlayer-js": "^1.1.8",
+    "genlayer-js-next": "npm:genlayer-js@2.0.0-rc.1",
     "https-browserify": "^1.0.0",
     "lucide-react": "^0.555.0",
     "mongodb": "^7.0.0",

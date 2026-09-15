@@ -1,0 +1,292 @@
+/* styles/StudioDesk.module.css - the Studio Next mode of /ai.
+   Layout and colour variables come from AIPage.module.css; this adds only the
+   pieces the desk has that the Bradbury panel does not. Nothing here is red:
+   see lib/tone.js. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--ai-header-border);
+}
+
+.section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ai-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.balances {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.balance {
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.balanceSym {
+  font-size: 0.68rem;
+  color: var(--ai-text-muted);
+  font-weight: 600;
+}
+
+.balanceAmt {
+  font-size: 0.86rem;
+  color: var(--ai-text-main);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  font-size: 0.76rem;
+  color: var(--ai-text-muted);
+}
+
+.trade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.tradeMain {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--ai-text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--ai-text-sub);
+}
+
+.row span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rail {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 9px 12px;
+  border: 1px solid;
+  line-height: 1.35;
+}
+
+.status a {
+  color: inherit;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.primary {
+  flex: 1;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s;
+}
+
+.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--ai-text-sub);
+  border: 1px solid var(--ai-card-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0284c7;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+}
+
+.link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--ai-text-sub);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+}
+
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemTitle {
+  color: var(--ai-text-main);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.details summary {
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--ai-text-muted);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.details summary::-webkit-details-marker {
+  display: none;
+}
+
+.detailsBody {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--ai-text-sub);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.netSwitch {
+  display: inline-flex;
+  background: var(--ai-chip-bg);
+  border: 1px solid var(--ai-chip-border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.netBtn {
+  border: none;
+  background: transparent;
+  color: var(--ai-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.netBtnActive {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+@media (max-width: 960px) {
+  .balances {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

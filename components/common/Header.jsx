@@ -226,6 +226,30 @@ export default function Header() {
                         );
                       }
 
+                      // Studio Next (61997) is not a wagmi chain: /ai trades there
+                      // through its own client. On /ai it is the right network, so
+                      // say so instead of asking to switch away.
+                      const onStudioNext = chain.id === 61997 && router.pathname === '/ai';
+                      if (chain.unsupported && onStudioNext) {
+                        return (
+                          <div className={styles.connectedCluster}>
+                            <span className={styles.networkIconOnlyBtn} title="Network: GenLayer Studio Next" aria-label="Network: GenLayer Studio Next">
+                              <img
+                                src="https://docs.genlayer.com/assets/genlayer.png"
+                                alt="GenLayer Studio Next"
+                                className={styles.networkLogoImg}
+                                onError={(e) => {
+                                  e.target.src = '/logo.png';
+                                }}
+                              />
+                            </span>
+                            <button onClick={openAccountModal} type="button" className={styles.accountBtn}>
+                              {account.displayName}
+                            </button>
+                          </div>
+                        );
+                      }
+
                       if (chain.unsupported) {
                         return (
                           <button

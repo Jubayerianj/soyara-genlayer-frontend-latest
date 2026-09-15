@@ -1,6 +1,6 @@
 # Soyara DEX: frontend and agent settlement routes
 
-Next.js app for the Soyara DEX on GenLayer Bradbury: the swap aggregator, the
+Next.js app for the Soyara DEX on GenLayer Bradbury and Studio Next: the swap aggregator, the
 pools UI, and the two agent surfaces (`/ai` and `/a2a`) together with the API
 routes that validate and settle what they propose.
 
@@ -31,6 +31,32 @@ Deployed addresses live in `constants/addresses.js`. The contracts, their
 deployment record and `verify-deployment.sh` are in
 [soyara-genlayer-contracts](https://github.com/Jubayerianj/soyara-genlayer-contracts).
 
+## Studio Next
+
+`/ai?net=studio-next` trades on GenLayer Studio Next (Consensus v0.6, chain
+61997). Studio Next has no EVM layer, so there the app talks to one Intelligent
+Contract that judges and settles, SoyaraAgentDex
+(`constants/studioNext.js`), instead of AgentValidator and AgentExecutor:
+
+- a **swap** is signed in the user's wallet and judged in one round: every
+  validator reads the live Bradbury pool for the same tokens, and the trade
+  settles only within the user's slippage of that price
+- a **mandate** is signed once; validators check its caps against the live
+  market and against the user's own words
+- trades **under a mandate** are signed by an agent key kept in the browser,
+  which the contract lets spend only inside that mandate, so they settle in
+  seconds with no popup
+
+Wallet writes go through `@genlayer/transaction-kit` with the measured fee
+profile; the RC SDK is installed as `genlayer-js-next` so the Bradbury pages keep
+`genlayer-js` 1.1.8. Code: `lib/studioNext/`, `components/StudioNext/StudioDesk.jsx`.
+
+To verify it by hand: open `/ai?net=studio-next`, connect a wallet (the network
+is added for you), **Get test funds**, send **Swap 25 USDC to USDT** and sign,
+then **Let my agent swap up to 60 USDC into USDT, 20 per trade** and grant it.
+**Swap 10 USDC to USDT** then settles with no popup. Every status line links its
+transaction on the Studio explorer.
+
 ## Checks
 
 ```bash
@@ -38,6 +64,8 @@ npm run test:settlement   # the app against the deployed contracts: IC methods i
                           # no direct settlement path, no retired contract, live executor probes
 npm run test:regression   # every bug that reached a user
 npm run test:swarm        # the /a2a agents against live pools and the executor
+npm run test:studio       # the Studio Next desk: intents, amounts, the contract's methods and pools
+node scripts/studio-next-e2e.mjs --live               # both Studio Next rails through the desk's own code
 node scripts/swarm-e2e.mjs                           # the /a2a swarm end to end (opens rounds)
 node scripts/rails-e2e.mjs --user 0x... --rail both  # both rails end to end (opens rounds, settles)
 ```
