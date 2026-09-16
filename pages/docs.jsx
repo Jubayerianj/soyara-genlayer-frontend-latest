@@ -1885,7 +1885,7 @@ print(v["rail"], v.get("approved"), v.get("pending"), v.get("reason"))`}
                 </div>
 
                 <div className={styles.metaBox}>
-                  <div><strong>Demo video:</strong> <a href={STUDIO_NEXT.demoVideo} target="_blank" rel="noreferrer">a five minute walkthrough of every feature, on X</a></div>
+                  <div><strong>Demo video:</strong> <a className={styles.link} href={STUDIO_NEXT.demoVideo} target="_blank" rel="noreferrer">{STUDIO_NEXT.demoVideo.replace('https://', '')}</a> - five minutes, every feature, on X</div>
                   <div><strong>Contract:</strong> <code className={styles.code}>{STUDIO_NEXT.dex}</code></div>
                   <div><strong>Network:</strong> {STUDIO_NEXT.name} (Consensus v0.6, chain ID {STUDIO_NEXT.chainId})</div>
                   <div><strong>RPC:</strong> <code className={styles.inlineCode}>{STUDIO_NEXT.rpc}</code></div>

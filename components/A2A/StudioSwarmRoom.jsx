@@ -281,15 +281,26 @@ export default function StudioSwarmRoom() {
             <ShieldCheck size={16} color="#10b981" />
             <span>Settlement</span>
           </div>
-          <a
-            href={studio.addressUrl(STUDIO_NEXT.dex)}
-            target="_blank"
-            rel="noreferrer"
-            className={styles.chip}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
-          >
-            SoyaraAgentDex {studio.short(STUDIO_NEXT.dex)} <ExternalLink size={10} />
-          </a>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <a
+              href={STUDIO_NEXT.demoVideo}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.chip}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+            >
+              Demo <ExternalLink size={10} />
+            </a>
+            <a
+              href={studio.addressUrl(STUDIO_NEXT.dex)}
+              target="_blank"
+              rel="noreferrer"
+              className={styles.chip}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+            >
+              SoyaraAgentDex {studio.short(STUDIO_NEXT.dex)} <ExternalLink size={10} />
+            </a>
+          </span>
         </div>
 
         {payload ? (

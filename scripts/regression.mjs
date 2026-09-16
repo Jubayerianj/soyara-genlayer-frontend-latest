@@ -1177,5 +1177,30 @@ console.log('\nStudio Next swarm and shared paths');
      [fs.readFileSync(base + 'components/StudioNext/StudioDesk.jsx', 'utf8'), room].every((src) => /userKitFromConnector\(connector, address\)/.test(src)), true);
 }
 
+// Shipped: the demo video was linked from the docs meta box, but globals.css
+// sets `a { color: inherit; text-decoration: none }`, so it rendered as plain
+// body text and read as if no link were there at all. A reviewer fetching the
+// page source saw nothing either: the docs body is client rendered, so only
+// what the footer and the head put in the HTML survives a plain fetch.
+console.log('\nThe demo video is reachable, and looks reachable');
+{
+  const { STUDIO_NEXT } = await import(base + 'constants/studioNext.js');
+  eq('the link is one constant, not a string copied around', /^https:\/\/x\.com\/\w+\/status\/\d+$/.test(STUDIO_NEXT.demoVideo), true);
+  const docs = fs.readFileSync(base + 'pages/docs.jsx', 'utf8');
+  eq('the docs link carries the class that makes a link look like one',
+     /<a className=\{styles\.link\} href=\{STUDIO_NEXT\.demoVideo\}/.test(docs), true);
+  eq('and shows the address it goes to, so it can be read and copied',
+     /\{STUDIO_NEXT\.demoVideo\.replace\('https:\/\/', ''\)\}/.test(docs), true);
+  const css = fs.readFileSync(base + 'styles/Docs.module.css', 'utf8');
+  eq('every other meta box link is underlined too, not just this one',
+     /\.metaBox a \{[^}]*text-decoration: underline/.test(css), true);
+  const footer = fs.readFileSync(base + 'components/Footer.jsx', 'utf8');
+  eq('the footer puts it in the server rendered source of every page',
+     /href=\{STUDIO_NEXT\.demoVideo\}/.test(footer) && />\s*Demo video\s*</.test(footer), true);
+  eq('both agent surfaces link it, not only the desk',
+     ['components/StudioNext/StudioDesk.jsx', 'components/A2A/StudioSwarmRoom.jsx']
+       .every((f) => /href=\{STUDIO_NEXT\.demoVideo\}/.test(fs.readFileSync(base + f, 'utf8'))), true);
+}
+
 console.log(failed === 0 ? '\nAll regression checks passed.' : `\n${failed} FAILURE(S)`);
 process.exit(failed === 0 ? 0 : 1);

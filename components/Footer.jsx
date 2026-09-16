@@ -1,6 +1,7 @@
 // components/Footer.jsx
 import { useState } from 'react'
 import Link from 'next/link'
+import { STUDIO_NEXT } from '../constants/studioNext'
 
 export default function Footer() {
   const [currentYear] = useState(new Date().getFullYear())
@@ -43,6 +44,18 @@ export default function Footer() {
                 <Link href="/portfolio" className="footer-link">
                   Portfolio
                 </Link>
+              </li>
+              <li>
+                {/* Server rendered, so the walkthrough is in the page source of
+                    every page, not only for a browser that runs the app. */}
+                <a
+                  href={STUDIO_NEXT.demoVideo}
+                  className="footer-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Demo video
+                </a>
               </li>
             </ul>
           </div>

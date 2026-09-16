@@ -1,0 +1,232 @@
+1
+00:00:00,025 --> 00:00:02,693
+Soyara is an agentic DEX on GenLayer.
+
+2
+00:00:02,775 --> 00:00:07,905
+AI agents trade for you, and GenLayer validators decide
+whether each trade is fair.
+
+3
+00:00:07,986 --> 00:00:10,608
+Here is every feature, and how to use it.
+
+4
+00:00:11,419 --> 00:00:19,219
+Open AI Trading and switch the network to Studio Next,
+GenLayer’s Consensus v0.6 network.
+
+5
+00:00:19,300 --> 00:00:27,372
+Studio Next has no EVM, so one Intelligent Contract,
+SoyaraAgentDex, holds the balances and pools, judges each
+
+6
+00:00:27,372 --> 00:00:29,213
+trade and settles it.
+
+7
+00:00:29,304 --> 00:00:33,180
+Connect a wallet. The app adds the Studio Next network for
+you.
+
+8
+00:00:33,261 --> 00:00:39,459
+Type “get test funds”. Your agent key in this browser claims
+them, so there is nothing to sign.
+
+9
+00:00:43,855 --> 00:00:52,050
+You get 1,000 USDC, 1,000 USDT, 0.25 ETH and 2 WGEN, plus
+GEN for fees.
+
+10
+00:00:52,138 --> 00:00:56,269
+Ask for a trade in plain words. The contract quotes its own
+pool.
+
+11
+00:00:56,350 --> 00:01:02,292
+The card shows the price impact, your minimum, and the live
+Bradbury market it will be checked against.
+
+12
+00:01:02,374 --> 00:01:08,758
+Press Swap and sign once. Transaction Kit quotes a small
+deposit, refunded when the round is final.
+
+13
+00:01:11,151 --> 00:01:17,625
+Every validator now reads the live Soyara pool on Bradbury
+on its own. The trade settles only within your slippage of
+
+14
+00:01:17,625 --> 00:01:18,533
+that price.
+
+15
+00:01:18,615 --> 00:01:25,672
+Settled, about 0.3% under the live price, pool fee included.
+The status line links the transaction.
+
+16
+00:01:25,764 --> 00:01:30,035
+To let your agent trade on its own, write its limits in your
+own words.
+
+17
+00:01:30,115 --> 00:01:35,152
+Sign once. Validators check the per-trade cap against the
+depth of the live market.
+
+18
+00:01:35,233 --> 00:01:40,293
+Each validator’s language model also checks that the caps
+are no looser than what you wrote.
+
+19
+00:01:44,152 --> 00:01:50,675
+Validators are voting. This round takes a little longer,
+because every validator also asks its own model.
+
+20
+00:01:50,763 --> 00:01:54,918
+The mandate is live, with its budget, per-trade cap and time
+left.
+
+21
+00:01:55,002 --> 00:02:01,084
+Now ask for a trade inside the mandate. Your agent settles
+it in seconds, with no wallet popup.
+
+22
+00:02:08,164 --> 00:02:13,758
+The contract still checks the budget, the cap, the expiry
+and the price band on every trade.
+
+23
+00:02:13,840 --> 00:02:18,877
+A trade over the per-trade cap never goes to the agent. It
+comes back to you to sign.
+
+24
+00:02:18,958 --> 00:02:23,252
+This order is more than 10% of the live Bradbury ETH market.
+
+25
+00:02:23,335 --> 00:02:28,488
+Sign it anyway, and the validators refuse it and store the
+reason. Nothing moves.
+
+26
+00:02:32,154 --> 00:02:36,866
+A refusal is decided by consensus too, so it takes a normal
+round.
+
+27
+00:02:40,204 --> 00:02:45,125
+Refused: too large for the live market, and it tells you the
+most it will take.
+
+28
+00:02:45,207 --> 00:02:51,753
+The Trader Swarm puts seven agents on a trade before
+anything is signed. It remembers you chose Studio Next.
+
+29
+00:02:51,836 --> 00:02:57,268
+The router quotes the pool. The Market Analyst reads the
+Bradbury pool the validators will read.
+
+30
+00:02:57,348 --> 00:03:03,732
+The Settlement Strategist sees your mandate covers it. The
+auditor checks the pool is the canonical Bradbury pair.
+
+31
+00:03:03,819 --> 00:03:10,342
+Execute, and your agent settles it. The auditor confirms
+your balances moved exactly as the verdict says.
+
+32
+00:03:16,702 --> 00:03:21,321
+An order the validators would refuse is stopped here, before
+you sign anything.
+
+33
+00:03:21,403 --> 00:03:28,112
+Details shows the market read, the pre-flight checks, the
+contract call and every input the contract refuses.
+
+34
+00:03:28,202 --> 00:03:33,773
+Back on AI Trading, you can revoke the mandate at any time
+with one signature.
+
+35
+00:03:37,515 --> 00:03:41,391
+Revoking is a transaction as well, so it goes through a
+round.
+
+36
+00:03:41,472 --> 00:03:43,653
+Your agent can no longer trade it.
+
+37
+00:03:43,737 --> 00:03:47,775
+Every trade and every refusal is a transaction on Studio
+Next.
+
+38
+00:03:47,858 --> 00:03:52,639
+The explorer shows its status, its fees, and how the
+validators voted.
+
+39
+00:03:52,722 --> 00:03:59,361
+Soyara is also a full DEX on GenLayer Bradbury. Swap routes
+every trade through the aggregator’s best path.
+
+40
+00:04:03,994 --> 00:04:08,102
+Pools lists every market, and it is where liquidity is added
+and removed.
+
+41
+00:04:08,185 --> 00:04:11,202
+Portfolio shows your balances and positions.
+
+42
+00:04:11,285 --> 00:04:17,918
+On Bradbury, AI Trading settles through a Solidity
+AgentExecutor that only accepts verdicts and mandates the
+
+43
+00:04:17,918 --> 00:04:20,060
+AgentValidator contract wrote.
+
+44
+00:04:20,143 --> 00:04:26,597
+Agent Studio lets developers run the swarm under their own
+limits, and tamper with an order to watch settlement refuse
+
+45
+00:04:26,597 --> 00:04:27,061
+it.
+
+46
+00:04:27,145 --> 00:04:32,739
+Build Agents documents the Soyara SDK, so your own agents
+can trade the same way.
+
+47
+00:04:32,821 --> 00:04:36,720
+And Docs explains every part, including Studio Next.
+
+48
+00:04:37,410 --> 00:04:40,845
+Soyara. Agents trade, GenLayer decides.
+
+49
+00:04:40,927 --> 00:04:43,712
+Try it at app.soyara.xyz
