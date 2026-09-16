@@ -18,6 +18,9 @@ export const STUDIO_NEXT = {
   rpc: 'https://studio-dev.genlayer.com/api',
   explorer: 'https://explorer-studio-dev.genlayer.com',
   dex: process.env.NEXT_PUBLIC_STUDIO_NEXT_DEX || '0x3b6Cf2C48297afCf50Bc3e843a9F335B8407f8D6',
+  // The demo walkthrough, linked from the docs and the desk so it is findable
+  // from the app itself, not only from the hackathon entry.
+  demoVideo: 'https://x.com/SoyaraXyz/status/2099880248217370821',
   tokens: ['USDC', 'USDT', 'ETH', 'WGEN'],
   pairs: ['USDC/USDT', 'ETH/USDC', 'ETH/USDT', 'WGEN/USDC'],
   defaultSlippageBps: 100,

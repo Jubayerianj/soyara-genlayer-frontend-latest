@@ -655,6 +655,12 @@ export default function StudioDesk({ isDark }) {
                     {studio.short(STUDIO_NEXT.dex)} <ExternalLink size={10} />
                   </a>
                 </div>
+                <div className={styles.row}>
+                  <span>Demo video</span>
+                  <a className={styles.link} href={STUDIO_NEXT.demoVideo} target="_blank" rel="noreferrer">
+                    5 minutes, on X <ExternalLink size={10} />
+                  </a>
+                </div>
               </div>
             </details>
           </div>

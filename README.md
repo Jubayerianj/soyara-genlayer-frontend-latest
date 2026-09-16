@@ -1,5 +1,7 @@
 # Soyara DEX: frontend and agent settlement routes
 
+**Demo video:** [a five minute walkthrough of every feature](https://x.com/SoyaraXyz/status/2099880248217370821) (Studio Next and Bradbury).
+
 Next.js app for the Soyara DEX on GenLayer Bradbury and Studio Next: the swap aggregator, the
 pools UI, and the two agent surfaces (`/ai` and `/a2a`) together with the API
 routes that validate and settle what they propose.
@@ -32,6 +34,8 @@ deployment record and `verify-deployment.sh` are in
 [soyara-genlayer-contracts](https://github.com/Jubayerianj/soyara-genlayer-contracts).
 
 ## Studio Next
+
+Watch it first: [demo video](https://x.com/SoyaraXyz/status/2099880248217370821).
 
 `/ai?net=studio-next` trades on GenLayer Studio Next (Consensus v0.6, chain
 61997). Studio Next has no EVM layer, so there the app talks to one Intelligent
